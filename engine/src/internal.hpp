@@ -18,8 +18,12 @@ const PlacedChord* findChord(std::span<const PlacedChord> progression, int tick)
 // As findChord, but throws std::logic_error when none sounds.
 const PlacedChord& chordAt(std::span<const PlacedChord> progression, int tick);
 
-// Chord tones at least 2 semitones from every other chord tone, as sorted pitch classes.
-std::vector<int> allowedPitchClasses(const Key& key, const ChordSymbol& chord);
+// The pitch classes sounding for a chord: its symbol's, or its voicing's when the idea is parallel
+// (the shape moves with the root and may leave the symbol).
+std::vector<int> soundingPitchClasses(const Idea& idea, const PlacedChord& chord);
+
+// The pitch classes at least 2 semitones from every other one in the set.
+std::vector<int> allowedPitchClasses(const std::vector<int>& pcs);
 
 // True when a voicing has an interval below a perfect 4th under MIDI 52 (which rules out 3rds
 // under 48 too).

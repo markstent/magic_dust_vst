@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
+#include <iterator>
 #include <span>
 #include <string>
 #include <string_view>
@@ -74,10 +75,24 @@ void checkLane(const Idea& idea, LaneId id, std::string_view name, int low, int 
     }
     for (const NoteEvent& e : events)
     {
+        const PlacedChord* chord = detail::findChord(idea.progression, e.start);
         if (e.pitch < low || e.pitch > high)
         {
             lines.push_back(describe(name, e) + " is outside MIDI " + std::to_string(low) + " to " +
                             std::to_string(high));
+        }
+        else if (id == LaneId::chords && chord != nullptr &&
+                 std::ranges::find(chord->voicing, e.pitch) == chord->voicing.end())
+        {
+            lines.push_back(describe(name, e) + " is not in the voicing of its chord");
+        }
+        if (e.start < 0)
+        {
+            lines.push_back(describe(name, e) + " starts before the idea");
+        }
+        if (e.length < 1)
+        {
+            lines.push_back(describe(name, e) + " has no length");
         }
         if (e.start + e.length > end)
         {
@@ -85,15 +100,47 @@ void checkLane(const Idea& idea, LaneId id, std::string_view name, int low, int 
         }
         const int pc = e.pitch % 12;
         bool inKey = contains(scale, pc);
-        if (id != LaneId::chords && !inKey)
+        if (id != LaneId::chords && !inKey && chord != nullptr)
         {
-            const PlacedChord* chord = detail::findChord(idea.progression, e.start);
-            inKey = chord != nullptr && contains(chordPitchClasses(idea.key, chord->symbol), pc);
+            inKey = contains(chordPitchClasses(idea.key, chord->symbol), pc) ||
+                    (idea.parallel && contains(detail::soundingPitchClasses(idea, *chord), pc));
         }
         if (!inKey && (id != LaneId::chords || !idea.parallel))
         {
             lines.push_back(describe(name, e) + " is out of key");
         }
+    }
+}
+
+void checkProgressionRules(const Idea& idea, Lines& lines)
+{
+    int expectedBar = 0;
+    for (std::size_t i = 0; i < idea.progression.size(); ++i)
+    {
+        if (idea.progression.at(i).startBar != expectedBar)
+        {
+            lines.push_back("chord " + std::to_string(i + 1) + " starts at bar " +
+                            std::to_string(idea.progression.at(i).startBar) + ", expected bar " +
+                            std::to_string(expectedBar));
+            break;
+        }
+        expectedBar += idea.progression.at(i).bars;
+    }
+    if (idea.parallel)
+    {
+        return;
+    }
+    std::vector<ChordSymbol> symbols;
+    std::ranges::transform(idea.progression, std::back_inserter(symbols), &PlacedChord::symbol);
+    const ProgressionFit fit = checkProgression(idea.key.mode, symbols);
+    if (!fit.ok)
+    {
+        lines.emplace_back(
+            "progression is not in the mode and borrows from no single related mode");
+    }
+    else if (fit.borrowedFrom != idea.borrowedFrom)
+    {
+        lines.emplace_back("borrowedFrom does not match the progression");
     }
 }
 
@@ -141,6 +188,10 @@ bool isMuddy(const Voicing& voicing)
 std::vector<std::string> validate(const Idea& idea)
 {
     Lines lines;
+    if (idea.settings.bars != 4 && idea.settings.bars != 8 && idea.settings.bars != 16)
+    {
+        return {"settings.bars is " + std::to_string(idea.settings.bars) + ", expected 4, 8 or 16"};
+    }
     int bars = 0;
     for (const PlacedChord& chord : idea.progression)
     {
@@ -151,6 +202,7 @@ std::vector<std::string> validate(const Idea& idea)
         lines.push_back("progression covers " + std::to_string(bars) + " bars, expected " +
                         std::to_string(idea.settings.bars));
     }
+    checkProgressionRules(idea, lines);
     checkVoicings(idea, lines);
     checkLane(idea, LaneId::chords, "chords", kChordLow, kChordHigh, lines);
     checkLane(idea, LaneId::bass, "bass", kBassLow, kBassHigh, lines);

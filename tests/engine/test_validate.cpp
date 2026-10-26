@@ -108,25 +108,57 @@ TEST_CASE("a melody note out of key and out of the chord is one violation", "[va
 TEST_CASE("an out of key melody note that is a chord tone is accepted", "[validate]")
 {
     Idea idea = validIdea(9);
-    idea.progression.at(0).symbol = {.degree = 1, .quality = Quality::maj7};
-    idea.lanes.at(2).events.at(0).pitch = 61; // C#, not in A aeolian but in Amaj7
+    idea.progression.at(0).symbol = {.degree = 4, .quality = Quality::maj}; // D F# A
+    idea.borrowedFrom = Mode::dorian;
+    idea.lanes.at(2).events.at(0).pitch = 66; // F#, not in A aeolian but in the D chord
     REQUIRE(validate(idea).empty());
+}
+
+TEST_CASE("a parallel idea accepts melody notes from the sounding voicing", "[validate]")
+{
+    Idea idea = validIdea(9);
+    idea.parallel = true;
+    idea.progression.at(0).voicing = {57, 60, 64, 66};
+    idea.lanes.at(0).events.at(3).pitch = 66;
+    idea.lanes.at(2).events.at(0).pitch = 66; // F# is not in A aeolian or Am7, but it sounds
+    REQUIRE(validate(idea).empty());
+    idea.lanes.at(2).events.at(0).pitch = 70;
+    requireOneViolation(idea);
 }
 
 TEST_CASE("a chord note outside the scale and the borrowed scale is one violation", "[validate]")
 {
     Idea idea = validIdea(9);
-    idea.lanes.at(0).events.at(0).pitch = 61;
-    requireOneViolation(idea);
+    idea.progression.at(0).symbol = {.degree = 4, .quality = Quality::maj};
     idea.borrowedFrom = Mode::dorian;
-    requireOneViolation(idea); // C# is in neither aeolian nor dorian
-    idea.lanes.at(0).events.at(0).pitch = 66;
+    idea.progression.at(0).voicing.back() = 70;
+    idea.lanes.at(0).events.at(3).pitch = 70;
+    requireOneViolation(idea); // Bb is in neither aeolian nor dorian
+    idea.progression.at(0).voicing.back() = 66;
+    idea.lanes.at(0).events.at(3).pitch = 66;
     REQUIRE(validate(idea).empty()); // F# is in A dorian
 }
+
+TEST_CASE("a chord note that is not in its chord's voicing is one violation", "[validate]")
+{
+    Idea idea = validIdea(9);
+    idea.lanes.at(0).events.at(3).pitch = 69;
+    requireOneViolation(idea);
+}
+
+namespace
+{
+void dropLastChordEvents(Idea& idea)
+{
+    std::erase_if(idea.lanes.at(0).events,
+                  [](const NoteEvent& e) { return e.start >= 6 * kTicksPerBar; });
+}
+} // namespace
 
 TEST_CASE("a voice that moves 8 semitones is a violation unless the idea is parallel", "[validate]")
 {
     Idea idea = validIdea(9);
+    dropLastChordEvents(idea);
     idea.progression.back().voicing.back() += 8;
     requireOneViolation(idea);
     idea.parallel = true;
@@ -136,15 +168,12 @@ TEST_CASE("a voice that moves 8 semitones is a violation unless the idea is para
 TEST_CASE("a voicing outside the range, with a bad top note or muddy, is a violation", "[validate]")
 {
     Idea idea = validIdea(9);
+    dropLastChordEvents(idea);
     idea.parallel = true; // a jump from the previous voicing is not under test here
     idea.progression.back().voicing = {57, 60, 64, 80};
     requireOneViolation(idea); // one line per voicing, even though the top note is also too high
-    idea = validIdea(9);
-    idea.parallel = true;
     idea.progression.back().voicing = {49, 53, 57, 66}; // a third below E3
     requireOneViolation(idea);
-    idea = validIdea(9);
-    idea.parallel = true;
     idea.progression.back().voicing = {52, 55, 59, 62}; // top 62 is fine, E3 start is not muddy
     REQUIRE(validate(idea).empty());
 }
@@ -160,5 +189,52 @@ TEST_CASE("a progression whose bars do not sum to the idea bars is one violation
 {
     Idea idea = validIdea(9);
     idea.progression.back().bars = 1;
+    requireOneViolation(idea);
+}
+
+TEST_CASE("a progression outside the mode is one violation", "[validate]")
+{
+    Idea idea = validIdea(9);
+    idea.progression.at(0).symbol = {.degree = 2, .quality = Quality::maj}; // B D# F#
+    requireOneViolation(idea);
+    idea.parallel = true; // parallel entries are exempt
+    REQUIRE(validate(idea).empty());
+}
+
+TEST_CASE("borrowedFrom must match the progression", "[validate]")
+{
+    Idea idea = validIdea(9);
+    idea.borrowedFrom = Mode::dorian;
+    requireOneViolation(idea);
+}
+
+TEST_CASE("settings.bars must be 4, 8 or 16", "[validate]")
+{
+    Idea idea = validIdea(9);
+    idea.settings.bars = 5;
+    requireOneViolation(idea);
+}
+
+TEST_CASE("a gap or an overlap in the chord sequence is one violation", "[validate]")
+{
+    Idea idea = validIdea(9);
+    idea.progression.at(1).startBar = 3;
+    requireOneViolation(idea); // gap
+    idea = validIdea(9);
+    idea.progression.at(1).startBar = 1;
+    requireOneViolation(idea); // overlap
+}
+
+TEST_CASE("a note that starts before the idea is one violation", "[validate]")
+{
+    Idea idea = validIdea(9);
+    idea.lanes.at(2).events.at(0).start = -1;
+    requireOneViolation(idea);
+}
+
+TEST_CASE("a note with no length is one violation", "[validate]")
+{
+    Idea idea = validIdea(9);
+    idea.lanes.at(2).events.at(0).length = 0;
     requireOneViolation(idea);
 }

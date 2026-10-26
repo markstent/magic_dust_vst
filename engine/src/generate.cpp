@@ -38,9 +38,22 @@ const PlacedChord& chordAt(std::span<const PlacedChord> progression, int tick)
     return *chord;
 }
 
-std::vector<int> allowedPitchClasses(const Key& key, const ChordSymbol& chord)
+std::vector<int> soundingPitchClasses(const Idea& idea, const PlacedChord& chord)
 {
-    const auto pcs = chordPitchClasses(key, chord);
+    if (!idea.parallel)
+    {
+        return chordPitchClasses(idea.key, chord.symbol);
+    }
+    std::vector<int> pcs;
+    std::ranges::transform(chord.voicing, std::back_inserter(pcs),
+                           [](int pitch) { return pitch % 12; });
+    std::ranges::sort(pcs);
+    pcs.erase(std::ranges::unique(pcs).begin(), pcs.end());
+    return pcs;
+}
+
+std::vector<int> allowedPitchClasses(const std::vector<int>& pcs)
+{
     std::vector<int> allowed;
     for (const int pc : pcs)
     {
@@ -96,6 +109,48 @@ void checkSettings(const Settings& settings, std::uint32_t seed)
     {
         throw std::invalid_argument("generate: mood and energy must be 0 to 100");
     }
+}
+
+void checkCells(const std::string& entryId, const std::vector<RhythmCell>& cells)
+{
+    if (cells.empty())
+    {
+        throw std::logic_error("entry " + entryId + " has no rhythm cells");
+    }
+    for (const RhythmCell& cell : cells)
+    {
+        const bool badHit =
+            std::ranges::any_of(cell.hits,
+                                [&cell](const Hit& hit)
+                                {
+                                    return hit.step < 0 ||
+                                           hit.step >= detail::kStepsPerBar * cell.bars ||
+                                           hit.length < 1;
+                                });
+        if ((cell.bars != 1 && cell.bars != 2) || cell.hits.empty() || badHit)
+        {
+            throw std::logic_error("entry " + entryId + " has a malformed rhythm cell " + cell.id);
+        }
+    }
+}
+
+// The bank loader rejects these; a bank built by hand from unvalidated entries may not.
+void checkEntry(const StyleEntry& entry)
+{
+    if (entry.progressions.empty() || entry.melodyModes.empty())
+    {
+        throw std::logic_error("entry " + entry.id + " has no progressions or melody modes");
+    }
+    for (const Progression& p : entry.progressions)
+    {
+        const bool badBars = std::ranges::any_of(p.barsPerChord, [](int bars) { return bars < 1; });
+        if (p.chords.empty() || p.chords.size() != p.barsPerChord.size() || badBars)
+        {
+            throw std::logic_error("entry " + entry.id + " has a malformed progression");
+        }
+    }
+    checkCells(entry.id, entry.chordRhythms);
+    checkCells(entry.id, entry.melodyRhythms);
 }
 
 bool inStyle(Style style, Family family)
@@ -198,6 +253,7 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed)
             entry->confidence == Confidence::verified ? sum * kVerifiedWeightFactor : sum);
     }
     const StyleEntry& entry = *entries.at(chordRng.pickWeighted(entryWeights));
+    checkEntry(entry);
     std::vector<int> progressionWeights;
     std::ranges::transform(entry.progressions, std::back_inserter(progressionWeights),
                            &Progression::weightMilli);
@@ -208,11 +264,14 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed)
     idea.seed = seed;
     idea.settings = settings;
     idea.key = {.root = settings.keyRoot, .mode = pickMode(entry, progression, settings.mood)};
-    idea.borrowedFrom = checkProgression(idea.key.mode, progression.chords).borrowedFrom;
     idea.bankVersion = bank.version;
     idea.entryId = entry.id;
     idea.parallel = entry.parallel;
     idea.progression = detail::placeProgression(progression, settings.bars);
+    std::vector<ChordSymbol> placedSymbols;
+    std::ranges::transform(idea.progression, std::back_inserter(placedSymbols),
+                           &PlacedChord::symbol);
+    idea.borrowedFrom = checkProgression(idea.key.mode, placedSymbols).borrowedFrom;
     detail::voiceChords(entry, idea.key, idea.progression);
 
     Pcg32 rhythmRng = rngFor(seed, Stream::chords, 1);

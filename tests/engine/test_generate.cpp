@@ -106,9 +106,24 @@ bool contains(const std::vector<int>& values, int value)
     return std::ranges::find(values, value) != values.end();
 }
 
+// The pitch classes that sound: the symbol's, or the voicing's for parallel entries.
+std::vector<int> soundingPcs(const Idea& idea, const PlacedChord& chord)
+{
+    if (!idea.parallel)
+    {
+        return chordPitchClasses(idea.key, chord.symbol);
+    }
+    std::set<int> pcs;
+    for (const int pitch : chord.voicing)
+    {
+        pcs.insert(pitch % 12);
+    }
+    return {pcs.begin(), pcs.end()};
+}
+
 std::vector<int> allowedPcs(const Idea& idea, const PlacedChord& chord)
 {
-    const auto pcs = chordPitchClasses(idea.key, chord.symbol);
+    const auto pcs = soundingPcs(idea, chord);
     std::vector<int> allowed;
     for (const int pc : pcs)
     {
@@ -319,7 +334,7 @@ TEST_CASE("the final melody note lands on the home chord when it can", "[generat
         }
         const NoteEvent& last = melody.events.back();
         const auto allowed = allowedPcs(idea, chordAt(idea, last.start));
-        const auto home = chordPitchClasses(idea.key, homeChord(idea).symbol);
+        const auto home = soundingPcs(idea, homeChord(idea));
         const bool overlap =
             std::ranges::any_of(allowed, [&](int pc) { return contains(home, pc); });
         if (overlap)
@@ -346,8 +361,17 @@ TEST_CASE("melody blocks follow the entry's rhythm cells", "[generate]")
         {
             REQUIRE(std::ranges::find(cells, blockOnsets(idea, block)) != cells.end());
         }
-        REQUIRE(blockOnsets(idea, 0) == blockOnsets(idea, 1));
-        REQUIRE(blockOnsets(idea, 0) == blockOnsets(idea, 2 % blocks));
+        // Phrase form A A A B, repeated every 4 blocks.
+        for (int block = 1; block < blocks; ++block)
+        {
+            const bool phraseEnd = block % 4 == 3;
+            const bool sameAsFirst = blockOnsets(idea, block) == blockOnsets(idea, 0);
+            REQUIRE(sameAsFirst == (!phraseEnd || entry.melodyRhythms.size() < 2));
+        }
+        if (blocks == 8)
+        {
+            REQUIRE(blockOnsets(idea, 7) == blockOnsets(idea, 3));
+        }
     }
 }
 
@@ -454,4 +478,74 @@ TEST_CASE("generate rejects invalid settings and empty banks", "[generate]")
     settings = {};
     settings.style = Style::soulful;
     REQUIRE_THROWS_AS(generate(mkDubOnly, settings, 1), std::invalid_argument);
+}
+
+TEST_CASE("octave bounce falls back to the fifth when the root has no octave in range",
+          "[generate]")
+{
+    const Bank bounce =
+        bankWith([](StyleEntry& entry) { entry.bassPatterns = {BassPattern::octaveBounce}; });
+    Settings settings;
+    settings.keyRoot = 2; // D: the root sits at 38, with no octave inside 28 to 48
+    const Idea idea = generate(bounce, settings, 3);
+    const auto& bass = idea.lanes.at(1).events;
+    REQUIRE(idea.lanes.at(1).pattern == "octave-bounce");
+    REQUIRE(std::ranges::any_of(bass, [](const NoteEvent& e) { return e.pitch == 45; }));
+    for (const NoteEvent& e : bass)
+    {
+        REQUIRE(e.pitch >= kBassLow);
+        REQUIRE(e.pitch <= kBassHigh);
+    }
+}
+
+TEST_CASE("generate rejects entries that would break it", "[generate]")
+{
+    const Settings settings;
+    REQUIRE_THROWS_AS(generate(bankWith([](StyleEntry& e)
+                                        { e.progressions.front().barsPerChord = {0, 0, 0, 0}; }),
+                               settings, 1),
+                      std::logic_error);
+    REQUIRE_THROWS_AS(
+        generate(bankWith([](StyleEntry& e) { e.melodyRhythms.front().hits.clear(); }), settings,
+                 1),
+        std::logic_error);
+    REQUIRE_THROWS_AS(
+        generate(bankWith([](StyleEntry& e) { e.chordRhythms.front().bars = 0; }), settings, 1),
+        std::logic_error);
+    REQUIRE_THROWS_AS(
+        generate(bankWith([](StyleEntry& e) { e.melodyRhythms.front().bars = 0; }), settings, 1),
+        std::logic_error);
+}
+
+TEST_CASE("every bundled entry generates across keys, bar counts, mood and energy", "[generate]")
+{
+    constexpr std::array<Style, 5> families = {
+        Style::mkDub, Style::soulful, Style::bassline, Style::festival, Style::nyGroove,
+    };
+    std::set<std::string> seen;
+    for (const Style style : families)
+    {
+        for (int key = 0; key < 12; ++key)
+        {
+            for (const int bars : {4, 8, 16})
+            {
+                for (const int corner : {0, 1, 2, 3})
+                {
+                    Settings settings;
+                    settings.style = style;
+                    settings.keyRoot = key;
+                    settings.bars = bars;
+                    settings.mood = (corner % 2) * 100;
+                    settings.energy = (corner / 2) * 100;
+                    for (int seed = 0; seed < 20; ++seed)
+                    {
+                        const Idea idea =
+                            generate(bank(), settings, static_cast<std::uint32_t>(seed * 4999));
+                        seen.insert(idea.entryId);
+                    }
+                }
+            }
+        }
+    }
+    REQUIRE(seen.size() == bank().entries.size());
 }

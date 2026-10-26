@@ -158,6 +158,11 @@ std::vector<PlacedChord> placeProgression(const Progression& progression, int ba
 {
     std::vector<PlacedChord> placed;
     const std::size_t count = progression.chords.size();
+    if (count == 0 || progression.barsPerChord.size() != count ||
+        std::ranges::any_of(progression.barsPerChord, [](int bars) { return bars < 1; }))
+    {
+        throw std::logic_error("progression needs chords and at least one bar for each");
+    }
     for (std::size_t i = 0; placed.empty() || placed.back().startBar + placed.back().bars < bars;
          ++i)
     {

@@ -201,8 +201,13 @@ std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea)
 {
     const bool chop = entry.melodyModes.front() == MelodyMode::vocalChop;
     const std::vector<Onset> onsets = rhythm(entry, idea);
+    if (onsets.empty())
+    {
+        throw std::logic_error("melody rhythm has no onsets");
+    }
     const std::size_t last = onsets.size() - 1;
-    const Pool home = poolOf(chordPitchClasses(idea.key, homeChord(idea).symbol));
+    const std::vector<int> homePcs = soundingPitchClasses(idea, homeChord(idea));
+    const Pool home = poolOf(homePcs);
     const Pool scale = poolOf(scalePitchClasses(idea.key));
 
     std::vector<Pool> allowed;
@@ -211,7 +216,7 @@ std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea)
     {
         const int step = onsets.at(i).step;
         const PlacedChord& chord = chordAt(idea.progression, step * kTicksPerSixteenth);
-        allowed.push_back(poolOf(allowedPitchClasses(idea.key, chord.symbol)));
+        allowed.push_back(poolOf(allowedPitchClasses(soundingPitchClasses(idea, chord))));
         if (chop)
         {
             pools.push_back(allowed.back());
@@ -225,6 +230,10 @@ std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea)
         {
             pools.push_back(step % 4 == 0 ? allowed.back() : scale);
         }
+    }
+    if (std::ranges::any_of(pools, [](const Pool& pool) { return !any(pool); }))
+    {
+        throw std::logic_error("melody has an onset with no pitch to play");
     }
     pools = reachable(std::move(pools));
 
@@ -240,7 +249,7 @@ std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea)
     Pcg32 chopRng(laneSeed(idea.seed, Stream::melody, 3),
                   static_cast<std::uint64_t>(Stream::melody));
     const std::vector<int> chopTones =
-        chop ? chopPitches(allowed.front(), chopRng) : std::vector<int>{};
+        chop ? chopPitches(poolOf(allowedPitchClasses(homePcs)), chopRng) : std::vector<int>{};
     // The line starts from the allowed tone of the first chord nearest the centre.
     int target = choose(allowed.front(), kCentre, std::nullopt);
 

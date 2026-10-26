@@ -86,12 +86,13 @@ int pitchFor(Role role, int root)
     switch (role)
     {
     case Role::octave:
-        // Up an octave when that stays in range, otherwise down, otherwise the root again.
+        // Up an octave when that stays in range, otherwise down, otherwise (roots with pitch class
+        // 1 to 3 have no octave pair in range) the fifth.
         if (root + 12 <= kBassHigh)
         {
             return root + 12;
         }
-        return root - 12 >= kBassLow ? root - 12 : root;
+        return root - 12 >= kBassLow ? root - 12 : pitchFor(Role::fifth, root);
     case Role::fifth:
         return root + 7 <= kBassHigh ? root + 7 : root - 5;
     case Role::root:
