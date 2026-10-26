@@ -49,7 +49,11 @@ def degree_problems(progression: dict, path: str) -> list[str]:
 
 def cell_problems(cells: list[dict], path: str) -> list[str]:
     problems = []
+    seen: set[str] = set()
     for i, cell in enumerate(cells):
+        if cell["id"] in seen:
+            problems.append(f"{path}/{i}/id: duplicate rhythm cell id {cell['id']!r}")
+        seen.add(cell["id"])
         for j, (step, length) in enumerate(cell["hits"]):
             if step + length > cell["bars"] * STEPS_PER_BAR:
                 problems.append(

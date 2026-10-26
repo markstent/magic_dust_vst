@@ -333,6 +333,11 @@ std::vector<RhythmCell> parseCells(const Reader& r, const Json& value, const std
     for (std::size_t i = 0; i < count; ++i)
     {
         cells.push_back(parseCell(r, value.at(i), at(path, i)));
+        const auto& cell = cells.back();
+        if (std::ranges::count(cells, cell.id, &RhythmCell::id) > 1)
+        {
+            r.fail(at(path, i) + "/id", "duplicate rhythm cell id \"" + cell.id + "\"");
+        }
     }
     return cells;
 }
