@@ -96,7 +96,7 @@ TEST_CASE("two tracks write format 1 with a conductor track")
 {
     std::vector<MidiTrack> tracks{
         {.name = "A", .notes = {note(60, 0, 960, 100)}, .markers = {{0, "Am"}}},
-        {.name = "B", .notes = {note(62, 0, 480, 90)}, .markers = {}},
+        {.name = "B", .notes = {note(62, 0, 480, 90)}, .markers = {}, .channel = 1},
     };
     const Bytes out = writeMidiFile(tracks, 120, 3840);
     CHECK(Bytes(out.begin(), out.begin() + 14) ==
@@ -115,10 +115,18 @@ TEST_CASE("two tracks write format 1 with a conductor track")
     });
     const Bytes trackB = bytes({
         0x4D, 0x54, 0x72, 0x6B, 0,    0,    0,    0x13, 0x00, 0xFF, 0x03, 0x01, 'B',  0x00,
-        0x90, 0x3E, 0x5A, 0x83, 0x60, 0x80, 0x3E, 0x00, 0x9A, 0x20, 0xFF, 0x2F, 0x00,
+        0x91, 0x3E, 0x5A, 0x83, 0x60, 0x81, 0x3E, 0x00, 0x9A, 0x20, 0xFF, 0x2F, 0x00,
     });
     Bytes rest(out.begin() + 14 + static_cast<long>(conductor.size()), out.end());
     CHECK(rest == concat(trackA, trackB));
+}
+
+TEST_CASE("a track's channel is the low nibble of its note bytes")
+{
+    const std::vector<MidiTrack> tracks{
+        {.name = "T", .notes = {note(60, 0, 960, 100)}, .markers = {}, .channel = 15}};
+    const Bytes out = writeMidiFile(tracks, 120, 3840);
+    CHECK(contains(out, bytes({0x00, 0x9F, 0x3C, 0x64, 0x87, 0x40, 0x8F, 0x3C, 0x00})));
 }
 
 TEST_CASE("note-offs precede note-ons at equal ticks, then ascending pitch")
@@ -189,6 +197,12 @@ TEST_CASE("writeMidiFile rejects bad input")
     CHECK_THROWS_AS(writeOne({note(60, 0, 240, 100)}, 1000), std::invalid_argument);
     CHECK_NOTHROW(writeOne({note(60, 0, 240, 100)}, 20));
     CHECK_NOTHROW(writeOne({note(60, 0, 240, 100)}, 999));
+    const std::vector<MidiTrack> badChannel{
+        {.name = "T", .notes = {}, .markers = {}, .channel = 16}};
+    CHECK_THROWS_AS(writeMidiFile(badChannel, 120, 3840), std::invalid_argument);
+    const std::vector<MidiTrack> negativeChannel{
+        {.name = "T", .notes = {}, .markers = {}, .channel = -1}};
+    CHECK_THROWS_AS(writeMidiFile(negativeChannel, 120, 3840), std::invalid_argument);
     const std::vector<MidiTrack> badMarker{{.name = "T", .notes = {}, .markers = {{3841, "x"}}}};
     CHECK_THROWS_AS(writeMidiFile(badMarker, 120, 3840), std::invalid_argument);
 }
@@ -209,6 +223,9 @@ TEST_CASE("laneTrack names lanes and marks chord starts")
     CHECK(bass.name == "Bass");
     CHECK(bass.markers.empty());
     CHECK(laneTrack(idea, LaneId::melody).name == "Melody");
+    CHECK(chords.channel == 0);
+    CHECK(bass.channel == 1);
+    CHECK(laneTrack(idea, LaneId::melody).channel == 2);
 }
 
 TEST_CASE("ideaTracks exports all three lanes, muted included")

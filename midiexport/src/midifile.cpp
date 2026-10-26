@@ -110,7 +110,7 @@ Bytes eventsChunk(Bytes body, const MidiTrack& track, int totalTicks)
         else
         {
             put(body, {
-                          e.rank == 2 ? Byte{0x90} : Byte{0x80},
+                          lo((e.rank == 2 ? 0x90U : 0x80U) | static_cast<unsigned>(track.channel)),
                           lo(static_cast<unsigned>(e.pitch)),
                           lo(static_cast<unsigned>(e.velocity)),
                       });
@@ -141,6 +141,10 @@ void validate(std::span<const MidiTrack> tracks, int tempoBpm, int totalTicks)
     }
     for (const MidiTrack& t : tracks)
     {
+        if (t.channel < 0 || t.channel > 15)
+        {
+            throw std::invalid_argument("writeMidiFile: channel out of range");
+        }
         for (const NoteEvent& n : t.notes)
         {
             if (n.pitch < 0 || n.pitch > 127 || n.velocity < 1 || n.velocity > 127)
@@ -195,7 +199,8 @@ std::vector<std::uint8_t> writeMidiFile(std::span<const MidiTrack> tracks, int t
     {
         Bytes body = {0x00};
         putText(body, 0x03, t.name);
-        const MidiTrack notesOnly{.name = t.name, .notes = t.notes, .markers = {}};
+        const MidiTrack notesOnly{
+            .name = t.name, .notes = t.notes, .markers = {}, .channel = t.channel};
         putChunk(out, eventsChunk(std::move(body), notesOnly, totalTicks));
     }
     return out;
@@ -219,6 +224,7 @@ MidiTrack laneTrack(const Idea& idea, LaneId lane)
         .name = std::string(kNames.at(index)),
         .notes = idea.lanes.at(index).events,
         .markers = {},
+        .channel = static_cast<int>(index),
     };
     if (lane == LaneId::chords)
     {
