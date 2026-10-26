@@ -25,6 +25,16 @@ jobs:
         with:
           path: build/lint/_deps
           key: deps-lint-${{ hashFiles('cmake/Dependencies.cmake') }}
+      - name: Check the LLVM version
+        run: |
+          "$(brew --prefix llvm)/bin/clang-tidy" --version
+          "$(brew --prefix llvm)/bin/clang-format" --version
+          major="$("$(brew --prefix llvm)/bin/clang-format" --version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d. -f1)"
+          expected="$(cat .llvm-version)"
+          if [ "$major" != "$expected" ]; then
+            echo "::error::clang-format major version is $major, .llvm-version says $expected"
+            exit 1
+          fi
       - run: CLANG_FORMAT="$(brew --prefix llvm)/bin/clang-format" scripts/format-check.sh
       - run: cmake --preset lint && cmake --build --preset lint
 
