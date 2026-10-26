@@ -53,6 +53,10 @@ Idea validIdea(int root)
     return idea;
 }
 
+// Moves a melody note off the quarter grid, so a test of another rule does not also trip the
+// strong-beat rule.
+void offBeat(Idea& idea, std::size_t index = 0) { idea.lanes.at(2).events.at(index).start += 240; }
+
 void requireOneViolation(const Idea& idea)
 {
     const auto violations = validate(idea);
@@ -85,7 +89,7 @@ TEST_CASE("a bass note below the range is one violation", "[validate]")
 TEST_CASE("a melody note above the range is one violation", "[validate]")
 {
     Idea idea = validIdea(8);
-    idea.lanes.at(2).events.at(0).pitch = 85;
+    idea.lanes.at(2).events = {note(85, 240, 480)}; // a lone note, so no leap either
     requireOneViolation(idea);
 }
 
@@ -101,7 +105,8 @@ TEST_CASE("overlapping bass notes are one violation", "[validate]")
 TEST_CASE("a melody note out of key and out of the chord is one violation", "[validate]")
 {
     Idea idea = validIdea(9);
-    idea.lanes.at(2).events.at(0).pitch = 61;
+    idea.lanes.at(2).events.at(0).pitch = 70; // A#, not in A aeolian or the chord
+    offBeat(idea);
     requireOneViolation(idea);
 }
 
@@ -142,6 +147,7 @@ TEST_CASE("a parallel idea accepts melody notes from the sounding voicing", "[va
     idea.lanes.at(2).events.at(0).pitch = 66; // F# is not in A aeolian or Am7, but it sounds
     REQUIRE(validate(idea).empty());
     idea.lanes.at(2).events.at(0).pitch = 70;
+    offBeat(idea);
     requireOneViolation(idea);
 }
 
@@ -188,6 +194,7 @@ TEST_CASE("a voicing outside the range, with a bad top note or muddy, is a viola
 {
     Idea idea = validIdea(9);
     dropLastChordEvents(idea);
+    offBeat(idea, 3);     // the last chord's voicings below sound against the melody on the beat
     idea.parallel = true; // a jump from the previous voicing is not under test here
     idea.progression.back().voicing = {57, 60, 64, 80};
     requireOneViolation(idea); // one line per voicing, even though the top note is also too high
@@ -215,6 +222,7 @@ TEST_CASE("a progression outside the mode is one violation", "[validate]")
 {
     Idea idea = validIdea(9);
     idea.progression.at(0).symbol = {.degree = 2, .quality = Quality::maj}; // B D# F#
+    offBeat(idea);
     requireOneViolation(idea);
     idea.parallel = true; // parallel entries are exempt
     REQUIRE(validate(idea).empty());
