@@ -57,6 +57,13 @@ jobs:
           key: deps-release-${{ hashFiles('cmake/Dependencies.cmake') }}
       - run: cmake --preset release && cmake --build --preset release
       - run: ctest --preset release
+      - name: Golden files on x86_64
+        run: |
+          if arch -x86_64 /usr/bin/true 2>/dev/null; then
+            arch -x86_64 build/release/tests/md_golden_tests
+          else
+            echo "::notice::x86_64 is not available on this runner, goldens were checked on arm64 only"
+          fi
 
   sanitizers:
     runs-on: macos-15
