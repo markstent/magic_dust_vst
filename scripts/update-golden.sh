@@ -28,5 +28,5 @@ for after in "$review"/after/*.mid; do
 done
 echo "$changed case(s) changed"
 
-echo "Listen to before/ and after/ in Live. If you approve, commit tests/golden. If not, run git checkout tests/golden."
+echo "Listen to before/ and after/ in your daw. If you approve, commit tests/golden. If not, run git checkout tests/golden."
 echo "Files are in $review"

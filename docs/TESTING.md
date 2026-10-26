@@ -20,6 +20,8 @@ Later builds only rebuild what changed.
 
 - `ctest --preset dev` runs every automatic test and prints how many passed.
 - `ctest --preset dev -L plugin` runs only the tests for the plug-in itself.
+- `cmake --preset release && cmake --build --preset release` builds the release version the long check needs.
+  Run it once before the next command.
 - `MD_PROPERTY_SEEDS=10000 ctest --preset release -R properties` runs the long check that generates thousands of ideas and tests each one.
 
 All tests should say "Passed".
@@ -56,7 +58,7 @@ Run `killall -9 AudioComponentRegistrar` and then run the script again.
 To open Terminal, press Cmd+Space, type `Terminal` and press Return.
 Then type `cd ` (with a space after it), drag the Magic Dust project folder from Finder into the Terminal window, and press Return.
 Next run `cmake --build --preset dev`, which builds md-cli (and the plug-in) so it is ready to run.
-Then run these five commands, one idea for each style:
+Then run these six commands, one idea for each style:
 
 ```
 build/dev/tools/md-cli/md-cli --style uk-funky --seed 1 --out ~/Desktop/magic-dust/uk-funky-1.mid
@@ -64,6 +66,7 @@ build/dev/tools/md-cli/md-cli --style mk-dub --seed 2 --out ~/Desktop/magic-dust
 build/dev/tools/md-cli/md-cli --style soulful --seed 3 --out ~/Desktop/magic-dust/soulful-3.mid
 build/dev/tools/md-cli/md-cli --style bassline --seed 48213 --out ~/Desktop/magic-dust/bassline-48213.mid
 build/dev/tools/md-cli/md-cli --style festival --seed 77777 --out ~/Desktop/magic-dust/festival-77777.mid
+build/dev/tools/md-cli/md-cli --style ny-groove --seed 5 --out ~/Desktop/magic-dust/ny-groove-5.mid
 ```
 
 Each command prints the spell number, the idea code, the key, the chords and where the files went.
@@ -89,6 +92,15 @@ The steps below use the common names, so look for the matching buttons in yours.
 3. Drag `... - chords.mid` from Finder onto the first track, `... - bass.mid` onto the second and `... - melody.mid` onto the third.
 4. Set the project tempo to the tempo you used (124 unless you passed `--tempo`), then press play.
 
-## Trying it in Ableton
+## Trying it in your daw
 
-To be filled in by a later task.
+These steps are for Ableton Live 12.
+
+1. Build Magic Dust with `cmake --build --preset dev`, which copies it to your plug-in folders.
+2. Open Live and go to Settings, then Plug-Ins.
+3. Switch on both Audio Units and VST3 system folders.
+4. Press Rescan.
+5. Make a MIDI track.
+6. Find Magic Dust in the Plug-Ins browser and drag it onto the track.
+
+Other daws need the same rescan before they show Magic Dust.
