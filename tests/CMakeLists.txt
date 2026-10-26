@@ -13,3 +13,10 @@ add_executable(md_engine_tests
 target_link_libraries(md_engine_tests PRIVATE md_engine Catch2::Catch2WithMain)
 md_target_defaults(md_engine_tests)
 catch_discover_tests(md_engine_tests PROPERTIES LABELS unit)
+
+add_executable(md_bank_tests bank/test_bank.cpp)
+target_link_libraries(md_bank_tests PRIVATE md_bank Catch2::Catch2WithMain)
+target_compile_definitions(md_bank_tests PRIVATE
+  MD_BANK_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/bank/fixtures")
+md_target_defaults(md_bank_tests)
+catch_discover_tests(md_bank_tests PROPERTIES LABELS unit)

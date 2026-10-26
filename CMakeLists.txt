@@ -19,7 +19,8 @@ add_test(NAME presets_copy_guard
   COMMAND ${CMAKE_SOURCE_DIR}/scripts/check-presets.sh ${CMAKE_SOURCE_DIR}/CMakePresets.json)
 
 # Later tasks add their own add_subdirectory line here:
-# bank, midiexport, tools/md-cli
+# midiexport, tools/md-cli
 add_subdirectory(engine)
+add_subdirectory(bank)
 add_subdirectory(plugin)
 add_subdirectory(tests)

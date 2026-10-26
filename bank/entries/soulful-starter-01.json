@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "soulful-starter-01",
+  "family": "soulful",
+  "name": "Warm ninth changes",
+  "source": { "kind": "hand-authored", "reference": null, "confidence": "placeholder" },
+  "tempo": { "min": 122, "max": 125 },
+  "modes": ["aeolian", "dorian"],
+  "progressions": [
+    { "degrees": ["i9", "IV9"], "barsPerChord": 2, "weight": 1.0 },
+    { "degrees": ["i7", "VImaj7", "IIImaj7", "VII"], "barsPerChord": 2, "weight": 0.8 },
+    { "degrees": ["iv9", "v9", "i9"], "barsPerChord": [2, 2, 4], "weight": 0.7 },
+    { "degrees": ["VImaj9", "VII6", "i9"], "barsPerChord": [2, 2, 4], "weight": 0.7 }
+  ],
+  "voicing": { "style": "close", "parallel": false, "topNote": [65, 74] },
+  "chordRhythms": [
+    { "id": "pad-bar", "bars": 1, "hits": [[0, 16]] },
+    { "id": "soul-push", "bars": 1, "hits": [[0, 6], [6, 4], [10, 6]] },
+    { "id": "piano-comp", "bars": 1, "hits": [[0, 3], [6, 2], [10, 3], [14, 2]] },
+    { "id": "two-bar-lift", "bars": 2, "hits": [[0, 6], [6, 4], [10, 6], [16, 8], [26, 6]] }
+  ],
+  "melodyRhythms": [
+    { "id": "hook-three", "bars": 2, "hits": [[2, 4], [10, 3], [20, 6]] },
+    { "id": "hook-five", "bars": 2, "hits": [[2, 2], [6, 3], [11, 2], [18, 4], [26, 4]] },
+    { "id": "hook-seven", "bars": 2, "hits": [[2, 2], [5, 1], [7, 2], [11, 3], [18, 2], [22, 2], [27, 3]] },
+    { "id": "hook-ten", "bars": 2, "hits": [[2, 1], [3, 1], [6, 1], [7, 1], [10, 2], [14, 1], [18, 2], [22, 1], [23, 1], [27, 3]] }
+  ],
+  "bassPatterns": ["sustained", "offbeat"],
+  "melodyModes": ["hook"],
+  "swing": 0.55,
+  "tags": ["sonny-ish", "warm"]
+}

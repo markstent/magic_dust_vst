@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "bad-degree",
+  "family": "mk-dub",
+  "name": "Two-chord organ loop",
+  "source": { "kind": "hand-authored", "reference": null, "confidence": "placeholder" },
+  "tempo": { "min": 122, "max": 126 },
+  "modes": ["aeolian", "dorian"],
+  "progressions": [
+    { "degrees": ["i7", "viii7"], "barsPerChord": 2, "weight": 1.0 }
+  ],
+  "voicing": { "style": "organ-stab", "parallel": true, "topNote": [67, 76] },
+  "chordRhythms": [
+    { "id": "offbeat-stabs", "bars": 1, "hits": [[2, 1], [6, 1], [10, 1], [14, 1]] }
+  ],
+  "melodyRhythms": [
+    { "id": "chop-sparse", "bars": 2, "hits": [[2, 2], [11, 1], [22, 2]] }
+  ],
+  "bassPatterns": ["offbeat", "octave-bounce"],
+  "melodyModes": ["vocal-chop"],
+  "swing": 0.56,
+  "tags": ["mk-ish", "peak time"]
+}

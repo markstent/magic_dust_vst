@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "mk-dub-starter-01",
+  "family": "mk-dub",
+  "name": "Two-chord organ loop",
+  "source": { "kind": "hand-authored", "reference": null, "confidence": "placeholder" },
+  "tempo": { "min": 122, "max": 126 },
+  "modes": ["aeolian", "dorian"],
+  "progressions": [
+    { "degrees": ["i7", "iv7"], "barsPerChord": 2, "weight": 1.0 },
+    { "degrees": ["i7", "iv7", "i7", "v7"], "barsPerChord": 2, "weight": 0.6 },
+    { "degrees": ["i7", "VII", "VI", "VII"], "barsPerChord": 2, "weight": 0.5 },
+    { "degrees": ["i7", "VImaj7"], "barsPerChord": 2, "weight": 0.4 }
+  ],
+  "voicing": { "style": "organ-stab", "parallel": true, "topNote": [67, 76] },
+  "chordRhythms": [
+    { "id": "offbeat-stabs", "bars": 1, "hits": [[2, 1], [6, 1], [10, 1], [14, 1]] },
+    { "id": "offbeat-stabs-long", "bars": 1, "hits": [[2, 2], [6, 2], [10, 2], [14, 2]] },
+    { "id": "late-push", "bars": 1, "hits": [[2, 1], [6, 1], [10, 1], [15, 1]] },
+    { "id": "two-bar-pickup", "bars": 2, "hits": [[2, 1], [6, 1], [10, 1], [14, 1], [18, 1], [22, 1], [26, 1], [30, 2]] }
+  ],
+  "melodyRhythms": [
+    { "id": "chop-sparse", "bars": 2, "hits": [[2, 2], [11, 1], [22, 2]] },
+    { "id": "chop-four", "bars": 2, "hits": [[3, 1], [6, 2], [19, 1], [22, 2]] },
+    { "id": "stutter-six", "bars": 2, "hits": [[1, 1], [2, 1], [3, 1], [10, 1], [18, 1], [22, 1]] },
+    { "id": "chop-eight", "bars": 2, "hits": [[2, 1], [3, 1], [6, 1], [7, 1], [10, 2], [18, 1], [19, 1], [22, 2]] }
+  ],
+  "bassPatterns": ["offbeat", "octave-bounce"],
+  "melodyModes": ["vocal-chop"],
+  "swing": 0.56,
+  "tags": ["mk-ish", "peak time"]
+}

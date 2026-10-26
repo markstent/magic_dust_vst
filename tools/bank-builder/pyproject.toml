@@ -20,3 +20,7 @@ dev = [
 # Only resolve releases at least two weeks old (spec section 7, upgrade rule).
 exclude-newer = "2026-10-12T00:00:00Z"
 package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
