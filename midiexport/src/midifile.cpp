@@ -17,8 +17,7 @@ namespace
 using Bytes = std::vector<std::uint8_t>;
 using Byte = std::uint8_t;
 
-constexpr int kTempoBpmMin = 20;
-constexpr int kTempoBpmMax = 999;
+constexpr std::size_t kMaxTracks = 254; // format 1 adds a conductor; the count is one byte
 constexpr unsigned kMicrosPerMinute = 60'000'000U;
 
 Byte lo(unsigned v) { return static_cast<Byte>(v & 0xFFU); }
@@ -132,11 +131,11 @@ void putChunk(Bytes& out, const Bytes& body)
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): mirrors writeMidiFile.
 void validate(std::span<const MidiTrack> tracks, int tempoBpm, int totalTicks)
 {
-    if (tracks.empty())
+    if (tracks.empty() || tracks.size() > kMaxTracks)
     {
-        throw std::invalid_argument("writeMidiFile: no tracks");
+        throw std::invalid_argument("writeMidiFile: track count out of range");
     }
-    if (tempoBpm < kTempoBpmMin || tempoBpm > kTempoBpmMax)
+    if (tempoBpm < kMidiTempoMin || tempoBpm > kMidiTempoMax)
     {
         throw std::invalid_argument("writeMidiFile: tempo out of range");
     }
@@ -148,7 +147,7 @@ void validate(std::span<const MidiTrack> tracks, int tempoBpm, int totalTicks)
             {
                 throw std::invalid_argument("writeMidiFile: pitch or velocity out of range");
             }
-            if (n.start < 0 || n.length <= 0 || n.start + n.length > totalTicks)
+            if (n.start < 0 || n.length <= 0 || n.length > totalTicks - n.start)
             {
                 throw std::invalid_argument("writeMidiFile: note outside the track");
             }
@@ -211,6 +210,10 @@ MidiTrack laneTrack(const Idea& idea, LaneId lane)
     if (index >= idea.lanes.size())
     {
         throw std::invalid_argument("laneTrack: unknown lane");
+    }
+    if (idea.lanes.at(index).id != lane)
+    {
+        throw std::logic_error("laneTrack: lanes out of order");
     }
     MidiTrack track{
         .name = std::string(kNames.at(index)),

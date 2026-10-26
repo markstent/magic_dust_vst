@@ -7,6 +7,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
+#include <span>
 #include <stdexcept>
 #include <vector>
 
@@ -33,6 +35,12 @@ bool contains(const Bytes& haystack, const Bytes& needle)
 NoteEvent note(int pitch, int start, int length, int velocity)
 {
     return {.pitch = pitch, .start = start, .length = length, .velocity = velocity};
+}
+
+Bytes concat(Bytes a, const Bytes& b)
+{
+    a.insert(a.end(), b.begin(), b.end());
+    return a;
 }
 
 Bytes writeOne(std::vector<NoteEvent> notes, int tempo = 120, int total = 3840)
@@ -101,9 +109,16 @@ TEST_CASE("two tracks write format 1 with a conductor track")
     });
     CHECK(Bytes(out.begin() + 14, out.begin() + 14 + static_cast<long>(conductor.size())) ==
           conductor);
-    CHECK(contains(out, bytes({0x00, 0xFF, 0x03, 0x01, 'A'})));
-    CHECK(contains(out, bytes({0x00, 0xFF, 0x03, 0x01, 'B'})));
-    CHECK(std::ranges::count(out, std::uint8_t{'M'}) >= 4);
+    const Bytes trackA = bytes({
+        0x4D, 0x54, 0x72, 0x6B, 0,    0,    0,    0x13, 0x00, 0xFF, 0x03, 0x01, 'A',  0x00,
+        0x90, 0x3C, 0x64, 0x87, 0x40, 0x80, 0x3C, 0x00, 0x96, 0x40, 0xFF, 0x2F, 0x00,
+    });
+    const Bytes trackB = bytes({
+        0x4D, 0x54, 0x72, 0x6B, 0,    0,    0,    0x13, 0x00, 0xFF, 0x03, 0x01, 'B',  0x00,
+        0x90, 0x3E, 0x5A, 0x83, 0x60, 0x80, 0x3E, 0x00, 0x9A, 0x20, 0xFF, 0x2F, 0x00,
+    });
+    Bytes rest(out.begin() + 14 + static_cast<long>(conductor.size()), out.end());
+    CHECK(rest == concat(trackA, trackB));
 }
 
 TEST_CASE("note-offs precede note-ons at equal ticks, then ascending pitch")
@@ -159,6 +174,11 @@ TEST_CASE("writeMidiFile rejects bad input")
     CHECK_THROWS_AS(writeMidiFile(none, 120, 3840), std::invalid_argument);
     CHECK_THROWS_AS(writeOne({note(60, 0, 3841, 100)}), std::invalid_argument);
     CHECK_THROWS_AS(writeOne({note(60, 3800, 100, 100)}), std::invalid_argument);
+    CHECK_THROWS_AS(writeOne({note(60, 100, std::numeric_limits<int>::max(), 100)}),
+                    std::invalid_argument);
+    const std::vector<MidiTrack> many(255, MidiTrack{.name = "T", .notes = {}, .markers = {}});
+    CHECK_THROWS_AS(writeMidiFile(many, 120, 3840), std::invalid_argument);
+    CHECK_NOTHROW(writeMidiFile(std::span(many).first(254), 120, 3840));
     CHECK_THROWS_AS(writeOne({note(128, 0, 240, 100)}), std::invalid_argument);
     CHECK_THROWS_AS(writeOne({note(-1, 0, 240, 100)}), std::invalid_argument);
     CHECK_THROWS_AS(writeOne({note(60, 0, 240, 0)}), std::invalid_argument);
@@ -203,5 +223,25 @@ TEST_CASE("ideaTracks exports all three lanes, muted included")
     CHECK(tracks.at(2).name == "Melody");
     CHECK(ideaLengthTicks(idea) == 4 * kTicksPerBar);
     const Bytes out = writeMidiFile(tracks, 124, ideaLengthTicks(idea));
-    CHECK(out.size() > 14);
+    // Conductor track: tempo, time signature, then a marker per chord at its delta.
+    const Bytes conductor = bytes(
+        {0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20, 0x00, 0xFF, 0x58, 0x04, 0x04, 0x02, 0x18, 0x08});
+    Bytes expected = conductor;
+    const auto marker = [&](const Bytes& delta, const PlacedChord& chord)
+    {
+        const std::string name = chordName(idea.key, chord.symbol);
+        expected = concat(expected, delta);
+        expected = concat(expected, bytes({0xFF, 0x06, static_cast<int>(name.size())}));
+        expected.insert(expected.end(), name.begin(), name.end());
+    };
+    marker(bytes({0x00}), idea.progression.at(0));
+    marker(bytes({0xBC, 0x00}), idea.progression.at(1)); // 2 bars = 7680 ticks
+    CHECK(contains(writeMidiFile(tracks, 120, ideaLengthTicks(idea)), expected));
+}
+
+TEST_CASE("laneTrack throws when lanes are out of order")
+{
+    Idea idea = makeIdea();
+    std::swap(idea.lanes.at(1), idea.lanes.at(2));
+    CHECK_THROWS_AS(laneTrack(idea, LaneId::bass), std::logic_error);
 }
