@@ -18,5 +18,11 @@ constexpr int kMelodyLow = 60;
 constexpr int kMelodyHigh = 84;
 constexpr int kMaxVoiceMove = 7;
 constexpr int kMaxMelodyLeap = 7;
+constexpr int kTempoMin = 60;
+constexpr int kTempoMax = 200;
+constexpr int kSwingMinPermille = 500;
+constexpr int kSwingMaxPermille = 750;
+constexpr int kWeightMaxMilli = 10000;
+constexpr int kMaxBarsPerChord = 8;
 constexpr int kSeedMax = 99999;
 } // namespace md

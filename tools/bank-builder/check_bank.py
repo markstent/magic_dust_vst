@@ -9,12 +9,26 @@ import re
 import sys
 from pathlib import Path
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, validators
 
 SCHEMA_PATH = Path(__file__).resolve().parents[2] / "bank" / "schema.json"
 STEPS_PER_BAR = 16
+ID = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 LOWER_DEGREE = re.compile(r"(i|ii|iii|iv|v|vi|vii)(7|9|11)?")
 UPPER_DEGREE = re.compile(r"(I|II|III|IV|V|VI|VII)(7|9|maj7|maj9|6|add9|sus4)?")
+
+
+def strict_validator(schema: dict) -> Draft202012Validator:
+    """Like Draft202012Validator, but 122.0 is not an integer (the C++ loader agrees)."""
+    checker = Draft202012Validator.TYPE_CHECKER.redefine(
+        "integer",
+        lambda _, value: isinstance(value, int) and not isinstance(value, bool),
+    )
+    return validators.extend(Draft202012Validator, type_checker=checker)(schema)
+
+
+def reject_constant(name: str) -> None:
+    raise ValueError(f"{name} is not valid JSON")
 
 
 def schema_problems(entry: dict, validator: Draft202012Validator) -> list[str]:
@@ -46,6 +60,8 @@ def cell_problems(cells: list[dict], path: str) -> list[str]:
 
 def rule_problems(entry: dict) -> list[str]:
     problems = []
+    if not ID.fullmatch(entry["id"]):
+        problems.append("/id: must be lowercase words joined by hyphens")
     for i, progression in enumerate(entry["progressions"]):
         problems += degree_problems(progression, f"/progressions/{i}")
     problems += cell_problems(entry["chordRhythms"], "/chordRhythms")
@@ -70,7 +86,7 @@ def entry_files(paths: list[str]) -> list[Path]:
 
 
 def main(argv: list[str]) -> int:
-    validator = Draft202012Validator(json.loads(SCHEMA_PATH.read_text()))
+    validator = strict_validator(json.loads(SCHEMA_PATH.read_text()))
     files = entry_files(argv)
     if not files:
         print("no entries found")
@@ -79,8 +95,8 @@ def main(argv: list[str]) -> int:
     seen: dict[str, str] = {}
     for file in files:
         try:
-            entry = json.loads(file.read_text())
-        except json.JSONDecodeError as error:
+            entry = json.loads(file.read_text(), parse_constant=reject_constant)
+        except ValueError as error:
             problems = [f"not valid JSON: {error}"]
         else:
             problems = entry_problems(entry, validator)

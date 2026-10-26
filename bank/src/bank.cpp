@@ -28,12 +28,6 @@ using Json = nlohmann::json;
 constexpr std::uint64_t kFnvOffset = 14695981039346656037ULL;
 constexpr std::uint64_t kFnvPrime = 1099511628211ULL;
 constexpr int kStepsPerBar = 16;
-constexpr int kMaxBarsPerChord = 8;
-constexpr int kMaxTempo = 200;
-constexpr int kMinTempo = 60;
-constexpr double kMaxWeight = 10.0;
-constexpr double kMinSwing = 0.5;
-constexpr double kMaxSwing = 0.75;
 constexpr int kMaxStep = 31;
 constexpr int kMaxLength = 32;
 
@@ -301,7 +295,7 @@ Progression parseProgression(const Reader& r, const Json& value, const std::stri
     progression.barsPerChord = parseBarsPerChord(r, value.at("barsPerChord"),
                                                  path + "/barsPerChord", progression.chords.size());
     const auto weight = r.number(value.at("weight"), path + "/weight");
-    if (weight <= 0.0 || weight > kMaxWeight)
+    if (weight <= 0.0 || weight * 1000.0 > kWeightMaxMilli)
     {
         r.fail(path + "/weight", "must be above 0 and at most 10");
     }
@@ -368,8 +362,8 @@ void parseSource(const Reader& r, const Json& value, StyleEntry& entry)
 void parseTempo(const Reader& r, const Json& value, StyleEntry& entry)
 {
     r.object(value, "/tempo", {"min", "max"});
-    entry.tempoMin = r.integer(value.at("min"), "/tempo/min", kMinTempo, kMaxTempo);
-    entry.tempoMax = r.integer(value.at("max"), "/tempo/max", kMinTempo, kMaxTempo);
+    entry.tempoMin = r.integer(value.at("min"), "/tempo/min", kTempoMin, kTempoMax);
+    entry.tempoMax = r.integer(value.at("max"), "/tempo/max", kTempoMin, kTempoMax);
     if (entry.tempoMin > entry.tempoMax)
     {
         r.fail("/tempo", "min is above max");
@@ -405,7 +399,7 @@ void parseTags(const Reader& r, const Json& value, StyleEntry& entry)
 void parseSwing(const Reader& r, const Json& value, StyleEntry& entry)
 {
     const auto swing = r.number(value, "/swing");
-    if (swing < kMinSwing || swing > kMaxSwing)
+    if (swing * 1000.0 < kSwingMinPermille || swing * 1000.0 > kSwingMaxPermille)
     {
         r.fail("/swing", "out of range 0.5 to 0.75");
     }

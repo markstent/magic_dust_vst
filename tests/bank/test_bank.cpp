@@ -63,10 +63,16 @@ TEST_CASE("every valid fixture parses")
 TEST_CASE("every invalid fixture throws BankError naming the entry")
 {
     const auto files = fixtures("invalid");
-    REQUIRE(files.size() >= 10);
+    REQUIRE(files.size() >= 13);
     for (const auto& file : files)
     {
         CAPTURE(file.filename().string());
+        if (file.stem() == "nan-swing")
+        {
+            // Not parseable JSON, so no id can be named.
+            CHECK_THROWS_AS(md::parseEntry(readFile(file)), md::BankError);
+            continue;
+        }
         CHECK_THROWS_MATCHES(
             md::parseEntry(readFile(file)), md::BankError,
             Catch::Matchers::MessageMatches(ContainsSubstring(file.stem().string())));

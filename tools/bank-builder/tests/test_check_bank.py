@@ -27,8 +27,8 @@ def test_invalid_fixture_fails_and_names_the_file(
     assert capsys.readouterr().out.startswith(fixture.name)
 
 
-def test_there_are_ten_invalid_fixtures() -> None:
-    assert len(INVALID) >= 10
+def test_there_are_thirteen_invalid_fixtures() -> None:
+    assert len(INVALID) >= 13
 
 
 def test_duplicate_ids_fail(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
