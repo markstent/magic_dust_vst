@@ -1,0 +1,7 @@
+build/
+.venv/
+.DS_Store
+*.xcuserstate
+.cache/
+/compile_commands.json
+.superpowers/

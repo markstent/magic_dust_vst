@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Magic Dust: visual reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+:root {
+  --md-body: #DCDDE0;
+  --md-body-edge: #B4B6BB;
+  --md-grille: #CFD0D4;
+  --md-grille-edge: #BFC1C6;
+  --md-grille-dot: #85878E;
+  --md-ink: #24252B;
+  --md-ink-quiet: #5E6068;
+  --md-ink-faint: #6A6C74;
+  --md-ink-value: #3B3D44;
+  --md-ink-status: #4A4C54;
+  --md-screen: #050507;
+  --md-bezel: #1B1C20;
+  --md-screen-ink: #F2F2F5;
+  --md-screen-quiet: #8A8C96;
+  --md-screen-axis: #15161B;
+  --md-screen-bar: #1A1B21;
+  --md-screen-line: #2A2B32;
+  --md-screen-selected: #121318;
+  --md-screen-panel: #0D0E12;
+  --md-key-top: #F4F5F6;
+  --md-key-bottom: #E3E4E7;
+  --md-key-edge: #B4B6BB;
+  --md-key-base: #A9ABB0;
+  --md-knurl-light: #CDCED2;
+  --md-knurl-dark: #A5A7AC;
+  --md-knurl-edge: #8E9096;
+  --md-led-off: #C3C5CA;
+  --md-cyan: #5FE3F0;
+  --md-violet: #A68BFF;
+  --md-violet-soft: #C9B8FF;
+  --md-violet-deep: #2B1F5C;
+  --md-magenta: #FF5CA8;
+  --md-gold: #FFD166;
+  --md-gold-light: #FFE29A;
+  --md-gold-edge: #C9992F;
+  --md-gold-base: #B88A2A;
+  --md-on-colour: #050507;
+  --md-focus: #8C6CF5;
+  --md-font-ui: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --md-font-screen: 'Space Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: #C9CACE; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 32px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--md-focus); outline-offset: 3px; }
+.md-screen button:focus-visible { outline-color: var(--md-gold); }
+
+.md-body { position: relative; width: 1040px; height: 740px; flex: none; border-radius: 28px; background-color: var(--md-body); background-image: repeating-linear-gradient(0deg, rgba(255,255,255,0.09) 0px, rgba(255,255,255,0.09) 1px, rgba(0,0,0,0.025) 1px, rgba(0,0,0,0.025) 3px); border: 1px solid var(--md-body-edge); box-shadow: inset 0 1px 0 rgba(255,255,255,0.75); padding: 26px; font-family: var(--md-font-ui); color: var(--md-ink); display: flex; flex-direction: column; gap: 22px; overflow: hidden; }
+.md-top { display: grid; grid-template-columns: 196px minmax(0, 1fr) 200px; gap: 22px; height: 498px; }
+
+.md-left { display: flex; flex-direction: column; gap: 14px; }
+.md-wordmark { display: flex; flex-direction: column; gap: 2px; }
+.md-wordmark__name { font-weight: 700; font-size: 27px; letter-spacing: -0.5px; line-height: 1.05; }
+.md-wordmark__sub, .md-small { font-family: var(--md-font-screen); font-size: 11px; color: var(--md-ink-quiet); }
+.md-grille { flex: 1; border-radius: 16px; border: 1px solid var(--md-grille-edge); background-color: var(--md-grille); background-image: radial-gradient(circle, var(--md-grille-dot) 1.7px, transparent 2.3px); background-size: 12px 12px; background-position: 6px 6px; }
+.md-grille.is-playing { animation: md-pulse 484ms ease-in-out infinite; }
+.md-volume { display: flex; align-items: center; gap: 12px; }
+.md-volume__name { font-weight: 700; font-size: 14px; }
+.md-knob-small { position: relative; width: 46px; height: 46px; border-radius: 50%; background: repeating-conic-gradient(var(--md-knurl-light) 0deg 6deg, var(--md-knurl-dark) 6deg 12deg); border: 1px solid var(--md-knurl-edge); box-shadow: 0 3px 5px rgba(0,0,0,0.18); }
+.md-knob-small__cap { position: absolute; left: 7px; top: 7px; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 38% 32%, #FAFAFB 0%, #D9DADD 70%); transform: rotate(40deg); }
+.md-knob-small__dot { position: absolute; left: 13px; top: 3px; width: 4px; height: 4px; border-radius: 50%; background: var(--md-ink); }
+
+.md-screen { position: relative; border-radius: 20px; border: 7px solid var(--md-bezel); background: var(--md-screen); padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; color: var(--md-screen-ink); font-family: var(--md-font-screen); min-width: 0; }
+.md-topline { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+.md-spell-number { padding: 0; border: none; background: transparent; color: var(--md-gold); font-family: var(--md-font-screen); font-size: 13px; display: flex; align-items: center; gap: 4px; }
+.md-topline__meta { color: var(--md-screen-quiet); }
+.md-bubbles { display: flex; justify-content: space-between; padding: 0 6px; }
+.md-bubble-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.md-bubble { width: 92px; height: 92px; border-radius: 50%; border: 2px solid var(--md-violet); background: transparent; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; transition: box-shadow 120ms ease-out, background-color 120ms ease-out; }
+.md-bubble.is-pinned { background: var(--md-violet); }
+.md-bubble.is-playing { box-shadow: 0 0 0 4px var(--md-screen), 0 0 0 6px var(--md-gold); }
+.md-bubble__name { display: inline-block; font-family: var(--md-font-ui); font-weight: 700; font-size: 19px; color: var(--md-screen-ink); }
+.md-bubble__name.is-long { font-size: 16px; }
+.md-bubble.is-pinned .md-bubble__name { color: var(--md-on-colour); }
+.md-bubble__feel { font-family: var(--md-font-screen); font-size: 10px; color: var(--md-violet-soft); }
+.md-bubble.is-pinned .md-bubble__feel { color: var(--md-violet-deep); }
+.md-selected-dot { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+.md-selected-dot.is-on { background: var(--md-screen-ink); }
+
+.md-lanes { display: flex; flex-direction: column; gap: 4px; }
+.md-lane { display: flex; align-items: center; gap: 10px; width: 100%; padding: 3px 6px; border: none; border-radius: 8px; background: transparent; font-family: var(--md-font-screen); text-align: left; }
+.md-lane.is-selected { background: var(--md-screen-selected); }
+.md-lane__label { width: 56px; flex: none; font-size: 11px; }
+.md-lane__label.is-muted { opacity: 0.45; }
+.md-roll { position: relative; flex: 1; height: 56px; overflow: hidden; }
+.md-roll.is-muted { opacity: 0.3; }
+.md-roll__axis { position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--md-screen-axis); }
+.md-roll__bar { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--md-screen-bar); }
+.md-note { position: absolute; border-radius: 3px; }
+.md-note.is-new { animation: md-speck 420ms cubic-bezier(.2,.8,.2,1) both; }
+.md-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--md-gold); display: none; }
+.is-playing .md-playhead { display: block; }
+
+.md-status { display: flex; align-items: center; gap: 16px; margin-top: auto; }
+.md-aura { position: relative; flex: none; width: 70px; height: 70px; padding: 0; border: 1px solid var(--md-screen-line); border-radius: 8px; background: transparent; cursor: crosshair; touch-action: none; }
+.md-aura__h, .md-aura__v { position: absolute; background: var(--md-screen-line); }
+.md-aura__v { left: 50%; top: 0; bottom: 0; width: 1px; }
+.md-aura__h { top: 50%; left: 0; right: 0; height: 1px; }
+.md-aura__sparkle { position: absolute; width: 20px; height: 20px; margin-left: -10px; margin-top: -10px; }
+.md-fields { display: flex; flex-direction: column; gap: 3px; font-size: 13px; align-items: flex-start; white-space: nowrap; flex: none; }
+.md-field { padding: 0; border: none; background: transparent; color: var(--md-screen-ink); font-family: var(--md-font-screen); font-size: 13px; text-align: left; }
+.md-field__key { color: var(--md-screen-quiet); }
+.md-field__more { color: var(--md-gold); }
+.md-readout { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--md-screen-quiet); text-align: right; margin-left: auto; min-width: 0; }
+.md-readout__bar.is-live { color: var(--md-gold); }
+
+.md-spells { position: absolute; left: 14px; top: 40px; width: 340px; background: var(--md-screen-panel); border: 1px solid var(--md-screen-line); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 2px; z-index: 2; }
+.md-spells__title { font-size: 11px; color: var(--md-screen-quiet); padding: 4px 8px; }
+.md-spell { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 7px 8px; border: none; border-radius: 8px; background: transparent; color: var(--md-screen-ink); font-family: var(--md-font-screen); font-size: 12px; text-align: left; }
+.md-spell.is-current { background: #1A1B22; }
+.md-spell__seed, .md-spell__kept { color: var(--md-gold); }
+.md-spell__names { flex: 1; color: var(--md-violet-soft); }
+.md-toast { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); background: var(--md-gold); color: var(--md-on-colour); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; white-space: nowrap; z-index: 3; }
+
+.md-encoders { display: flex; flex-direction: column; justify-content: space-between; padding: 6px 0; }
+.md-enc-row { display: flex; align-items: center; gap: 14px; }
+.md-encoder { position: relative; flex: none; width: 78px; height: 78px; padding: 0; border-radius: 50%; background: repeating-conic-gradient(var(--md-knurl-light) 0deg 5deg, var(--md-knurl-dark) 5deg 10deg); border: 1px solid var(--md-knurl-edge); box-shadow: 0 5px 8px rgba(0,0,0,0.2); touch-action: none; cursor: ns-resize; }
+.md-encoder__cap { position: absolute; left: 10px; top: 10px; width: 56px; height: 56px; border-radius: 50%; box-shadow: inset 0 -3px 4px rgba(0,0,0,0.18); }
+.md-encoder--chords .md-encoder__cap { background: radial-gradient(circle at 38% 32%, #C9B8FF 0%, #A68BFF 68%); }
+.md-encoder--bass .md-encoder__cap { background: radial-gradient(circle at 38% 32%, #FF9CCB 0%, #FF5CA8 68%); }
+.md-encoder--melody .md-encoder__cap { background: radial-gradient(circle at 38% 32%, #B2F4FA 0%, #4FD3E0 68%); }
+.md-encoder--aura .md-encoder__cap { background: radial-gradient(circle at 38% 32%, #FFE8AD 0%, #F5C14F 68%); }
+.md-encoder__pointer { position: absolute; left: 50%; top: 5px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: #F7F7F9; transform-origin: 50% 23px; transition: transform 120ms ease-out; }
+.md-enc-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.md-enc-name { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 17px; }
+.md-enc-value { font-family: var(--md-font-screen); font-size: 11px; color: var(--md-ink-value); }
+.md-enc-hint { font-family: var(--md-font-screen); font-size: 10px; color: var(--md-ink-faint); }
+
+.md-led { width: 7px; height: 7px; border-radius: 50%; background: var(--md-led-off); transition: background-color 120ms, box-shadow 120ms; }
+.md-led.is-on { background: var(--led); box-shadow: 0 0 6px var(--led); }
+
+.md-bottom { display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.md-statusline { display: flex; align-items: center; gap: 18px; font-family: var(--md-font-screen); font-size: 11px; color: var(--md-ink-status); }
+.md-statusline__rule { flex: 1; height: 1px; background: #C3C5CA; }
+.md-spectrum { display: flex; gap: 3px; }
+.md-spectrum span { width: 22px; height: 4px; border-radius: 2px; }
+.md-keys { display: flex; align-items: flex-start; gap: 24px; }
+.md-key-group { display: flex; gap: 12px; }
+.md-key { position: relative; width: 82px; height: 82px; border-radius: 12px; border: 1px solid var(--md-key-edge); background: linear-gradient(var(--md-key-top), var(--md-key-bottom)); box-shadow: 0 4px 0 var(--md-key-base), 0 6px 10px rgba(0,0,0,0.12); color: var(--md-ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 0; transition: transform 80ms ease-out, box-shadow 80ms ease-out; }
+.md-key:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--md-key-base), 0 2px 4px rgba(0,0,0,0.12); }
+.md-key .md-led { position: absolute; right: 9px; top: 9px; }
+.md-key__label { font-family: var(--md-font-screen); font-size: 10px; }
+.md-key--gold { width: 176px; flex-direction: row; gap: 10px; border-color: var(--md-gold-edge); background: linear-gradient(var(--md-gold-light), var(--md-gold)); box-shadow: 0 4px 0 var(--md-gold-base), 0 6px 12px rgba(0,0,0,0.14); color: #12101F; }
+.md-key--gold:active { box-shadow: 0 1px 0 var(--md-gold-base), 0 2px 4px rgba(0,0,0,0.12); }
+.md-key--gold .md-key__stack { display: flex; flex-direction: column; align-items: flex-start; }
+.md-key--gold .md-key__title { font-weight: 700; font-size: 22px; line-height: 1; }
+.md-key--gold .md-key__label { margin-top: 4px; }
+.md-key--drag { cursor: grab; }
+
+@keyframes md-speck { 0% { opacity: 0; transform: scale(0.1); } 60% { opacity: 1; transform: scale(1.3); } 100% { opacity: 1; transform: none; } }
+@keyframes md-pop { 0% { opacity: 0; transform: scale(0.5); } 70% { opacity: 1; transform: scale(1.12); } 100% { opacity: 1; transform: none; } }
+@keyframes md-pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.08); } }
+.md-bubble__name.is-new { animation: md-pop 380ms ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .md-note.is-new, .md-bubble__name.is-new, .md-grille.is-playing { animation: none; }
+  .md-key, .md-encoder__pointer, .md-bubble, .md-led { transition: none; }
+}
+
+.md-anno-box { position: absolute; border: 2px dashed #E0218A; border-radius: 10px; pointer-events: none; z-index: 20; }
+.md-anno-badge { position: absolute; width: 24px; height: 24px; border-radius: 50%; background: #E0218A; color: #FFFFFF; font: 700 12px/24px var(--md-font-ui); text-align: center; pointer-events: none; z-index: 21; box-shadow: 0 0 0 2px #FFFFFF; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function () {
+  'use strict';
+
+  var NAMES = [
+    [['Am7', 'Am', 'Am7'], ['Dm7', 'D7', 'C'], ['Dm7', 'Fmaj7', 'F'], ['E7', 'Em7', 'G']],
+    [['Am7', 'Am9', 'Am11'], ['Dm9', 'D9', 'Cmaj9'], ['Dm11', 'Fmaj7', 'Fmaj9'], ['E7sus4', 'Em9', 'G6']],
+    [['Am11', 'Am9', 'Am6/9'], ['Dm11', 'D13', 'Cmaj9'], ['Dm9', 'Fmaj9', 'Fmaj13'], ['E7b9', 'Em11', 'G13']]
+  ];
+  var FEEL = [['home', 'home', 'home'], ['lift', 'lift', 'bright'], ['soft', 'warm', 'warm'], ['tension', 'pull back', 'push']];
+  var PATTERNS = [
+    ['organ stabs', 'piano chops', 'long pads', 'offbeat stabs'],
+    ['rolling offbeat', 'offbeat', 'octave bounce', 'garage skip', 'sustained'],
+    ['vocal chop', 'hook', 'riff', 'sparse']
+  ];
+  var LANES = [{ id: 'chords', colour: '#A68BFF' }, { id: 'bass', colour: '#FF5CA8' }, { id: 'melody', colour: '#5FE3F0' }];
+  var GROOVES = ['straight', 'swing 54%', 'uk shuffle 58%', 'heavy 62%'];
+  var FLAVOURS = ['simple', 'soulful', 'jazzy'];
+  var MAX_SPELLS = 8;
+  var STEP_MS = 121;
+  var SPARKLE = 'M12 2c.6 5.2 4.8 9.4 10 10-5.2.6-9.4 4.8-10 10-.6-5.2-4.8-9.4-10-10 5.2-.6 9.4-4.8 10-10z';
+  var PIN = ['M12 17v5', 'M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.8a2 2 0 0 0-1.1-1.8l-1.8-.9A2 2 0 0 1 15 10.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z'];
+
+  function rng(a) {
+    return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  }
+  function clamp(v) { return Math.max(0, Math.min(1, v)); }
+  function round2(x) { return Math.round(x * 100) / 100; }
+  function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+  var s = {
+    seed: 48213, idx: [1, 1, 1, 1], cf: [1, 1, 1, 1], cp: [true, false, false, false], cgs: [0, 0, 0, 0],
+    ls: [48213, 91822, 37719], lp: [false, true, false], lm: [false, false, false], pat: [0, 0, 0], le: [0.72, 0.72, 0.72], gen: [0, 0, 0],
+    mood: 0.3, energy: 0.72, auraMode: 0, groove: 2, flav: 1, sel: { t: 'c', i: 0 },
+    playing: false, step: 0, favs: [], spellsOpen: false, toast: '', hist: []
+  };
+  s.hist = [snap(s)];
+  var shown = { gen: [-1, -1, -1], cgs: [-1, -1, -1, -1] };
+  var drag = null, timer = null, toastTimer = null;
+  var params = new URLSearchParams(location.search);
+
+  function snap(st) { return { seed: st.seed, idx: st.idx.slice(), cf: st.cf.slice(), ls: st.ls.slice(), pat: st.pat.slice(), le: st.le.slice() }; }
+  function chordName(st, i) { return NAMES[st.cf[i]][i][st.idx[i]]; }
+  function pickIdx(seed, i, mood) { var r = rng(seed * 7 + i * 131); var b = mood < 0.34 ? 0 : (mood < 0.67 ? 1 : 2); return r() < 0.6 ? b : Math.floor(r() * 3); }
+
+  function regen(newSeed) {
+    var fresh = typeof newSeed === 'number', seed = fresh ? newSeed : s.seed;
+    s.idx = s.idx.map(function (v, i) { return s.cp[i] ? v : pickIdx(seed, i, s.mood); });
+    s.cf = s.cf.map(function (v, i) { return s.cp[i] ? v : s.flav; });
+    s.cgs = s.cgs.map(function (v, i) { return s.cp[i] ? v : v + 1; });
+    s.ls = s.ls.map(function (v, i) { return s.lp[i] || !fresh ? v : Math.floor(Math.random() * 1e9); });
+    s.le = s.le.map(function (v, i) { return s.lp[i] ? v : s.energy; });
+    s.gen = s.gen.map(function (v, i) { return s.lp[i] ? v : v + 1; });
+    s.seed = seed;
+  }
+
+  function note(l, t, w, h) { return { l: round2(l), t: round2(t), w: round2(w), h: h, d: Math.min(320, Math.round(l * 3.2)) }; }
+
+  function laneNotes(i) {
+    var r = rng(s.ls[i] + s.pat[i] * 977), P = 100 / 128, out = [], e = s.le[i], keep = 0.55 + 0.45 * e, p = s.pat[i], b, ci, y, k;
+    if (i === 0) {
+      var base = [38, 20, 28, 44];
+      var steps = [[2, 6, 10, 14], [0, 3, 6, 10, 13], [0], [2, 6, 10, 14]][p], len = [1.4, 1.2, 15, 0.9][p], stack = p === 3 ? 2 : 3;
+      for (b = 0; b < 8; b++) { ci = Math.floor(b / 2); y = base[ci] - (s.idx[ci] - 1) * 5; steps.forEach(function (st) { if (p === 2 || r() < keep) { for (k = 0; k < stack; k++) out.push(note((b * 16 + st) * P, y + k * 15, len * P, 11)); } }); }
+    } else if (i === 1) {
+      var bb = [62, 38, 50, 72];
+      for (b = 0; b < 8; b++) {
+        ci = Math.floor(b / 2); y = bb[ci] - (s.idx[ci] - 1) * 6;
+        if (p === 0) { [2, 6, 10, 14].forEach(function (st) { out.push(note((b * 16 + st) * P, y, 1.5 * P, 18)); }); if (r() < e) out.push(note((b * 16 + 15) * P, y - 18, 0.8 * P, 18)); if (r() < e * 0.5) out.push(note((b * 16 + 7) * P, y - 9, 0.8 * P, 18)); }
+        else if (p === 1) { [2, 6, 10, 14].forEach(function (st) { out.push(note((b * 16 + st) * P, y, 1.5 * P, 18)); }); }
+        else if (p === 2) { [0, 2, 4, 6, 8, 10, 12, 14].forEach(function (st, j) { if (r() < keep) out.push(note((b * 16 + st) * P, j % 2 ? y - 24 : y, P, 18)); }); }
+        else if (p === 3) { [0, 3, 8, 11, 14].forEach(function (st) { if (r() < keep) out.push(note((b * 16 + st) * P, y, 1.2 * P, 18)); }); }
+        else if (b % 2 === 0) { out.push(note(b * 16 * P, y, 31 * P, 18)); }
+      }
+    } else {
+      var count = Math.round(4 + 6 * e), motif = [], used = {}, tries = 0, at;
+      if (p === 0) {
+        var hs = [12 + Math.floor(r() * 20), 30 + Math.floor(r() * 20), 50 + Math.floor(r() * 16)];
+        while (motif.length < count + 3 && tries < 200) { tries++; at = Math.floor(r() * 31); if (!used[at]) { used[at] = 1; motif.push({ st: at, y: hs[Math.floor(r() * 3)], len: 0.8 }); } }
+      } else if (p === 1) {
+        while (motif.length < count && tries < 200) { tries++; at = Math.floor(r() * 30); if (!used[at]) { used[at] = 1; motif.push({ st: at, y: 8 + Math.floor(r() * 64), len: [1, 2, 2, 3][Math.floor(r() * 4)] }); } }
+      } else if (p === 2) {
+        var runs = Math.max(2, Math.round(count / 3));
+        for (k = 0; k < runs; k++) { at = Math.floor(r() * 26); var y0 = 20 + Math.floor(r() * 40), dir = r() < 0.5 ? -1 : 1; for (var j = 0; j < 4; j++) motif.push({ st: at + j, y: Math.max(4, Math.min(76, y0 + dir * j * 7)), len: 0.9 }); }
+      } else {
+        for (k = 0; k < 3; k++) motif.push({ st: k * 10 + Math.floor(r() * 3), y: 14 + Math.floor(r() * 54), len: 6 + Math.floor(r() * 4) });
+      }
+      [0, 32, 64, 96].forEach(function (off, ph) { motif.forEach(function (m, n) { var yy = m.y; if (ph === 2 && n > motif.length / 2) yy = Math.max(4, Math.min(76, yy + (n % 2 ? -10 : 10))); out.push(note((off + m.st) * P, yy, m.len * P, 14)); }); });
+    }
+    return out;
+  }
+
+  function auraName() { return s.energy >= 0.5 ? (s.mood < 0.5 ? 'midnight rave' : 'starburst') : (s.mood < 0.5 ? 'moonlight' : 'daydream'); }
+  function led(on, colour) { return '<span class="md-led' + (on ? ' is-on' : '') + '" style="--led:' + colour + '"></span>'; }
+  function icon(paths, opts) {
+    opts = opts || {};
+    var size = opts.size || 22, fill = opts.fill || 'none', stroke = opts.stroke === undefined ? 'currentColor' : opts.stroke;
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="' + fill + '" stroke="' + stroke + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths.map(function (d) { return '<path d="' + d + '"></path>'; }).join('') + '</svg>';
+  }
+  function say(text) { s.toast = text; clearTimeout(toastTimer); toastTimer = setTimeout(function () { s.toast = ''; render(); }, 1700); }
+
+  function render() {
+    var active = s.playing ? Math.floor(s.step / 32) : -1;
+    var html = '';
+    html += '<main class="md-body" aria-label="Magic Dust">';
+    html += '<div class="md-top">';
+
+    html += '<div class="md-left">';
+    html += '<div class="md-wordmark" data-anno="1"><span class="md-wordmark__name">magic dust</span><span class="md-wordmark__sub">md-mini, idea instrument</span></div>';
+    html += '<div class="md-grille' + (s.playing ? ' is-playing' : '') + '" data-anno="2" aria-hidden="true"></div>';
+    html += '<div class="md-volume" data-anno="3"><div class="md-knob-small" aria-hidden="true"><div class="md-knob-small__cap"><div class="md-knob-small__dot"></div></div></div><div><div class="md-volume__name">volume</div><div class="md-small">preview only</div></div></div>';
+    html += '</div>';
+
+    html += '<section class="md-screen' + (s.playing ? ' is-playing' : '') + '" aria-label="Screen">';
+    html += '<div class="md-topline" data-anno="4"><button class="md-spell-number" data-act="spells" aria-expanded="' + s.spellsOpen + '" aria-label="Open recent spells">spell ' + s.seed + icon(['M6 9l6 6 6-6'], { size: 12 }) + '</button><span class="md-topline__meta">a min  124 bpm  uk funky</span></div>';
+
+    html += '<div class="md-bubbles" data-anno="5">';
+    s.idx.forEach(function (ix, i) {
+      var name = chordName(s, i), pinned = s.cp[i], selected = s.sel.t === 'c' && s.sel.i === i, isNew = s.cgs[i] !== shown.cgs[i];
+      html += '<div class="md-bubble-wrap"><button class="md-bubble' + (pinned ? ' is-pinned' : '') + (active === i ? ' is-playing' : '') + '" data-act="chord" data-i="' + i + '" data-bubble="' + i + '" aria-pressed="' + selected + '" aria-label="Chord ' + (i + 1) + ', ' + esc(name) + ', ' + FEEL[i][ix] + (pinned ? ', pinned' : '') + '">';
+      html += '<span class="md-bubble__name' + (name.length > 5 ? ' is-long' : '') + (isNew ? ' is-new' : '') + '">' + esc(name) + '</span><span class="md-bubble__feel">' + FEEL[i][ix] + '</span></button>';
+      html += '<span class="md-selected-dot' + (selected ? ' is-on' : '') + '"></span></div>';
+    });
+    html += '</div>';
+
+    html += '<div class="md-lanes" data-anno="6">';
+    LANES.forEach(function (lane, i) {
+      var selected = s.sel.t === 'l' && s.sel.i === i, isNew = s.gen[i] !== shown.gen[i];
+      html += '<button class="md-lane' + (selected ? ' is-selected' : '') + '" data-act="lane" data-i="' + i + '" aria-pressed="' + selected + '" aria-label="' + lane.id + ' lane, ' + PATTERNS[i][s.pat[i]] + (s.lp[i] ? ', pinned' : '') + (s.lm[i] ? ', muted' : '') + '">';
+      html += '<span class="md-lane__label' + (s.lm[i] ? ' is-muted' : '') + '" style="color:' + (selected ? 'var(--md-screen-ink)' : lane.colour) + '">' + lane.id + '</span>';
+      html += '<span class="md-roll' + (s.lm[i] ? ' is-muted' : '') + '"><span class="md-roll__axis"></span><span class="md-roll__bar" style="left:25%"></span><span class="md-roll__bar" style="left:50%"></span><span class="md-roll__bar" style="left:75%"></span>';
+      laneNotes(i).forEach(function (n) {
+        html += '<span class="md-note' + (isNew ? ' is-new' : '') + '" style="left:' + n.l + '%;top:' + n.t + '%;width:' + n.w + '%;height:' + n.h + '%;background:' + lane.colour + ';animation-delay:' + n.d + 'ms"></span>';
+      });
+      html += '<span class="md-playhead" style="left:' + round2(s.step * 100 / 128) + '%"></span></span></button>';
+    });
+    html += '</div>';
+
+    var pins = [];
+    s.cp.forEach(function (v, i) { if (v) pins.push('chord ' + (i + 1)); });
+    s.lp.forEach(function (v, i) { if (v) pins.push(LANES[i].id); });
+    var pinText = pins.length === 0 ? 'nothing pinned' : 'pinned: ' + pins.join(', ');
+    html += '<div class="md-status">';
+    html += '<button class="md-aura" data-pad="1" data-anno="7" aria-label="Aura pad: drag the sparkle to set mood and energy. Mood ' + Math.round(s.mood * 100) + ', energy ' + Math.round(s.energy * 100) + '"><span class="md-aura__v"></span><span class="md-aura__h"></span><svg class="md-aura__sparkle" viewBox="0 0 24 24" aria-hidden="true" style="left:' + Math.round(8 + s.mood * 84) + '%;top:' + Math.round(8 + (1 - s.energy) * 84) + '%"><path d="' + SPARKLE + '" fill="var(--md-gold)"></path></svg></button>';
+    html += '<div class="md-fields" data-anno="8"><span><span class="md-field__key">aura</span>  ' + auraName() + '</span>';
+    html += '<button class="md-field" data-act="groove" aria-label="Change groove, now ' + GROOVES[s.groove] + '"><span class="md-field__key">groove</span>  ' + GROOVES[s.groove] + '  <span class="md-field__more">&#8250;</span></button>';
+    html += '<button class="md-field" data-act="flavour" aria-label="Change flavour, now ' + FLAVOURS[s.flav] + '"><span class="md-field__key">flavour</span>  ' + FLAVOURS[s.flav] + '  <span class="md-field__more">&#8250;</span></button></div>';
+    html += '<div class="md-readout" data-anno="9"><span class="md-readout__bar' + (s.playing ? ' is-live' : '') + '" data-bar>' + (s.playing ? 'bar ' + (Math.floor(s.step / 16) + 1) + ' of 8' : 'stopped') + '</span><span>selected: ' + (s.sel.t === 'c' ? 'chord ' + (s.sel.i + 1) : LANES[s.sel.i].id) + '</span><span>' + pinText + '</span></div>';
+    html += '</div>';
+
+    if (s.spellsOpen) {
+      html += '<div class="md-spells" role="dialog" aria-label="Recent spells"><span class="md-spells__title">recent spells</span>';
+      s.hist.forEach(function (h, n) {
+        html += '<button class="md-spell' + (h.seed === s.seed ? ' is-current' : '') + '" data-act="spell" data-i="' + n + '"><span class="md-spell__seed">' + h.seed + '</span><span class="md-spell__names">' + [0, 1, 2, 3].map(function (i) { return esc(chordName(h, i)); }).join(' ') + '</span><span class="md-spell__kept">' + (s.favs.indexOf(h.seed) >= 0 ? 'kept' : '') + '</span></button>';
+      });
+      html += '</div>';
+    }
+    if (s.toast) { html += '<div class="md-toast" role="status">' + esc(s.toast) + '</div>'; }
+    html += '</section>';
+
+    html += '<div class="md-encoders">';
+    LANES.forEach(function (lane, i) {
+      var n = PATTERNS[i].length, pinned = s.lp[i];
+      html += '<div class="md-enc-row" data-anno="10"><button class="md-encoder md-encoder--' + lane.id + '" data-enc="' + i + '" aria-label="' + lane.id + ' encoder, ' + PATTERNS[i][s.pat[i]] + (pinned ? ', pinned' : '') + '"><span class="md-encoder__cap"><span class="md-encoder__pointer" style="transform:rotate(' + Math.round(-135 + s.pat[i] / (n - 1) * 270) + 'deg)"></span></span></button>';
+      html += '<div class="md-enc-text"><span class="md-enc-name">' + lane.id + led(pinned, lane.colour) + '</span><span class="md-enc-value">' + PATTERNS[i][s.pat[i]] + '</span><span class="md-enc-hint">' + (pinned ? 'push to unpin' : 'push to pin') + '</span></div></div>';
+    });
+    var auraVal = s.auraMode === 0 ? s.mood : s.energy;
+    html += '<div class="md-enc-row" data-anno="11"><button class="md-encoder md-encoder--aura" data-enc="3" aria-label="aura encoder, ' + (s.auraMode === 0 ? 'mood ' : 'energy ') + Math.round(auraVal * 100) + '"><span class="md-encoder__cap"><span class="md-encoder__pointer" style="transform:rotate(' + Math.round(-135 + auraVal * 270) + 'deg)"></span></span></button>';
+    html += '<div class="md-enc-text"><span class="md-enc-name">aura' + led(true, '#FFD166') + '</span><span class="md-enc-value">' + (s.auraMode === 0 ? 'mood ' : 'energy ') + Math.round(auraVal * 100) + '</span><span class="md-enc-hint">' + (s.auraMode === 0 ? 'push for energy' : 'push for mood') + '</span></div></div>';
+    html += '</div>';
+    html += '</div>';
+
+    var selPinned = s.sel.t === 'c' ? s.cp[s.sel.i] : s.lp[s.sel.i];
+    var selMuted = s.sel.t === 'l' && s.lm[s.sel.i];
+    var kept = s.favs.indexOf(s.seed) >= 0;
+    html += '<div class="md-bottom">';
+    html += '<div class="md-statusline" data-anno="12"><span style="display:flex;align-items:center;gap:6px">' + led(true, '#FFD166') + 'sync</span><span style="display:flex;align-items:center;gap:6px">' + led(true, '#5FE3F0') + 'midi</span><span class="md-statusline__rule"></span><span class="md-spectrum" aria-hidden="true"><span style="background:#5FE3F0"></span><span style="background:#A68BFF"></span><span style="background:#FF5CA8"></span><span style="background:#FFD166"></span></span></div>';
+    html += '<div class="md-keys">';
+    html += '<div class="md-key-group" data-anno="13"><button class="md-key" data-act="play" aria-label="Play">' + led(s.playing, '#FFD166') + icon(['M7 4.5l13 7.5-13 7.5z'], { fill: 'currentColor', stroke: 'none' }) + '<span class="md-key__label">play</span></button>';
+    html += '<button class="md-key" data-act="stop" aria-label="Stop">' + icon(['M5 7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z'], { size: 20, fill: 'currentColor', stroke: 'none' }) + '<span class="md-key__label">stop</span></button></div>';
+    html += '<button class="md-key md-key--gold" data-act="sprinkle" data-anno="14" aria-label="Sprinkle a new idea"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="' + SPARKLE + '" fill="#12101F"></path></svg><span class="md-key__stack"><span class="md-key__title">sprinkle</span><span class="md-key__label">new idea</span></span></button>';
+    html += '<div class="md-key-group" data-anno="15">';
+    html += '<button class="md-key" data-act="pin" aria-label="Pin the selected chord or lane">' + led(selPinned, '#A68BFF') + icon(PIN) + '<span class="md-key__label">pin</span></button>';
+    html += '<button class="md-key" data-act="reroll" aria-label="Reroll the selected chord or lane">' + icon(['M20 11a8 8 0 1 0-2.3 5.7', 'M20 4v7h-7']) + '<span class="md-key__label">reroll</span></button>';
+    html += '<button class="md-key" data-act="mute" aria-label="Mute the selected lane">' + led(selMuted, '#FF5CA8') + icon(['M4 9h4l5-4v14l-5-4H4z', 'M17 9a4 4 0 0 1 0 6']) + '<span class="md-key__label">mute</span></button>';
+    html += '<button class="md-key" data-act="swap" aria-label="Swap the selected chord">' + icon(['M8 3L4 7l4 4M4 7h16', 'M16 21l4-4-4-4M20 17H4']) + '<span class="md-key__label">swap</span></button>';
+    html += '</div>';
+    html += '<div class="md-key-group" data-anno="16"><button class="md-key" data-act="keep" aria-label="Keep this idea" aria-pressed="' + kept + '">' + led(kept, '#FFD166') + icon(['M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z']) + '<span class="md-key__label">keep</span></button>';
+    html += '<button class="md-key md-key--drag" data-act="bottle" aria-label="Bottle it: drag the whole idea into Ableton">' + icon(['M10 2v7.5a2 2 0 0 1-.2.9L4.7 20.6a1 1 0 0 0 .9 1.4h12.8a1 1 0 0 0 .9-1.4l-5.1-10.2a2 2 0 0 1-.2-.9V2', 'M8.5 2h7', 'M7 16h10']) + '<span class="md-key__label">bottle it</span></button></div>';
+    html += '</div></div>';
+    html += '</main>';
+
+    document.getElementById('app').innerHTML = html;
+    shown.gen = s.gen.slice();
+    shown.cgs = s.cgs.slice();
+    if (params.get('annotate')) annotate();
+  }
+
+  function tick() {
+    var active = Math.floor(s.step / 32);
+    document.querySelectorAll('.md-playhead').forEach(function (el) { el.style.left = round2(s.step * 100 / 128) + '%'; });
+    document.querySelectorAll('[data-bubble]').forEach(function (el) { el.classList.toggle('is-playing', Number(el.getAttribute('data-bubble')) === active); });
+    var bar = document.querySelector('[data-bar]');
+    if (bar) bar.textContent = 'bar ' + (Math.floor(s.step / 16) + 1) + ' of 8';
+  }
+
+  var BADGE = { 1: 'pad', 2: 'pad', 3: 'pad', 4: 'left', 5: 'left', 6: 'left', 7: 'left', 8: 'top-right', 9: 'top-left', 10: 'left', 11: 'left', 12: 'pad', 13: 'pad', 14: 'left', 15: 'left', 16: 'left' };
+  function annotate() {
+    var body = document.querySelector('.md-body');
+    var origin = body.getBoundingClientRect();
+    document.querySelectorAll('[data-anno]').forEach(function (el) {
+      var r = el.getBoundingClientRect(), n = el.getAttribute('data-anno');
+      var x = r.left - origin.left, y = r.top - origin.top, w = r.width, h = r.height;
+      var box = document.createElement('div');
+      box.className = 'md-anno-box';
+      box.style.left = (x - 4) + 'px'; box.style.top = (y - 4) + 'px';
+      box.style.width = (w + 8) + 'px'; box.style.height = (h + 8) + 'px';
+      body.appendChild(box);
+      var place = BADGE[n], bx, by;
+      if (place === 'right') { bx = x + w + 6; by = y + h / 2 - 12; }
+      else if (place === 'left') { bx = x - 26; by = y + h / 2 - 12; }
+      else if (place === 'top-right') { bx = x + w + 6; by = y - 12; }
+      else if (place === 'top-left') { bx = x - 30; by = y - 12; }
+      else { bx = 1; by = y + h / 2 - 12; }
+      var badge = document.createElement('div');
+      badge.className = 'md-anno-badge'; badge.textContent = n;
+      badge.style.left = bx + 'px'; badge.style.top = by + 'px';
+      body.appendChild(badge);
+    });
+  }
+
+  function selectedIsPinned() { return s.sel.t === 'c' ? s.cp[s.sel.i] : s.lp[s.sel.i]; }
+  function rippleChords() { s.gen = s.gen.map(function (v, k) { return k < 2 && !s.lp[k] ? v + 1 : v; }); }
+  function setPattern(i, v) {
+    if (s.lp[i]) { say('unpin the ' + LANES[i].id + ' lane to turn it'); return; }
+    if (s.pat[i] === v) return;
+    s.pat[i] = v; s.gen[i] += 1; s.sel = { t: 'l', i: i };
+  }
+  function setAura(key, v) { s[key] = clamp(v); }
+  function play() { if (s.playing) return; s.playing = true; s.step = 0; render(); clearInterval(timer); timer = setInterval(function () { s.step = (s.step + 1) % 128; tick(); }, STEP_MS); }
+  function stop() { clearInterval(timer); s.playing = false; s.step = 0; }
+
+  var actions = {
+    spells: function () { s.spellsOpen = !s.spellsOpen; },
+    chord: function (i) { s.sel = { t: 'c', i: i }; s.spellsOpen = false; },
+    lane: function (i) { s.sel = { t: 'l', i: i }; s.spellsOpen = false; },
+    spell: function (n) {
+      var h = s.hist[n];
+      s.seed = h.seed; s.idx = h.idx.slice(); s.cf = h.cf.slice(); s.ls = h.ls.slice(); s.pat = h.pat.slice(); s.le = h.le.slice();
+      s.gen = s.gen.map(function (v) { return v + 1; }); s.cgs = s.cgs.map(function (v) { return v + 1; }); s.spellsOpen = false;
+    },
+    groove: function () { s.groove = (s.groove + 1) % GROOVES.length; },
+    flavour: function () { s.flav = (s.flav + 1) % FLAVOURS.length; regen(); },
+    play: play,
+    stop: stop,
+    sprinkle: function () { regen(10000 + Math.floor(Math.random() * 89999)); s.hist = [snap(s)].concat(s.hist).slice(0, MAX_SPELLS); s.spellsOpen = false; },
+    pin: function () { var i = s.sel.i; if (s.sel.t === 'c') s.cp[i] = !s.cp[i]; else s.lp[i] = !s.lp[i]; },
+    reroll: function () {
+      var i = s.sel.i;
+      if (selectedIsPinned()) { say('unpin it first'); return; }
+      if (s.sel.t === 'c') { s.idx[i] = (s.idx[i] + 1 + Math.floor(Math.random() * 2)) % 3; s.cgs[i] += 1; rippleChords(); }
+      else { s.ls[i] = Math.floor(Math.random() * 1e9); s.gen[i] += 1; }
+    },
+    mute: function () { if (s.sel.t !== 'l') { say('select a lane to mute it'); return; } s.lm[s.sel.i] = !s.lm[s.sel.i]; },
+    swap: function () {
+      if (s.sel.t !== 'c') { say('select a chord bubble to swap it'); return; }
+      if (s.cp[s.sel.i]) { say('unpin the chord to swap it'); return; }
+      s.idx[s.sel.i] = (s.idx[s.sel.i] + 1) % 3; s.cgs[s.sel.i] += 1; rippleChords();
+    },
+    keep: function () { var k = s.favs.indexOf(s.seed); if (k >= 0) { s.favs.splice(k, 1); say('removed from favourites'); } else { s.favs.push(s.seed); say('kept in favourites'); } },
+    bottle: function () { say('drag me into ableton: chords, bass and melody'); }
+  };
+
+  var app = document.getElementById('app');
+  app.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-act]');
+    if (!el || !app.contains(el)) return;
+    var act = el.getAttribute('data-act'), i = el.hasAttribute('data-i') ? Number(el.getAttribute('data-i')) : undefined;
+    actions[act](i);
+    if (act !== 'play') render();
+  });
+
+  function padFrom(e, el) { var b = el.getBoundingClientRect(); setAura('mood', (e.clientX - b.left) / b.width); setAura('energy', 1 - (e.clientY - b.top) / b.height); }
+  app.addEventListener('pointerdown', function (e) {
+    var pad = e.target.closest('[data-pad]');
+    if (pad) { drag = { kind: 'pad', el: pad }; padFrom(e, pad); render(); drag.el = document.querySelector('[data-pad]'); e.preventDefault(); return; }
+    var enc = e.target.closest('[data-enc]');
+    if (enc) {
+      var k = Number(enc.getAttribute('data-enc'));
+      drag = { kind: 'enc', k: k, y: e.clientY, moved: false, steps: 0, base: k === 3 ? (s.auraMode === 0 ? s.mood : s.energy) : s.pat[k] };
+      e.preventDefault();
+    }
+  });
+  window.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    if (drag.kind === 'pad') { padFrom(e, drag.el); render(); drag.el = document.querySelector('[data-pad]'); return; }
+    var dy = drag.y - e.clientY;
+    if (Math.abs(dy) > 5) drag.moved = true;
+    if (!drag.moved) return;
+    if (drag.k === 3) { setAura(s.auraMode === 0 ? 'mood' : 'energy', drag.base + dy / 160); render(); return; }
+    var steps = Math.trunc(dy / 16);
+    if (steps !== drag.steps) { drag.steps = steps; var n = PATTERNS[drag.k].length; setPattern(drag.k, ((drag.base + steps) % n + n) % n); render(); }
+  });
+  window.addEventListener('pointerup', function () {
+    if (!drag) return;
+    var d = drag; drag = null;
+    if (d.kind === 'pad') { regen(); render(); return; }
+    if (!d.moved) {
+      if (d.k === 3) s.auraMode = 1 - s.auraMode;
+      else { s.lp[d.k] = !s.lp[d.k]; s.sel = { t: 'l', i: d.k }; }
+    } else if (d.k === 3) { regen(); }
+    render();
+  });
+  app.addEventListener('wheel', function (e) {
+    var enc = e.target.closest('[data-enc]');
+    if (!enc) return;
+    e.preventDefault();
+    var k = Number(enc.getAttribute('data-enc')), dir = e.deltaY > 0 ? -1 : 1;
+    if (k === 3) { var key = s.auraMode === 0 ? 'mood' : 'energy'; setAura(key, s[key] + dir * 0.05); regen(); }
+    else { var n = PATTERNS[k].length; setPattern(k, ((s.pat[k] + dir) % n + n) % n); }
+    render();
+  }, { passive: false });
+  app.addEventListener('keydown', function (e) {
+    var enc = e.target.closest('[data-enc]');
+    if (!enc) return;
+    var k = Number(enc.getAttribute('data-enc'));
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      var dir = e.key === 'ArrowUp' ? 1 : -1;
+      if (k === 3) { var key = s.auraMode === 0 ? 'mood' : 'energy'; setAura(key, s[key] + dir * 0.05); regen(); }
+      else { var n = PATTERNS[k].length; setPattern(k, ((s.pat[k] + dir) % n + n) % n); }
+      render();
+      var again = document.querySelector('[data-enc="' + k + '"]'); if (again) again.focus();
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (k === 3) s.auraMode = 1 - s.auraMode; else { s.lp[k] = !s.lp[k]; s.sel = { t: 'l', i: k }; }
+      render();
+      var back = document.querySelector('[data-enc="' + k + '"]'); if (back) back.focus();
+    }
+  });
+
+  var demo = params.get('demo');
+  if (demo === 'states') {
+    s.hist = [snap(s)];
+    [77310, 11902].forEach(function (seed) { var keepState = JSON.parse(JSON.stringify(s)); regen(seed); s.hist.push(snap(s)); s.idx = keepState.idx; s.cf = keepState.cf; s.ls = keepState.ls; s.le = keepState.le; s.seed = keepState.seed; s.cgs = keepState.cgs; s.gen = keepState.gen; });
+    s.cp = [true, false, true, false]; s.sel = { t: 'l', i: 1 }; s.lm = [false, false, true];
+    s.favs = [48213]; s.spellsOpen = true; s.playing = true; s.step = 40; s.toast = 'kept in favourites';
+    shown.gen = s.gen.slice(); shown.cgs = s.cgs.slice();
+  }
+  render();
+})();
+</script>
+</body>
+</html>
