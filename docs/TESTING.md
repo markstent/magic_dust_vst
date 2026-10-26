@@ -20,9 +20,25 @@ Later builds only rebuild what changed.
 
 - `ctest --preset dev` runs every automatic test and prints how many passed.
 - `ctest --preset dev -L plugin` runs only the tests for the plug-in itself.
+- `MD_PROPERTY_SEEDS=10000 ctest --preset release -R properties` runs the long check that generates thousands of ideas and tests each one.
 
 All tests should say "Passed".
 Anything marked "Failed" is a bug to report.
+
+## When a golden test fails
+
+The golden test keeps 50 approved MIDI files in `tests/golden`.
+It makes the same 50 ideas again and checks that they match those files note for note.
+If it fails, it means the music changed: some idea now sounds different from the one you approved.
+
+1. Run `scripts/update-golden.sh` from the project folder.
+   It lists which cases changed and puts the old and new files in `build/golden-review/before/` and `build/golden-review/after/`.
+2. Drag the same case from `before/` and `after/` into your daw and listen to both.
+   Listen for changed chords, a different bass line, a melody that moved, or notes that are now too high, too low, too busy or off the beat.
+3. If the new version is the one you want, commit `tests/golden`.
+4. If it is not, run `git checkout tests/golden` to go back to the approved files, and report it as a bug.
+
+The script never commits anything, so nothing changes for good until you commit.
 
 ## Checking the plugin
 

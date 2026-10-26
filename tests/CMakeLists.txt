@@ -11,9 +11,13 @@ add_executable(md_engine_tests
   engine/test_pcg32.cpp
   engine/test_ideacode.cpp
   engine/test_validate.cpp
-  engine/test_generate.cpp)
+  engine/test_generate.cpp
+  engine/test_properties.cpp)
 target_link_libraries(md_engine_tests PRIVATE md_bank md_midiexport Catch2::Catch2WithMain)
 target_include_directories(md_engine_tests PRIVATE ${CMAKE_SOURCE_DIR}/engine/src)
+if(MD_PERF_ASSERT)
+  target_compile_definitions(md_engine_tests PRIVATE MD_PERF_ASSERT)
+endif()
 md_target_defaults(md_engine_tests)
 catch_discover_tests(md_engine_tests PROPERTIES LABELS unit)
 
@@ -54,3 +58,10 @@ md_cli_test(help_anywhere EXPECT 0 STDOUT "usage: md-cli" ARGS --bars 5 --help)
 md_cli_test(flat_key_name EXPECT 0 STDOUT "key bb " ARGS --key bb --out ${MD_CLI_TMP}/bb.mid)
 md_cli_test(write_failure EXPECT 1 BLOCKER 1 STDERR "blocker"
   ARGS --out ${MD_CLI_TMP}/blocker/idea.mid)
+
+add_executable(md_golden_tests golden/test_golden.cpp)
+target_link_libraries(md_golden_tests PRIVATE md_bank md_midiexport Catch2::Catch2WithMain)
+target_compile_definitions(md_golden_tests PRIVATE
+  MD_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")
+md_target_defaults(md_golden_tests)
+catch_discover_tests(md_golden_tests PROPERTIES LABELS unit)
