@@ -124,7 +124,7 @@ void checkCells(const std::string& entryId, const std::vector<RhythmCell>& cells
                                 [&cell](const Hit& hit)
                                 {
                                     return hit.step < 0 ||
-                                           hit.step >= detail::kStepsPerBar * cell.bars ||
+                                           hit.step >= kStepsPerBar * cell.bars ||
                                            hit.length < 1;
                                 });
         if ((cell.bars != 1 && cell.bars != 2) || cell.hits.empty() || badHit)
@@ -173,11 +173,6 @@ bool inStyle(Style style, Family family)
     return false;
 }
 
-Pcg32 rngFor(std::uint32_t seed, Stream stream, std::uint32_t slot = 0)
-{
-    return {laneSeed(seed, stream, slot), static_cast<std::uint64_t>(stream)};
-}
-
 // The entry's modes that fit the whole progression (all of them for parallel entries), darkest
 // first; mood picks one.
 Mode pickMode(const StyleEntry& entry, const Progression& progression, int mood)
@@ -199,34 +194,47 @@ Mode pickMode(const StyleEntry& entry, const Progression& progression, int mood)
     return fitting.at(static_cast<std::size_t>(mood) * fitting.size() / 101);
 }
 
-void humanize(Idea& idea)
+// One velocity per note in event order, drawn from the lane's own seed.
+void humanize(std::vector<NoteEvent>& events, Pcg32 rng, int energy)
 {
-    Pcg32 rng = rngFor(idea.seed, Stream::humanize);
-    const int base = kVelocityBase + ((kVelocitySpread * idea.settings.energy) / 100);
-    for (Lane& lane : idea.lanes)
+    const int base = kVelocityBase + ((kVelocitySpread * energy) / 100);
+    for (NoteEvent& e : events)
     {
-        for (NoteEvent& e : lane.events)
-        {
-            e.velocity = std::clamp(base + static_cast<int>(rng.below(kHumanizeRange)) - 6, 1, 127);
-        }
+        e.velocity = std::clamp(base + static_cast<int>(rng.below(kHumanizeRange)) - 6, 1, 127);
     }
 }
 
-Lane makeLane(LaneId id, Stream stream, std::uint32_t seed, std::string pattern,
-              std::vector<NoteEvent> events)
+Lane makeLane(LaneId id, std::uint64_t seed, std::string pattern, std::vector<NoteEvent> events,
+              std::uint32_t humanizeSlot, int energy)
 {
+    humanize(events, Pcg32(seed, humanizeSlot), energy);
     return {
         .id = id,
         .pattern = std::move(pattern),
         .events = std::move(events),
         .pinned = false,
         .muted = false,
-        .seed = laneSeed(seed, stream, 0),
+        .seed = seed,
     };
 }
 } // namespace
 
+LaneSeeds defaultLaneSeeds(std::uint32_t ideaSeed)
+{
+    return {
+        .chords = laneSeed(ideaSeed, Stream::chords, 0),
+        .bass = laneSeed(ideaSeed, Stream::bass, 0),
+        .melody = laneSeed(ideaSeed, Stream::melody, 0),
+    };
+}
+
 Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed)
+{
+    return generate(bank, settings, seed, defaultLaneSeeds(seed));
+}
+
+Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
+              const LaneSeeds& laneSeeds)
 {
     checkSettings(settings, seed);
     std::vector<const StyleEntry*> entries;
@@ -242,7 +250,7 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed)
         throw std::invalid_argument("generate: the bank has no entry for this style");
     }
 
-    Pcg32 chordRng = rngFor(seed, Stream::chords);
+    Pcg32 entryRng(laneSeeds.chords, detail::kChordEntry);
     std::vector<int> entryWeights;
     for (const StyleEntry* entry : entries)
     {
@@ -252,13 +260,14 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed)
         entryWeights.push_back(
             entry->confidence == Confidence::verified ? sum * kVerifiedWeightFactor : sum);
     }
-    const StyleEntry& entry = *entries.at(chordRng.pickWeighted(entryWeights));
+    const StyleEntry& entry = *entries.at(entryRng.pickWeighted(entryWeights));
     checkEntry(entry);
     std::vector<int> progressionWeights;
     std::ranges::transform(entry.progressions, std::back_inserter(progressionWeights),
                            &Progression::weightMilli);
+    Pcg32 progressionRng(laneSeeds.chords, detail::kChordProgression);
     const Progression& progression =
-        entry.progressions.at(chordRng.pickWeighted(progressionWeights));
+        entry.progressions.at(progressionRng.pickWeighted(progressionWeights));
 
     Idea idea{};
     idea.seed = seed;
@@ -274,19 +283,20 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed)
     idea.borrowedFrom = checkProgression(idea.key.mode, placedSymbols).borrowedFrom;
     detail::voiceChords(entry, idea.key, idea.progression);
 
-    Pcg32 rhythmRng = rngFor(seed, Stream::chords, 1);
+    Pcg32 rhythmRng(laneSeeds.chords, detail::kChordCell);
     const RhythmCell& chordCell = entry.chordRhythms.at(
         rhythmRng.below(static_cast<std::uint32_t>(entry.chordRhythms.size())));
     const BassPattern bassPattern = detail::bassPatternFor(entry);
-    idea.lanes.at(0) = makeLane(LaneId::chords, Stream::chords, seed, chordCell.id,
-                                detail::chordEvents(idea.progression, chordCell, settings));
-    idea.lanes.at(1) =
-        makeLane(LaneId::bass, Stream::bass, seed, std::string(patternName(bassPattern)),
-                 detail::bassEvents(idea, bassPattern));
-    idea.lanes.at(2) = makeLane(LaneId::melody, Stream::melody, seed,
+    idea.lanes.at(0) = makeLane(LaneId::chords, laneSeeds.chords, chordCell.id,
+                                detail::chordEvents(idea.progression, chordCell, settings),
+                                detail::kChordHumanize, settings.energy);
+    idea.lanes.at(1) = makeLane(LaneId::bass, laneSeeds.bass, std::string(patternName(bassPattern)),
+                                detail::bassEvents(idea, bassPattern), detail::kBassHumanize,
+                                settings.energy);
+    idea.lanes.at(2) = makeLane(LaneId::melody, laneSeeds.melody,
                                 std::string(patternName(entry.melodyModes.front())),
-                                detail::melodyEvents(entry, idea));
-    humanize(idea);
+                                detail::melodyEvents(entry, idea, laneSeeds.melody),
+                                detail::kMelodyHumanize, settings.energy);
 
     const auto violations = validate(idea);
     if (!violations.empty())

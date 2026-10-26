@@ -27,9 +27,6 @@ using Json = nlohmann::json;
 
 constexpr std::uint64_t kFnvOffset = 14695981039346656037ULL;
 constexpr std::uint64_t kFnvPrime = 1099511628211ULL;
-constexpr int kStepsPerBar = 16;
-constexpr int kMaxStep = 31;
-constexpr int kMaxLength = 32;
 
 template <class E> using Names = std::initializer_list<std::pair<std::string_view, E>>;
 

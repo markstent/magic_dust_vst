@@ -60,11 +60,11 @@ std::size_t pickCell(const std::vector<RhythmCell>& cells, int target,
     return nearest.at(rng.below(static_cast<std::uint32_t>(nearest.size())));
 }
 
-std::vector<Onset> rhythm(const StyleEntry& entry, const Idea& idea)
+std::vector<Onset> rhythm(const StyleEntry& entry, const Idea& idea, std::uint64_t seed)
 {
     const int target = 3 + ((7 * idea.settings.energy) / 100);
-    Pcg32 rngA(laneSeed(idea.seed, Stream::melody, 0), static_cast<std::uint64_t>(Stream::melody));
-    Pcg32 rngB(laneSeed(idea.seed, Stream::melody, 1), static_cast<std::uint64_t>(Stream::melody));
+    Pcg32 rngA(seed, kMelodyCellA);
+    Pcg32 rngB(seed, kMelodyCellB);
     const std::size_t a = pickCell(entry.melodyRhythms, target, std::nullopt, rngA);
     const std::size_t b =
         entry.melodyRhythms.size() > 1 ? pickCell(entry.melodyRhythms, target, a, rngB) : a;
@@ -202,10 +202,11 @@ std::vector<int> chopPitches(const std::vector<int>& allowedPcs, Pcg32& rng)
     return pitches;
 }
 
-std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea)
+std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea,
+                                    std::uint64_t melodySeed)
 {
     const bool chop = entry.melodyModes.front() == MelodyMode::vocalChop;
-    const std::vector<Onset> onsets = rhythm(entry, idea);
+    const std::vector<Onset> onsets = rhythm(entry, idea, melodySeed);
     if (onsets.empty())
     {
         throw std::logic_error("melody rhythm has no onsets");
@@ -250,9 +251,8 @@ std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea)
             scalePitches.push_back(pitch);
         }
     }
-    Pcg32 walk(laneSeed(idea.seed, Stream::melody, 2), static_cast<std::uint64_t>(Stream::melody));
-    Pcg32 chopRng(laneSeed(idea.seed, Stream::melody, 3),
-                  static_cast<std::uint64_t>(Stream::melody));
+    Pcg32 walk(melodySeed, kMelodyWalk);
+    Pcg32 chopRng(melodySeed, kMelodyChop);
     const std::vector<int> chopTones =
         chop ? chopPitches(allowedPitchClasses(homePcs), chopRng) : std::vector<int>{};
     // The line starts from the allowed tone of the first chord nearest the centre.

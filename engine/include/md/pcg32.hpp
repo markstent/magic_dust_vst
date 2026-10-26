@@ -27,7 +27,6 @@ enum class Stream : std::uint8_t
     chords,
     bass,
     melody,
-    humanize,
 };
 
 // Throws std::invalid_argument if slot is 2^24 or more.

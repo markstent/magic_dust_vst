@@ -571,3 +571,72 @@ TEST_CASE("the vocal chop throws when the home chord has no allowed tone", "[gen
     Pcg32 rng(1, 1);
     REQUIRE_THROWS_AS(detail::chopPitches({}, rng), std::logic_error);
 }
+
+namespace
+{
+std::vector<std::uint8_t> laneBytes(const Idea& idea, LaneId lane)
+{
+    const std::array tracks = {laneTrack(idea, lane)};
+    return writeMidiFile(tracks, 120, ideaLengthTicks(idea));
+}
+
+Idea withLaneSeeds(const LaneSeeds& seeds)
+{
+    return generate(bank(), Settings{}, 4242, seeds);
+}
+} // namespace
+
+TEST_CASE("default lane seeds reproduce the three-argument generate", "[generate][seeds]")
+{
+    const Idea plain = generate(bank(), Settings{}, 4242);
+    const Idea seeded = withLaneSeeds(defaultLaneSeeds(4242));
+    for (const LaneId lane : {LaneId::chords, LaneId::bass, LaneId::melody})
+    {
+        REQUIRE(laneBytes(plain, lane) == laneBytes(seeded, lane));
+    }
+    REQUIRE(seeded.lanes.at(0).seed == defaultLaneSeeds(4242).chords);
+    REQUIRE(seeded.lanes.at(1).seed == defaultLaneSeeds(4242).bass);
+    REQUIRE(seeded.lanes.at(2).seed == defaultLaneSeeds(4242).melody);
+}
+
+TEST_CASE("rerolling the bass seed changes only the bass", "[generate][seeds]")
+{
+    const LaneSeeds base = defaultLaneSeeds(4242);
+    LaneSeeds other = base;
+    other.bass += 1;
+    const Idea a = withLaneSeeds(base);
+    const Idea b = withLaneSeeds(other);
+    REQUIRE(laneBytes(a, LaneId::chords) == laneBytes(b, LaneId::chords));
+    REQUIRE(laneBytes(a, LaneId::melody) == laneBytes(b, LaneId::melody));
+    REQUIRE(laneBytes(a, LaneId::bass) != laneBytes(b, LaneId::bass));
+    REQUIRE(b.lanes.at(1).seed == other.bass);
+}
+
+TEST_CASE("rerolling the melody seed changes only the melody", "[generate][seeds]")
+{
+    const LaneSeeds base = defaultLaneSeeds(4242);
+    LaneSeeds other = base;
+    other.melody += 1;
+    const Idea a = withLaneSeeds(base);
+    const Idea b = withLaneSeeds(other);
+    REQUIRE(laneBytes(a, LaneId::chords) == laneBytes(b, LaneId::chords));
+    REQUIRE(laneBytes(a, LaneId::bass) == laneBytes(b, LaneId::bass));
+    REQUIRE(laneBytes(a, LaneId::melody) != laneBytes(b, LaneId::melody));
+    REQUIRE(b.lanes.at(2).seed == other.melody);
+}
+
+TEST_CASE("rerolling the chords seed may change every lane", "[generate][seeds]")
+{
+    const LaneSeeds base = defaultLaneSeeds(4242);
+    std::set<std::uint32_t> entryAndProgression;
+    for (std::uint64_t bump = 0; bump < 20; ++bump)
+    {
+        LaneSeeds other = base;
+        other.chords += bump;
+        const Idea idea = withLaneSeeds(other);
+        REQUIRE(validate(idea).empty());
+        entryAndProgression.insert(
+            static_cast<std::uint32_t>(std::hash<std::string>{}(idea.entryId)));
+    }
+    REQUIRE(entryAndProgression.size() > 1);
+}

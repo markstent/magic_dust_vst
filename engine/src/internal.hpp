@@ -4,12 +4,36 @@
 #include "md/style.hpp"
 #include "md/types.hpp"
 
+#include <cstdint>
 #include <span>
 #include <vector>
 
 namespace md::detail
 {
-constexpr int kStepsPerBar = 16;
+// Every random draw is Pcg32(<lane seed>, slot) with one fixed slot per use:
+//   chords: 0 entry, 1 progression, 2 chord rhythm cell, 3 velocity humanize
+//   bass:   0 velocity humanize
+//   melody: 0 rhythm cell A, 1 rhythm cell B, 2 pitch walk, 3 vocal-chop tones, 4 velocity humanize
+// Entry, progression, mode and chord-cell choices belong to the chords lane.
+enum ChordSlot : std::uint32_t
+{
+    kChordEntry,
+    kChordProgression,
+    kChordCell,
+    kChordHumanize,
+};
+enum BassSlot : std::uint32_t
+{
+    kBassHumanize,
+};
+enum MelodySlot : std::uint32_t
+{
+    kMelodyCellA,
+    kMelodyCellB,
+    kMelodyWalk,
+    kMelodyChop,
+    kMelodyHumanize,
+};
 
 // Odd sixteenth steps land late: start = pairStart + 480 * swingPermille / 1000.
 int swung(int start, int swingPermille);
@@ -46,5 +70,6 @@ std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern);
 // 1 to 3 of the allowed tones nearest the centre, cycled by the vocal chop.
 // Throws std::logic_error when no tone is allowed.
 std::vector<int> chopPitches(const std::vector<int>& allowedPcs, Pcg32& rng);
-std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea);
+std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea,
+                                    std::uint64_t melodySeed);
 } // namespace md::detail
