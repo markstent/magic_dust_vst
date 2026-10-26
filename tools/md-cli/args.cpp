@@ -31,7 +31,7 @@ std::optional<int> parseInt(std::string_view text, int low, int high)
 {
     // Digits only, so stoi cannot see a sign, a space or trailing junk.
     const bool digits = !text.empty() && text.size() <= 6 &&
-                        std::ranges::all_of(text, [](char c) { return std::isdigit(c) != 0; });
+                        std::ranges::all_of(text, [](char c) { return std::isdigit(static_cast<unsigned char>(c)) != 0; });
     if (!digits)
     {
         return std::nullopt;
