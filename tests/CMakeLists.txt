@@ -35,14 +35,22 @@ md_target_defaults(md_cli_tests)
 catch_discover_tests(md_cli_tests PROPERTIES LABELS unit)
 
 set(MD_CLI_TMP ${CMAKE_BINARY_DIR}/md-cli-test)
-add_test(NAME md_cli_writes_four_files
-  COMMAND ${CMAKE_COMMAND}
-    -DCLI=$<TARGET_FILE:md-cli> -DDIR=${MD_CLI_TMP} -DEXPECT=0
-    "-DARGS=--seed;48213;--out;${MD_CLI_TMP}/idea.mid"
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/cli/run_cli.cmake)
-add_test(NAME md_cli_rejects_bad_bars
-  COMMAND ${CMAKE_COMMAND}
-    -DCLI=$<TARGET_FILE:md-cli> -DDIR=${MD_CLI_TMP} -DEXPECT=2
-    "-DARGS=--bars;5;--out;${MD_CLI_TMP}/x.mid"
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/cli/run_cli.cmake)
-set_tests_properties(md_cli_writes_four_files md_cli_rejects_bad_bars PROPERTIES LABELS unit)
+function(md_cli_test name)
+  cmake_parse_arguments(T "" "EXPECT;STDOUT;STDERR;CHECK_FILES;BLOCKER" "ARGS" ${ARGN})
+  add_test(NAME md_cli_${name}
+    COMMAND ${CMAKE_COMMAND}
+      -DCLI=$<TARGET_FILE:md-cli> -DDIR=${MD_CLI_TMP} -DEXPECT=${T_EXPECT}
+      "-DARGS=${T_ARGS}" "-DSTDOUT=${T_STDOUT}" "-DSTDERR=${T_STDERR}"
+      -DCHECK_FILES=${T_CHECK_FILES} -DBLOCKER=${T_BLOCKER}
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/cli/run_cli.cmake)
+  set_tests_properties(md_cli_${name} PROPERTIES LABELS unit)
+endfunction()
+
+md_cli_test(writes_four_files EXPECT 0 CHECK_FILES 1
+  ARGS --seed 48213 --out ${MD_CLI_TMP}/idea.mid)
+md_cli_test(rejects_bad_bars EXPECT 2 ARGS --bars 5 --out ${MD_CLI_TMP}/x.mid)
+md_cli_test(help EXPECT 0 STDOUT "usage: md-cli" ARGS --help)
+md_cli_test(help_anywhere EXPECT 0 STDOUT "usage: md-cli" ARGS --bars 5 --help)
+md_cli_test(flat_key_name EXPECT 0 STDOUT "key bb " ARGS --key bb --out ${MD_CLI_TMP}/bb.mid)
+md_cli_test(write_failure EXPECT 1 BLOCKER 1 STDERR "blocker"
+  ARGS --out ${MD_CLI_TMP}/blocker/idea.mid)

@@ -179,6 +179,18 @@ std::string apply(CliOptions& o, std::string_view flag, std::string_view v)
 }
 } // namespace
 
+std::string keyName(const Key& key)
+{
+    constexpr std::array<std::string_view, 12> notes{
+        "c", "c#", "d", "eb", "e", "f", "f#", "g", "ab", "a", "bb", "b",
+    };
+    constexpr std::array<std::string_view, 5> modes{
+        "phrygian", "aeolian", "dorian", "mixolydian", "ionian",
+    };
+    return std::string(notes.at(static_cast<std::size_t>(key.root))) + " " +
+           std::string(modes.at(static_cast<std::size_t>(key.mode)));
+}
+
 std::variant<CliOptions, std::string> parseArgs(std::span<const std::string_view> args)
 {
     CliOptions options;

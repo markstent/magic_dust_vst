@@ -36,8 +36,11 @@ Run `killall -9 AudioComponentRegistrar` and then run the script again.
 ## Hearing ideas from md-cli
 
 `md-cli` writes Magic Dust ideas as MIDI files, so you can hear them in your daw before the plug-in is finished.
-Build it first with `cmake --build --preset dev`.
-Then run these five commands from the project folder in Terminal, one idea for each style:
+
+To open Terminal, press Cmd+Space, type `Terminal` and press Return.
+Then go to the project folder with `cd ~/orca/workspaces/magic_dust_vst/melusine`.
+Next run `cmake --build --preset dev`, which builds md-cli (and the plug-in) so it is ready to run.
+Then run these five commands, one idea for each style:
 
 ```
 build/dev/tools/md-cli/md-cli --style uk-funky --seed 1 --out ~/Desktop/magic-dust/uk-funky-1.mid
@@ -63,7 +66,7 @@ Run `build/dev/tools/md-cli/md-cli --help` to see the other options: key, bars, 
 ### Dragging the files into your daw
 
 This works the same in any daw.
-Ableton Live is the example here.
+The steps below use the common names, so look for the matching buttons in yours.
 
 1. Make three MIDI tracks.
 2. Load an organ on the first track, a bass on the second and a lead on the third.

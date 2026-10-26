@@ -21,4 +21,7 @@ struct CliOptions
 
 // The string alternative is the error message.
 std::variant<CliOptions, std::string> parseArgs(std::span<const std::string_view> args);
+
+// Lowercase note and mode, spelled like the chord names: "bb aeolian", "c# dorian".
+std::string keyName(const Key& key);
 } // namespace md

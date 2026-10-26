@@ -1,10 +1,22 @@
-# Runs md-cli in a clean folder and checks its exit code; for exit 0 also checks the four files.
+# Runs md-cli in a clean folder and checks its exit code.
+# Optional: STDOUT or STDERR (regex that must match), CHECK_FILES (the four idea files exist),
+# BLOCKER (a regular file named "blocker" is created in the folder first).
 file(REMOVE_RECURSE ${DIR})
-execute_process(COMMAND ${CLI} ${ARGS} RESULT_VARIABLE code OUTPUT_QUIET ERROR_QUIET)
-if(NOT code EQUAL EXPECT)
-  message(FATAL_ERROR "md-cli exited ${code}, expected ${EXPECT}")
+file(MAKE_DIRECTORY ${DIR})
+if(BLOCKER)
+  file(WRITE ${DIR}/blocker "")
 endif()
-if(EXPECT EQUAL 0)
+execute_process(COMMAND ${CLI} ${ARGS} RESULT_VARIABLE code OUTPUT_VARIABLE out ERROR_VARIABLE err)
+if(NOT code EQUAL EXPECT)
+  message(FATAL_ERROR "md-cli exited ${code}, expected ${EXPECT}\n${err}")
+endif()
+if(STDOUT AND NOT out MATCHES "${STDOUT}")
+  message(FATAL_ERROR "stdout does not match '${STDOUT}':\n${out}")
+endif()
+if(STDERR AND NOT err MATCHES "${STDERR}")
+  message(FATAL_ERROR "stderr does not match '${STDERR}':\n${err}")
+endif()
+if(CHECK_FILES)
   foreach(name "idea.mid" "idea - chords.mid" "idea - bass.mid" "idea - melody.mid")
     if(NOT EXISTS "${DIR}/${name}")
       message(FATAL_ERROR "missing ${DIR}/${name}")

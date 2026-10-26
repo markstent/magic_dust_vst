@@ -46,18 +46,6 @@ void writeFile(const std::filesystem::path& path, const std::vector<std::uint8_t
     }
 }
 
-std::string keyName(const md::Key& key)
-{
-    constexpr std::array<std::string_view, 12> notes{
-        "c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b",
-    };
-    constexpr std::array<std::string_view, 5> modes{
-        "phrygian", "aeolian", "dorian", "mixolydian", "ionian",
-    };
-    return std::string(notes.at(static_cast<std::size_t>(key.root))) + " " +
-           std::string(modes.at(static_cast<std::size_t>(key.mode)));
-}
-
 int run(const md::CliOptions& options)
 {
     const auto idea = md::generate(md::loadBundledBank(), options.settings, options.seed);
@@ -92,7 +80,7 @@ int run(const md::CliOptions& options)
     }
     std::cout << "spell " << idea.seed << "\n"
               << "code " << md::encodeIdea(idea.seed, idea.settings, idea.bankVersion) << "\n"
-              << "key " << keyName(idea.key) << "\n"
+              << "key " << md::keyName(idea.key) << "\n"
               << chords << "\n";
     for (const auto& file : files)
     {
@@ -108,7 +96,7 @@ int mainImpl(std::span<char*> argv)
     {
         args.emplace_back(arg);
     }
-    if (args.size() == 1 && args.front() == "--help")
+    if (std::ranges::find(args, "--help") != args.end())
     {
         std::cout << kUsage;
         return 0;
