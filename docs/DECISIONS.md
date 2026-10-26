@@ -19,3 +19,4 @@
 | 2026-10-26 | Chord names use the fixed spelling C C# D Eb E F F# G Ab A Bb B. | One spelling everywhere keeps output and tests predictable. |
 | 2026-10-26 | "pull back" is the feel word for a degree-5 chord in the last slot of a progression of 4 or more chords; all other feel words come from degree. | Keeps feel words consistent with how progressions resolve. |
 | 2026-10-26 | Settings groove sets swing; the bank entry's `swing` is stored but unused until Phase 2 decides how they combine. | Defers the combination rule until playback exists. |
+| 2026-10-26 | clang-tidy check `cppcoreguidelines-owning-memory` is disabled. | JUCE requires `createEditor` and `createPluginFilter` to return raw owning pointers, so the check fires on every plugin. |
