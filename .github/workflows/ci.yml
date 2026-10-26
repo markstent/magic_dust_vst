@@ -6,6 +6,10 @@ on:
   schedule:
     - cron: '0 3 * * *'
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   # Nightly runs hammer the property tests harder.
   MD_PROPERTY_SEEDS: ${{ github.event_name == 'schedule' && '10000' || '' }}
