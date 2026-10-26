@@ -106,6 +106,12 @@ TEST_CASE("feel words", "[theory]")
     CHECK(feelWord(sym("v7"), 1, 2) == "tension");
 }
 
+TEST_CASE("feel words in an 8-chord progression", "[theory]")
+{
+    CHECK(feelWord(sym("V7"), 7, 8) == "pull back");
+    CHECK(feelWord(sym("V7"), 3, 8) == "tension");
+}
+
 TEST_CASE("swingPermille", "[theory]")
 {
     CHECK(swingPermille(Groove::straight) == 500);

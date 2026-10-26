@@ -3,6 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cctype>
+#include <stdexcept>
 #include <string>
 
 using namespace md;
@@ -135,4 +136,49 @@ TEST_CASE("decodeIdea rejects bad fields", "[ideacode]")
     CHECK_FALSE(decodeIdea(rawCode(0, 1, 9, 0, 30, 101, 2, 2, 1, 1)).has_value());
     CHECK_FALSE(decodeIdea(rawCode(0, 1, 9, 0, 30, 50, 2, 3, 1, 1)).has_value());
     CHECK_FALSE(decodeIdea(rawCode(0, 1, 9, 0, 30, 50, 2, 2, 3, 1)).has_value());
+}
+
+TEST_CASE("decodeIdea rejects non-zero padding bits", "[ideacode]")
+{
+    auto code = encodeIdea(48213, Settings(), 1);
+    const auto last = kAlphabet.find(code.back());
+    for (std::size_t pad = 1; pad < 8; ++pad)
+    {
+        code.back() = kAlphabet.at(last | pad);
+        CHECK_FALSE(decodeIdea(code).has_value());
+    }
+}
+
+TEST_CASE("encodeIdea rejects out-of-range input", "[ideacode]")
+{
+    const auto encode = [](std::uint32_t seed, const Settings& s)
+    { return encodeIdea(seed, s, 1); };
+    CHECK_THROWS_AS(encode(100000, Settings()), std::invalid_argument);
+    Settings s;
+    s.keyRoot = 12;
+    CHECK_THROWS_AS(encode(1, s), std::invalid_argument);
+    s = Settings();
+    s.keyRoot = -1;
+    CHECK_THROWS_AS(encode(1, s), std::invalid_argument);
+    s = Settings();
+    s.mood = 101;
+    CHECK_THROWS_AS(encode(1, s), std::invalid_argument);
+    s = Settings();
+    s.mood = -1;
+    CHECK_THROWS_AS(encode(1, s), std::invalid_argument);
+    s = Settings();
+    s.energy = 101;
+    CHECK_THROWS_AS(encode(1, s), std::invalid_argument);
+    s = Settings();
+    s.energy = -1;
+    CHECK_THROWS_AS(encode(1, s), std::invalid_argument);
+    s = Settings();
+    s.bars = 6;
+    CHECK_THROWS_AS(encode(1, s), std::invalid_argument);
+}
+
+TEST_CASE("idea code format is pinned", "[ideacode]")
+{
+    // Golden value: changing the code layout breaks every saved idea.
+    CHECK(encodeIdea(48213, Settings(), 0x1234) == "2Y5B43SJJH4D0");
 }

@@ -4,6 +4,7 @@
 
 #include <cctype>
 #include <cstddef>
+#include <stdexcept>
 
 namespace md
 {
@@ -69,6 +70,26 @@ std::uint32_t barsToCode(int bars)
 
 std::string encodeIdea(std::uint32_t seed, const Settings& settings, std::uint64_t bankVersion)
 {
+    if (seed > static_cast<std::uint32_t>(kSeedMax))
+    {
+        throw std::invalid_argument("encodeIdea: seed out of range");
+    }
+    if (settings.keyRoot < 0 || settings.keyRoot > 11)
+    {
+        throw std::invalid_argument("encodeIdea: keyRoot out of range");
+    }
+    if (settings.mood < 0 || settings.mood > 100)
+    {
+        throw std::invalid_argument("encodeIdea: mood out of range");
+    }
+    if (settings.energy < 0 || settings.energy > 100)
+    {
+        throw std::invalid_argument("encodeIdea: energy out of range");
+    }
+    if (settings.bars != 4 && settings.bars != 8 && settings.bars != 16)
+    {
+        throw std::invalid_argument("encodeIdea: bars must be 4, 8 or 16");
+    }
     BitWriter w;
     w.put<2>(0);
     w.put<17>(seed);
@@ -113,6 +134,10 @@ std::optional<DecodedIdea> decodeIdea(std::string_view code)
         }
         acc = (acc << 5U) | last;
         last = value;
+    }
+    if ((last & 7U) != 0)
+    {
+        return std::nullopt; // padding bits must be zero so each idea has one code
     }
     BitReader r((acc << 2U) | (last >> 3U));
 

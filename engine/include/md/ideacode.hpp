@@ -17,6 +17,7 @@ struct DecodedIdea
 };
 
 // 13 Crockford base32 characters; only the low 16 bits of bankVersion are kept.
+// Throws std::invalid_argument for an out-of-range seed or setting.
 std::string encodeIdea(std::uint32_t seed, const Settings& settings, std::uint64_t bankVersion);
 std::optional<DecodedIdea> decodeIdea(std::string_view code);
 } // namespace md

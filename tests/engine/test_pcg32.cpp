@@ -4,6 +4,7 @@
 
 #include <array>
 #include <set>
+#include <stdexcept>
 
 using namespace md;
 
@@ -47,4 +48,20 @@ TEST_CASE("laneSeed depends on every argument", "[pcg32]")
     CHECK(base != laneSeed(48214, Stream::bass, 2));
     CHECK(base != laneSeed(48213, Stream::melody, 2));
     CHECK(base != laneSeed(48213, Stream::bass, 3));
+}
+
+TEST_CASE("lane seed format is pinned", "[pcg32]")
+{
+    // Golden value: changing the seed derivation breaks every saved idea.
+    CHECK(laneSeed(48213, Stream::bass, 2) == 10975805437616634213ULL);
+}
+
+TEST_CASE("preconditions throw", "[pcg32]")
+{
+    Pcg32 rng(1, 2);
+    CHECK_THROWS_AS(rng.below(0), std::invalid_argument);
+    const std::array<int, 3> negative{1, -1, 1};
+    CHECK_THROWS_AS(rng.pickWeighted(negative), std::invalid_argument);
+    CHECK_THROWS_AS(laneSeed(1, Stream::chords, 1U << 24U), std::invalid_argument);
+    CHECK_NOTHROW(laneSeed(1, Stream::chords, (1U << 24U) - 1U));
 }

@@ -1,5 +1,7 @@
 #include "md/pcg32.hpp"
 
+#include <stdexcept>
+
 namespace md
 {
 namespace
@@ -32,6 +34,10 @@ std::uint32_t Pcg32::next()
 
 std::uint32_t Pcg32::below(std::uint32_t bound)
 {
+    if (bound == 0)
+    {
+        throw std::invalid_argument("Pcg32::below: bound must be positive");
+    }
     const std::uint32_t threshold = (~bound + 1U) % bound;
     for (;;)
     {
@@ -48,6 +54,10 @@ std::size_t Pcg32::pickWeighted(std::span<const int> weights)
     std::uint32_t sum = 0;
     for (const int w : weights)
     {
+        if (w < 0)
+        {
+            throw std::invalid_argument("Pcg32::pickWeighted: negative weight");
+        }
         sum += static_cast<std::uint32_t>(w);
     }
     if (sum == 0)
@@ -69,6 +79,10 @@ std::size_t Pcg32::pickWeighted(std::span<const int> weights)
 
 std::uint64_t laneSeed(std::uint32_t ideaSeed, Stream stream, std::uint32_t slot)
 {
+    if (slot >= (1U << 24U))
+    {
+        throw std::invalid_argument("laneSeed: slot must be below 2^24");
+    }
     return splitmix64((static_cast<std::uint64_t>(ideaSeed) << 32U) |
                       (static_cast<std::uint64_t>(stream) << 24U) | slot);
 }

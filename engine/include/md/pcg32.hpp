@@ -12,7 +12,9 @@ class Pcg32
   public:
     Pcg32(std::uint64_t seed, std::uint64_t stream);
     std::uint32_t next();
+    // Throws std::invalid_argument for bound 0.
     std::uint32_t below(std::uint32_t bound);
+    // Throws std::invalid_argument for a negative weight.
     std::size_t pickWeighted(std::span<const int> weights);
 
   private:
@@ -28,6 +30,6 @@ enum class Stream : std::uint8_t
     humanize,
 };
 
-// slot must be below 2^24.
+// Throws std::invalid_argument if slot is 2^24 or more.
 std::uint64_t laneSeed(std::uint32_t ideaSeed, Stream stream, std::uint32_t slot);
 } // namespace md
