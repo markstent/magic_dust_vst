@@ -34,6 +34,10 @@ void checkVoicings(const Idea& idea, Lines& lines)
     for (std::size_t i = 0; i < idea.progression.size(); ++i)
     {
         const Voicing& v = idea.progression.at(i).voicing;
+        if (idea.progression.at(i).bars < 1)
+        {
+            lines.push_back("chord " + std::to_string(i + 1) + " has fewer than 1 bar");
+        }
         const std::string name = "chord " + std::to_string(i + 1) + " voicing";
         if (v.empty() || v.front() < kChordLow || v.back() > kChordHigh)
         {

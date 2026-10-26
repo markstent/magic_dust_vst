@@ -1,5 +1,6 @@
 #pragma once
 
+#include "md/pcg32.hpp"
 #include "md/style.hpp"
 #include "md/types.hpp"
 
@@ -42,5 +43,8 @@ std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const
 BassPattern bassPatternFor(const StyleEntry& entry);
 std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern);
 
+// 1 to 3 of the allowed tones nearest the centre, cycled by the vocal chop.
+// Throws std::logic_error when no tone is allowed.
+std::vector<int> chopPitches(const std::vector<int>& allowedPcs, Pcg32& rng);
 std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea);
 } // namespace md::detail

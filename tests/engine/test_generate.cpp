@@ -1,5 +1,6 @@
 #include "md/generate.hpp"
 
+#include "internal.hpp"
 #include "md/bank.hpp"
 #include "md/midifile.hpp"
 #include "md/ranges.hpp"
@@ -490,7 +491,17 @@ TEST_CASE("octave bounce falls back to the fifth when the root has no octave in 
     const Idea idea = generate(bounce, settings, 3);
     const auto& bass = idea.lanes.at(1).events;
     REQUIRE(idea.lanes.at(1).pattern == "octave-bounce");
-    REQUIRE(std::ranges::any_of(bass, [](const NoteEvent& e) { return e.pitch == 45; }));
+    int roots = 0;
+    for (std::size_t i = 0; i < bass.size(); ++i)
+    {
+        if (bass.at(i).pitch == 38)
+        {
+            ++roots;
+            REQUIRE(i + 1 < bass.size());
+            REQUIRE(bass.at(i + 1).pitch == 45); // the fifth, not 38 + 12
+        }
+    }
+    REQUIRE(roots > 0);
     for (const NoteEvent& e : bass)
     {
         REQUIRE(e.pitch >= kBassLow);
@@ -519,11 +530,23 @@ TEST_CASE("generate rejects entries that would break it", "[generate]")
 
 TEST_CASE("every bundled entry generates across keys, bar counts, mood and energy", "[generate]")
 {
-    constexpr std::array<Style, 5> families = {
-        Style::mkDub, Style::soulful, Style::bassline, Style::festival, Style::nyGroove,
-    };
+    // The entry depends only on the style and the seed, so find seeds that reach every entry.
     std::set<std::string> seen;
-    for (const Style style : families)
+    std::set<std::uint32_t> seeds;
+    const Settings defaults;
+    for (std::uint32_t seed = 0; seed <= 10000 && seen.size() < bank().entries.size(); ++seed)
+    {
+        if (seen.insert(generate(bank(), defaults, seed).entryId).second)
+        {
+            seeds.insert(seed);
+        }
+    }
+    REQUIRE(seen.size() == bank().entries.size());
+    for (std::uint32_t seed = 0; seed < 20; ++seed)
+    {
+        seeds.insert(seed);
+    }
+    for (const std::uint32_t seed : seeds)
     {
         for (int key = 0; key < 12; ++key)
         {
@@ -532,20 +555,19 @@ TEST_CASE("every bundled entry generates across keys, bar counts, mood and energ
                 for (const int corner : {0, 1, 2, 3})
                 {
                     Settings settings;
-                    settings.style = style;
                     settings.keyRoot = key;
                     settings.bars = bars;
                     settings.mood = (corner % 2) * 100;
                     settings.energy = (corner / 2) * 100;
-                    for (int seed = 0; seed < 20; ++seed)
-                    {
-                        const Idea idea =
-                            generate(bank(), settings, static_cast<std::uint32_t>(seed * 4999));
-                        seen.insert(idea.entryId);
-                    }
+                    REQUIRE_NOTHROW(generate(bank(), settings, seed));
                 }
             }
         }
     }
-    REQUIRE(seen.size() == bank().entries.size());
+}
+
+TEST_CASE("the vocal chop throws when the home chord has no allowed tone", "[generate]")
+{
+    Pcg32 rng(1, 1);
+    REQUIRE_THROWS_AS(detail::chopPitches({}, rng), std::logic_error);
 }

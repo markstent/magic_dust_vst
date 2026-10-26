@@ -178,16 +178,22 @@ const PlacedChord& homeChord(const Idea& idea)
     return it == idea.progression.end() ? idea.progression.front() : *it;
 }
 
-// Cycles 1 to 3 allowed tones of the home chord near the centre.
-std::vector<int> chopPitches(const Pool& homeAllowed, Pcg32& rng)
+} // namespace
+
+std::vector<int> chopPitches(const std::vector<int>& allowedPcs, Pcg32& rng)
 {
+    const Pool pool = poolOf(allowedPcs);
     std::vector<int> pitches;
     for (int pitch = kMelodyLow; pitch <= kMelodyHigh; ++pitch)
     {
-        if (allows(homeAllowed, pitch))
+        if (allows(pool, pitch))
         {
             pitches.push_back(pitch);
         }
+    }
+    if (pitches.empty())
+    {
+        throw std::logic_error("the home chord has no allowed tone for the vocal chop");
     }
     std::ranges::sort(
         pitches, [](int a, int b)
@@ -195,7 +201,6 @@ std::vector<int> chopPitches(const Pool& homeAllowed, Pcg32& rng)
     pitches.resize(std::min<std::size_t>(pitches.size(), 1 + rng.below(3)));
     return pitches;
 }
-} // namespace
 
 std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea)
 {
@@ -249,7 +254,7 @@ std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea)
     Pcg32 chopRng(laneSeed(idea.seed, Stream::melody, 3),
                   static_cast<std::uint64_t>(Stream::melody));
     const std::vector<int> chopTones =
-        chop ? chopPitches(poolOf(allowedPitchClasses(homePcs)), chopRng) : std::vector<int>{};
+        chop ? chopPitches(allowedPitchClasses(homePcs), chopRng) : std::vector<int>{};
     // The line starts from the allowed tone of the first chord nearest the centre.
     int target = choose(allowed.front(), kCentre, std::nullopt);
 

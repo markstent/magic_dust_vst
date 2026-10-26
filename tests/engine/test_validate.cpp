@@ -238,3 +238,13 @@ TEST_CASE("a note with no length is one violation", "[validate]")
     idea.lanes.at(2).events.at(0).length = 0;
     requireOneViolation(idea);
 }
+
+TEST_CASE("a chord with no bars is one violation", "[validate]")
+{
+    Idea idea = validIdea(9);
+    PlacedChord empty = idea.progression.at(1);
+    empty.startBar = 4;
+    empty.bars = 0;
+    idea.progression.insert(idea.progression.begin() + 2, empty);
+    requireOneViolation(idea);
+}
