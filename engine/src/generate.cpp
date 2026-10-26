@@ -120,14 +120,9 @@ void checkCells(const std::string& entryId, const std::vector<RhythmCell>& cells
     }
     for (const RhythmCell& cell : cells)
     {
-        const bool badHit =
-            std::ranges::any_of(cell.hits,
-                                [&cell](const Hit& hit)
-                                {
-                                    return hit.step < 0 ||
-                                           hit.step >= kStepsPerBar * cell.bars ||
-                                           hit.length < 1;
-                                });
+        const bool badHit = std::ranges::any_of(
+            cell.hits, [&cell](const Hit& hit)
+            { return hit.step < 0 || hit.step >= kStepsPerBar * cell.bars || hit.length < 1; });
         if ((cell.bars != 1 && cell.bars != 2) || cell.hits.empty() || badHit)
         {
             throw std::logic_error("entry " + entryId + " has a malformed rhythm cell " + cell.id);
@@ -291,9 +286,9 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
     idea.lanes.at(0) = makeLane(LaneId::chords, laneSeeds.chords, chordCell.id,
                                 detail::chordEvents(idea.progression, chordCell, settings),
                                 detail::kChordHumanize, settings.energy);
-    idea.lanes.at(1) = makeLane(LaneId::bass, laneSeeds.bass, std::string(bassPatternName(bassPattern)),
-                                detail::bassEvents(idea, bassPattern), detail::kBassHumanize,
-                                settings.energy);
+    idea.lanes.at(1) =
+        makeLane(LaneId::bass, laneSeeds.bass, std::string(bassPatternName(bassPattern)),
+                 detail::bassEvents(idea, bassPattern), detail::kBassHumanize, settings.energy);
     idea.lanes.at(2) = makeLane(LaneId::melody, laneSeeds.melody,
                                 std::string(melodyModeName(entry.melodyModes.front())),
                                 detail::melodyEvents(entry, idea, laneSeeds.melody),
