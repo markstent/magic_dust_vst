@@ -5,14 +5,15 @@ on:
   pull_request:
   schedule:
     - cron: '0 3 * * *'
+  workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 env:
-  # Nightly runs hammer the property tests harder.
-  MD_PROPERTY_SEEDS: ${{ github.event_name == 'schedule' && '10000' || '' }}
+  # Nightly and manual runs hammer the property tests harder.
+  MD_PROPERTY_SEEDS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '10000' || '' }}
 
 jobs:
   lint:
@@ -59,6 +60,9 @@ jobs:
 
   sanitizers:
     runs-on: macos-15
+    env:
+      # Sanitizer builds are slow, so they keep the default seed count even on nightly runs.
+      MD_PROPERTY_SEEDS: ''
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: brew install ninja
