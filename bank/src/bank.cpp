@@ -1,5 +1,6 @@
 #include "md/bank.hpp"
 
+#include "md/names.hpp"
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
 
@@ -10,6 +11,7 @@
 #include <cmath>
 #include <cstddef>
 #include <initializer_list>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -30,10 +32,6 @@ constexpr std::uint64_t kFnvPrime = 1099511628211ULL;
 
 template <class E> using Names = std::initializer_list<std::pair<std::string_view, E>>;
 
-constexpr Names<Family> kFamilies{
-    {"mk-dub", Family::mkDub},      {"soulful", Family::soulful},    {"bassline", Family::bassline},
-    {"festival", Family::festival}, {"ny-groove", Family::nyGroove},
-};
 constexpr Names<Confidence> kConfidences{
     {"placeholder", Confidence::placeholder},
     {"estimated", Confidence::estimated},
@@ -45,32 +43,28 @@ constexpr Names<int> kSourceKinds{
     {"learned-clip", 2},
     {"licensed-pack", 3},
 };
-constexpr Names<Mode> kModes{
-    {"aeolian", Mode::aeolian}, {"dorian", Mode::dorian},         {"phrygian", Mode::phrygian},
-    {"ionian", Mode::ionian},   {"mixolydian", Mode::mixolydian},
-};
 constexpr Names<VoicingStyle> kVoicings{
     {"close", VoicingStyle::close},
     {"drop-2", VoicingStyle::drop2},
     {"organ-stab", VoicingStyle::organStab},
     {"piano-spread", VoicingStyle::pianoSpread},
 };
-constexpr Names<BassPattern> kBassPatterns{
-    {"rolling-offbeat", BassPattern::rollingOffbeat},
-    {"offbeat", BassPattern::offbeat},
-    {"octave-bounce", BassPattern::octaveBounce},
-    {"garage-skip", BassPattern::garageSkip},
-    {"sustained", BassPattern::sustained},
-    {"riff", BassPattern::riff},
-    {"pedal", BassPattern::pedal},
-    {"call-response", BassPattern::callResponse},
-};
-constexpr Names<MelodyMode> kMelodyModes{
-    {"vocal-chop", MelodyMode::vocalChop},
-    {"hook", MelodyMode::hook},
-    {"riff", MelodyMode::riff},
-    {"sparse", MelodyMode::sparse},
-};
+
+template <class E> std::optional<E> lookup(Names<E> names, std::string_view text)
+{
+    const auto it = std::ranges::find(names, text, &std::pair<std::string_view, E>::first);
+    return it == names.end() ? std::nullopt : std::optional<E>(it->second);
+}
+
+std::optional<int> parseSourceKind(std::string_view text) { return lookup(kSourceKinds, text); }
+std::optional<Confidence> parseConfidence(std::string_view text)
+{
+    return lookup(kConfidences, text);
+}
+std::optional<VoicingStyle> parseVoicingStyle(std::string_view text)
+{
+    return lookup(kVoicings, text);
+}
 
 std::uint64_t fnv1a(std::uint64_t hash, std::string_view bytes)
 {
@@ -208,30 +202,28 @@ class Reader
         return value.get<bool>();
     }
 
-    template <class E>
-    [[nodiscard]] E choice(const Json& value, const std::string& path, Names<E> names) const
+    // parse maps the text to a value, or to nothing for an unknown name.
+    template <class Parse>
+    [[nodiscard]] auto choice(const Json& value, const std::string& path, Parse parse) const
     {
         const auto word = text(value, path, false);
-        for (const auto& [name, e] : names)
+        const auto found = parse(word);
+        if (!found)
         {
-            if (name == word)
-            {
-                return e;
-            }
+            fail(path, "unknown value \"" + word + "\"");
         }
-        fail(path, "unknown value \"" + word + "\"");
+        return *found;
     }
 
-    template <class E>
-    [[nodiscard]] std::vector<E> choices(const Json& value, const std::string& path,
-                                         Names<E> names) const
+    template <class Parse>
+    [[nodiscard]] auto choices(const Json& value, const std::string& path, Parse parse) const
     {
-        std::vector<E> result;
+        std::vector<decltype(choice(value, path, parse))> result;
         const auto count = arraySize(value, path);
         result.reserve(count);
         for (std::size_t i = 0; i < count; ++i)
         {
-            result.push_back(choice(value.at(i), at(path, i), names));
+            result.push_back(choice(value.at(i), at(path, i), parse));
         }
         auto sorted = result;
         std::ranges::sort(sorted);
@@ -348,12 +340,12 @@ std::vector<RhythmCell> parseCells(const Reader& r, const Json& value, const std
 void parseSource(const Reader& r, const Json& value, StyleEntry& entry)
 {
     r.object(value, "/source", {"kind", "reference", "confidence"});
-    static_cast<void>(r.choice(value.at("kind"), "/source/kind", kSourceKinds));
+    static_cast<void>(r.choice(value.at("kind"), "/source/kind", parseSourceKind));
     if (!value.at("reference").is_null())
     {
         static_cast<void>(r.text(value.at("reference"), "/source/reference", false));
     }
-    entry.confidence = r.choice(value.at("confidence"), "/source/confidence", kConfidences);
+    entry.confidence = r.choice(value.at("confidence"), "/source/confidence", parseConfidence);
 }
 
 void parseTempo(const Reader& r, const Json& value, StyleEntry& entry)
@@ -370,7 +362,7 @@ void parseTempo(const Reader& r, const Json& value, StyleEntry& entry)
 void parseVoicing(const Reader& r, const Json& value, StyleEntry& entry)
 {
     r.object(value, "/voicing", {"style", "parallel", "topNote"});
-    entry.voicingStyle = r.choice(value.at("style"), "/voicing/style", kVoicings);
+    entry.voicingStyle = r.choice(value.at("style"), "/voicing/style", parseVoicingStyle);
     entry.parallel = r.boolean(value.at("parallel"), "/voicing/parallel");
     const auto& top = value.at("topNote");
     if (r.arraySize(top, "/voicing/topNote", 2) != 2)
@@ -441,11 +433,11 @@ StyleEntry parseEntry(std::string_view text)
     {
         r.fail("/id", "must be lowercase words joined by hyphens");
     }
-    entry.family = r.choice(doc.at("family"), "/family", kFamilies);
+    entry.family = r.choice(doc.at("family"), "/family", parseFamily);
     entry.name = r.text(doc.at("name"), "/name", true);
     parseSource(r, doc.at("source"), entry);
     parseTempo(r, doc.at("tempo"), entry);
-    entry.modes = r.choices(doc.at("modes"), "/modes", kModes);
+    entry.modes = r.choices(doc.at("modes"), "/modes", parseMode);
     parseVoicing(r, doc.at("voicing"), entry);
     for (std::size_t i = 0; i < r.arraySize(doc.at("progressions"), "/progressions"); ++i)
     {
@@ -454,8 +446,8 @@ StyleEntry parseEntry(std::string_view text)
     }
     entry.chordRhythms = parseCells(r, doc.at("chordRhythms"), "/chordRhythms");
     entry.melodyRhythms = parseCells(r, doc.at("melodyRhythms"), "/melodyRhythms");
-    entry.bassPatterns = r.choices(doc.at("bassPatterns"), "/bassPatterns", kBassPatterns);
-    entry.melodyModes = r.choices(doc.at("melodyModes"), "/melodyModes", kMelodyModes);
+    entry.bassPatterns = r.choices(doc.at("bassPatterns"), "/bassPatterns", parseBassPattern);
+    entry.melodyModes = r.choices(doc.at("melodyModes"), "/melodyModes", parseMelodyMode);
     parseSwing(r, doc.at("swing"), entry);
     parseTags(r, doc.at("tags"), entry);
     entry.contentHash = fnv1a(kFnvOffset, doc.dump());

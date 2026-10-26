@@ -4,7 +4,6 @@
 
 #include <cstdint>
 #include <string>
-#include <string_view>
 #include <vector>
 
 namespace md
@@ -101,45 +100,4 @@ struct Bank
     std::vector<StyleEntry> entries; // sorted by id
     std::uint64_t version;
 };
-
-// The kebab-case names used in the bank JSON.
-constexpr std::string_view patternName(BassPattern pattern)
-{
-    switch (pattern)
-    {
-    case BassPattern::rollingOffbeat:
-        return "rolling-offbeat";
-    case BassPattern::offbeat:
-        return "offbeat";
-    case BassPattern::octaveBounce:
-        return "octave-bounce";
-    case BassPattern::garageSkip:
-        return "garage-skip";
-    case BassPattern::sustained:
-        return "sustained";
-    case BassPattern::riff:
-        return "riff";
-    case BassPattern::pedal:
-        return "pedal";
-    case BassPattern::callResponse:
-        return "call-response";
-    }
-    return "";
-}
-
-constexpr std::string_view patternName(MelodyMode mode)
-{
-    switch (mode)
-    {
-    case MelodyMode::vocalChop:
-        return "vocal-chop";
-    case MelodyMode::hook:
-        return "hook";
-    case MelodyMode::riff:
-        return "riff";
-    case MelodyMode::sparse:
-        return "sparse";
-    }
-    return "";
-}
 } // namespace md

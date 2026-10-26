@@ -1,6 +1,7 @@
 #include "md/generate.hpp"
 
 #include "internal.hpp"
+#include "md/names.hpp"
 #include "md/pcg32.hpp"
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
@@ -290,11 +291,11 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
     idea.lanes.at(0) = makeLane(LaneId::chords, laneSeeds.chords, chordCell.id,
                                 detail::chordEvents(idea.progression, chordCell, settings),
                                 detail::kChordHumanize, settings.energy);
-    idea.lanes.at(1) = makeLane(LaneId::bass, laneSeeds.bass, std::string(patternName(bassPattern)),
+    idea.lanes.at(1) = makeLane(LaneId::bass, laneSeeds.bass, std::string(bassPatternName(bassPattern)),
                                 detail::bassEvents(idea, bassPattern), detail::kBassHumanize,
                                 settings.energy);
     idea.lanes.at(2) = makeLane(LaneId::melody, laneSeeds.melody,
-                                std::string(patternName(entry.melodyModes.front())),
+                                std::string(melodyModeName(entry.melodyModes.front())),
                                 detail::melodyEvents(entry, idea, laneSeeds.melody),
                                 detail::kMelodyHumanize, settings.energy);
 

@@ -144,14 +144,6 @@ TEST_CASE("an array barsPerChord is kept as written")
     CHECK(entry.progressions.at(0).barsPerChord == std::vector<int>{2, 2, 4});
 }
 
-TEST_CASE("pattern names match the JSON names")
-{
-    CHECK(md::patternName(md::BassPattern::rollingOffbeat) == "rolling-offbeat");
-    CHECK(md::patternName(md::BassPattern::callResponse) == "call-response");
-    CHECK(md::patternName(md::MelodyMode::vocalChop) == "vocal-chop");
-    CHECK(md::patternName(md::MelodyMode::sparse) == "sparse");
-}
-
 TEST_CASE("makeBank rejects duplicate ids")
 {
     const auto entry = md::parseEntry(validText());

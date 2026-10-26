@@ -1,5 +1,7 @@
 #include "md/theory.hpp"
 
+#include "md/names.hpp"
+
 #include <algorithm>
 
 namespace md
@@ -29,10 +31,6 @@ constexpr auto kNumerals = std::to_array<Numeral>({
     {.text = "v", .degree = 5},
     {.text = "i", .degree = 1},
 });
-
-constexpr std::array<std::string_view, 12> kRootNames{
-    "C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B",
-};
 
 std::optional<Quality> parseQuality(std::string_view suffix, bool minor)
 {
@@ -232,7 +230,7 @@ std::vector<int> scalePitchClasses(const Key& key)
 
 std::string chordName(const Key& key, const ChordSymbol& chord)
 {
-    std::string name{kRootNames.at(static_cast<std::size_t>(chordRootPc(key, chord)))};
+    std::string name{rootName(chordRootPc(key, chord))};
     name += qualitySuffix(chord.quality);
     return name;
 }

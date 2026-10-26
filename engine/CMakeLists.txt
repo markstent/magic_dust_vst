@@ -1,5 +1,6 @@
 add_library(md_engine STATIC
   src/theory.cpp
+  src/names.cpp
   src/pcg32.cpp
   src/ideacode.cpp
   src/chords.cpp

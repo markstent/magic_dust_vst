@@ -8,6 +8,7 @@ catch_discover_tests(md_plugin_tests PROPERTIES LABELS plugin)
 
 add_executable(md_engine_tests
   engine/test_theory.cpp
+  engine/test_names.cpp
   engine/test_pcg32.cpp
   engine/test_ideacode.cpp
   engine/test_validate.cpp

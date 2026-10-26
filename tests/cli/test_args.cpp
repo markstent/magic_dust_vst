@@ -107,12 +107,3 @@ TEST_CASE("bad input returns an error naming the bad value")
     CHECK_THAT(error({"--tempo", "201", "--out", "x"}), ContainsSubstring("201"));
     CHECK_THAT(error({"--out"}), ContainsSubstring("--out"));
 }
-
-TEST_CASE("key names use the chord spelling in lowercase")
-{
-    CHECK(md::keyName({9, md::Mode::aeolian}) == "a aeolian");
-    CHECK(md::keyName({10, md::Mode::dorian}) == "bb dorian");
-    CHECK(md::keyName({3, md::Mode::phrygian}) == "eb phrygian");
-    CHECK(md::keyName({8, md::Mode::mixolydian}) == "ab mixolydian");
-    CHECK(md::keyName({1, md::Mode::ionian}) == "c# ionian");
-}

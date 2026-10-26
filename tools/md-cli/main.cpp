@@ -4,6 +4,7 @@
 #include "md/generate.hpp"
 #include "md/ideacode.hpp"
 #include "md/midifile.hpp"
+#include "md/names.hpp"
 #include "md/theory.hpp"
 
 #include <algorithm>
