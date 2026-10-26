@@ -38,7 +38,7 @@ Run `killall -9 AudioComponentRegistrar` and then run the script again.
 `md-cli` writes Magic Dust ideas as MIDI files, so you can hear them in your daw before the plug-in is finished.
 
 To open Terminal, press Cmd+Space, type `Terminal` and press Return.
-Then go to the project folder with `cd ~/orca/workspaces/magic_dust_vst/melusine`.
+Then type `cd ` (with a space after it), drag the Magic Dust project folder from Finder into the Terminal window, and press Return.
 Next run `cmake --build --preset dev`, which builds md-cli (and the plug-in) so it is ready to run.
 Then run these five commands, one idea for each style:
 
