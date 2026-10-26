@@ -11,9 +11,9 @@ namespace md
 {
 struct DecodedIdea
 {
-    std::uint32_t seed;
+    std::uint32_t seed{};
     Settings settings;
-    std::uint16_t bankVersion16;
+    std::uint16_t bankVersion16{};
 };
 
 // 13 Crockford base32 characters; only the low 16 bits of bankVersion are kept.

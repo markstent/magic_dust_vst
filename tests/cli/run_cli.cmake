@@ -1,0 +1,13 @@
+# Runs md-cli in a clean folder and checks its exit code; for exit 0 also checks the four files.
+file(REMOVE_RECURSE ${DIR})
+execute_process(COMMAND ${CLI} ${ARGS} RESULT_VARIABLE code OUTPUT_QUIET ERROR_QUIET)
+if(NOT code EQUAL EXPECT)
+  message(FATAL_ERROR "md-cli exited ${code}, expected ${EXPECT}")
+endif()
+if(EXPECT EQUAL 0)
+  foreach(name "idea.mid" "idea - chords.mid" "idea - bass.mid" "idea - melody.mid")
+    if(NOT EXISTS "${DIR}/${name}")
+      message(FATAL_ERROR "missing ${DIR}/${name}")
+    endif()
+  endforeach()
+endif()

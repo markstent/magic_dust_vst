@@ -28,3 +28,21 @@ add_executable(md_midiexport_tests midiexport/test_midifile.cpp)
 target_link_libraries(md_midiexport_tests PRIVATE md_midiexport Catch2::Catch2WithMain)
 md_target_defaults(md_midiexport_tests)
 catch_discover_tests(md_midiexport_tests PROPERTIES LABELS unit)
+
+add_executable(md_cli_tests cli/test_args.cpp)
+target_link_libraries(md_cli_tests PRIVATE md_cli_args Catch2::Catch2WithMain)
+md_target_defaults(md_cli_tests)
+catch_discover_tests(md_cli_tests PROPERTIES LABELS unit)
+
+set(MD_CLI_TMP ${CMAKE_BINARY_DIR}/md-cli-test)
+add_test(NAME md_cli_writes_four_files
+  COMMAND ${CMAKE_COMMAND}
+    -DCLI=$<TARGET_FILE:md-cli> -DDIR=${MD_CLI_TMP} -DEXPECT=0
+    "-DARGS=--seed;48213;--out;${MD_CLI_TMP}/idea.mid"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/cli/run_cli.cmake)
+add_test(NAME md_cli_rejects_bad_bars
+  COMMAND ${CMAKE_COMMAND}
+    -DCLI=$<TARGET_FILE:md-cli> -DDIR=${MD_CLI_TMP} -DEXPECT=2
+    "-DARGS=--bars;5;--out;${MD_CLI_TMP}/x.mid"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/cli/run_cli.cmake)
+set_tests_properties(md_cli_writes_four_files md_cli_rejects_bad_bars PROPERTIES LABELS unit)
