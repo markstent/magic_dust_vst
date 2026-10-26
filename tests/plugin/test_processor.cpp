@@ -44,8 +44,26 @@ TEST_CASE("state round trip does not throw")
     MagicDustProcessor processor;
     juce::MemoryBlock state;
     processor.getStateInformation(state);
-    CHECK(state.getSize() > 0);
+    const auto xml =
+        juce::AudioProcessor::getXmlFromBinary(state.getData(), static_cast<int>(state.getSize()));
+    REQUIRE(xml != nullptr);
+    CHECK(xml->hasTagName("MagicDust"));
+    CHECK(xml->getIntAttribute("schemaVersion") == 1);
 
     MagicDustProcessor fresh;
     CHECK_NOTHROW(fresh.setStateInformation(state.getData(), static_cast<int>(state.getSize())));
+}
+
+TEST_CASE("processor drops incoming midi")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    processor.prepareToPlay(48000.0, 512);
+
+    juce::AudioBuffer<float> buffer(2, 512);
+    juce::MidiBuffer midi;
+    midi.addEvent(juce::MidiMessage::noteOn(1, 60, 1.0F), 0);
+    processor.processBlock(buffer, midi);
+
+    CHECK(midi.isEmpty());
 }

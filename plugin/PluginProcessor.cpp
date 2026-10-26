@@ -18,9 +18,11 @@ void MagicDustProcessor::prepareToPlay(double /*sampleRate*/, int /*samplesPerBl
 
 void MagicDustProcessor::releaseResources() {}
 
-void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& /*midi*/)
+void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     buffer.clear();
+    // No pass-through: host notes must not reach the plugin's MIDI output.
+    midi.clear();
 }
 
 juce::AudioProcessorEditor* MagicDustProcessor::createEditor()
