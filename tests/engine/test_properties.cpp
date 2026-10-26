@@ -70,6 +70,7 @@ TEST_CASE("properties: every generated idea is valid and generation is determini
             {
                 Settings settings;
                 settings.style = style;
+                settings.keyRoot = seed % 12;
                 settings.mood = mood;
                 settings.energy = energy;
                 settings.groove = static_cast<Groove>(seed % 4);

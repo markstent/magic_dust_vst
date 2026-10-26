@@ -105,6 +105,25 @@ TEST_CASE("a melody note out of key and out of the chord is one violation", "[va
     requireOneViolation(idea);
 }
 
+TEST_CASE("a melody leap over 7 semitones that is not an octave is one violation", "[validate]")
+{
+    Idea idea = validIdea(9);
+    idea.lanes.at(2).events.at(3).pitch = 79; // 10 semitones above A4, a G in key
+    requireOneViolation(idea);
+    idea.lanes.at(2).events.at(3).pitch = 81; // an octave above A4 is allowed
+    REQUIRE(validate(idea).empty());
+}
+
+TEST_CASE("a clashing melody note on a quarter-note start is one violation", "[validate]")
+{
+    Idea idea = validIdea(9);
+    idea.progression.at(0).symbol = {.degree = 1, .quality = Quality::min9}; // A C E G B
+    idea.lanes.at(2).events.at(0).pitch = 71; // B sits a semitone under C
+    requireOneViolation(idea);
+    idea.lanes.at(2).events.at(0).start += 240; // off the quarter grid, so it may clash
+    REQUIRE(validate(idea).empty());
+}
+
 TEST_CASE("an out of key melody note that is a chord tone is accepted", "[validate]")
 {
     Idea idea = validIdea(9);

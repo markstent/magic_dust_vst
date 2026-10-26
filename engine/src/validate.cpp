@@ -116,6 +116,32 @@ void checkLane(const Idea& idea, LaneId id, std::string_view name, int low, int 
     }
 }
 
+// The melody rules that need its neighbours or its chord.
+void checkMelody(const Idea& idea, Lines& lines)
+{
+    const auto& events = idea.lanes.at(static_cast<std::size_t>(LaneId::melody)).events;
+    for (std::size_t i = 0; i < events.size(); ++i)
+    {
+        const NoteEvent& e = events.at(i);
+        if (i > 0)
+        {
+            const int leap = std::abs(e.pitch - events.at(i - 1).pitch);
+            if (leap > kMaxMelodyLeap && leap != 12)
+            {
+                lines.push_back(describe("melody", e) + " leaps " + std::to_string(leap) +
+                                " semitones");
+            }
+        }
+        const PlacedChord* chord = detail::findChord(idea.progression, e.start);
+        if (e.start % kTicksPerQuarter == 0 && chord != nullptr &&
+            !contains(detail::allowedPitchClasses(detail::soundingPitchClasses(idea, *chord)),
+                      e.pitch % 12))
+        {
+            lines.push_back(describe("melody", e) + " clashes with its chord on a strong beat");
+        }
+    }
+}
+
 void checkProgressionRules(const Idea& idea, Lines& lines)
 {
     int expectedBar = 0;
@@ -212,6 +238,7 @@ std::vector<std::string> validate(const Idea& idea)
     checkLane(idea, LaneId::bass, "bass", kBassLow, kBassHigh, lines);
     checkLane(idea, LaneId::melody, "melody", kMelodyLow, kMelodyHigh, lines);
     checkBassOverlap(idea, lines);
+    checkMelody(idea, lines);
     return lines;
 }
 } // namespace md
