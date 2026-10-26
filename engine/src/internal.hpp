@@ -15,25 +15,16 @@ namespace md::detail
 //   bass:   0 velocity humanize
 //   melody: 0 rhythm cell A, 1 rhythm cell B, 2 pitch walk, 3 vocal-chop tones, 4 velocity humanize
 // Entry, progression, mode and chord-cell choices belong to the chords lane.
-enum ChordSlot : std::uint32_t
-{
-    kChordEntry,
-    kChordProgression,
-    kChordCell,
-    kChordHumanize,
-};
-enum BassSlot : std::uint32_t
-{
-    kBassHumanize,
-};
-enum MelodySlot : std::uint32_t
-{
-    kMelodyCellA,
-    kMelodyCellB,
-    kMelodyWalk,
-    kMelodyChop,
-    kMelodyHumanize,
-};
+constexpr std::uint32_t kChordEntry = 0;
+constexpr std::uint32_t kChordProgression = 1;
+constexpr std::uint32_t kChordCell = 2;
+constexpr std::uint32_t kChordHumanize = 3;
+constexpr std::uint32_t kBassHumanize = 0;
+constexpr std::uint32_t kMelodyCellA = 0;
+constexpr std::uint32_t kMelodyCellB = 1;
+constexpr std::uint32_t kMelodyWalk = 2;
+constexpr std::uint32_t kMelodyChop = 3;
+constexpr std::uint32_t kMelodyHumanize = 4;
 
 // Odd sixteenth steps land late: start = pairStart + 480 * swingPermille / 1000.
 int swung(int start, int swingPermille);

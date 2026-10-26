@@ -649,7 +649,10 @@ TEST_CASE("an idea code recreates byte-identical MIDI", "[generate][ideacode]")
             const auto seed = static_cast<std::uint32_t>(i * 8191);
             const Idea first = generate(bank(), settings, seed);
             const auto decoded = decodeIdea(encodeIdea(seed, settings, bank().version));
-            REQUIRE(decoded.has_value());
+            if (!decoded)
+            {
+                FAIL("the idea code did not decode");
+            }
             const Idea again = generate(bank(), decoded->settings, decoded->seed);
             REQUIRE(decoded->seed == seed);
             const auto bytes = [](const Idea& idea)

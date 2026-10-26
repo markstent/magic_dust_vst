@@ -84,7 +84,7 @@ std::optional<int> parseRoot(std::string_view text)
     {
         return std::nullopt;
     }
-    const auto letter =
+    const auto* const letter =
         std::ranges::find(letters, lower(text.front()), &std::pair<char, int>::first);
     if (letter == letters.end())
     {
