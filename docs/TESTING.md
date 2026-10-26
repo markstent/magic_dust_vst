@@ -81,6 +81,7 @@ Every idea gives four files, for example for `uk-funky-1.mid`:
 The same seed and settings always give the same idea.
 Change the seed (0 to 99999) for a new idea.
 Run `build/dev/tools/md-cli/md-cli --help` to see the other options: key, bars, mood, energy, groove, flavour and tempo.
+Flavour is accepted but changes nothing yet; it starts to matter in Phase 2.
 
 ### Dragging the files into your daw
 
