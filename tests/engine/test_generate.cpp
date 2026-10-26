@@ -2,6 +2,7 @@
 
 #include "internal.hpp"
 #include "md/bank.hpp"
+#include "md/ideacode.hpp"
 #include "md/midifile.hpp"
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
@@ -580,10 +581,7 @@ std::vector<std::uint8_t> laneBytes(const Idea& idea, LaneId lane)
     return writeMidiFile(tracks, 120, ideaLengthTicks(idea));
 }
 
-Idea withLaneSeeds(const LaneSeeds& seeds)
-{
-    return generate(bank(), Settings{}, 4242, seeds);
-}
+Idea withLaneSeeds(const LaneSeeds& seeds) { return generate(bank(), Settings{}, 4242, seeds); }
 } // namespace
 
 TEST_CASE("default lane seeds reproduce the three-argument generate", "[generate][seeds]")
@@ -639,4 +637,24 @@ TEST_CASE("rerolling the chords seed may change every lane", "[generate][seeds]"
             static_cast<std::uint32_t>(std::hash<std::string>{}(idea.entryId)));
     }
     REQUIRE(entryAndProgression.size() > 1);
+}
+
+TEST_CASE("an idea code recreates byte-identical MIDI", "[generate][ideacode]")
+{
+    for (const Style style : kStyles)
+    {
+        for (int i = 0; i < 12; ++i)
+        {
+            const Settings settings = settingsFor(style, i);
+            const auto seed = static_cast<std::uint32_t>(i * 8191);
+            const Idea first = generate(bank(), settings, seed);
+            const auto decoded = decodeIdea(encodeIdea(seed, settings, bank().version));
+            REQUIRE(decoded.has_value());
+            const Idea again = generate(bank(), decoded->settings, decoded->seed);
+            REQUIRE(decoded->seed == seed);
+            const auto bytes = [](const Idea& idea)
+            { return writeMidiFile(ideaTracks(idea), 124, ideaLengthTicks(idea)); };
+            REQUIRE(bytes(again) == bytes(first));
+        }
+    }
 }
