@@ -619,6 +619,35 @@ TEST_CASE("tab visits the wordmark, header, cells, lanes, knobs, levels, volume,
     CHECK(order == expected);
 }
 
+TEST_CASE("a disabled octave key leaves the focus order and returns when enabled again",
+          "[editor][octave]")
+{
+    Fixture f;
+    const auto order = [&f]
+    {
+        juce::KeyboardFocusTraverser traverser;
+        std::vector<std::string> ids;
+        for (auto* c : traverser.getAllComponents(f.editor.get()))
+        {
+            ids.push_back(c->getComponentID().toStdString());
+        }
+        return ids;
+    };
+    const auto has = [&order](const char* id)
+    {
+        const auto ids = order();
+        return std::ranges::find(ids, std::string(id)) != ids.end();
+    };
+    CHECK(has("octave1Down"));
+    CHECK(has("octave1Up"));
+    f.find<md::ui::KeyButton>("octave1Down").onClick();
+    f.find<md::ui::KeyButton>("octave1Down").onClick();
+    CHECK_FALSE(has("octave1Down"));
+    CHECK(has("octave1Up"));
+    f.find<md::ui::KeyButton>("octave1Up").onClick();
+    CHECK(has("octave1Down"));
+}
+
 TEST_CASE("enter activates a key, cell and lane once, and space does not", "[editor]")
 {
     Fixture f;
@@ -1232,6 +1261,28 @@ TEST_CASE("render the editor", "[.render]")
     f.find<md::ui::AboutPanel>("aboutPanel").setVisible(false);
     f.find<md::ui::ChordCell>("cell0").set("Am7", "home", true, false);
     write("editor-playing-100.png", 1040, 1.0F);
+}
+
+// Renders the README picture to $MD_RENDER_DIR: the four-chord idea at 2x, nothing muted, every
+// octave at 0, not playing.
+TEST_CASE("render the readme editor", "[.render]")
+{
+    const char* dir = std::getenv("MD_RENDER_DIR");
+    if (dir == nullptr)
+    {
+        return;
+    }
+    Fixture f;
+    dynamic_cast<MagicDustEditor&>(*f.editor).refresh();
+    f.refresh();
+    const juce::File out(dir);
+    out.createDirectory();
+    const auto image = f.editor->createComponentSnapshot(f.editor->getLocalBounds(), true, 2.0F);
+    juce::FileOutputStream stream(out.getChildFile("readme-editor.png"));
+    REQUIRE(stream.openedOk());
+    stream.setPosition(0);
+    stream.truncate();
+    REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
 }
 
 // Renders the sender screen to PNGs in $MD_RENDER_DIR; does nothing when the variable is not set.

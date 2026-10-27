@@ -210,7 +210,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 
 ### 9. Mute keys
 
-- A vertical "MUTE" legend, reading bottom to top, centred on (62, 497), in the key legend style.
+- A vertical "MUTE" legend, reading bottom to top, centred on (58, 497), in the key legend style.
 - Three cream keys, 78 x 54 px, at x = 74, 166 and 258 on y = 470, with the legends "CHORDS", "BASS" and "MELODY" below.
 - An amber LED 6 px across sits above each key and is lit while the lane is muted.
 - Click, or Enter while focused, toggles `chordsMute`, `bassMute` or `melodyMute`.
@@ -224,7 +224,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 - A rocker is 78 x 20 px with its top at y = 550 and its left edge at the mute key's x, left to right: a 22 x 20 down key, a 2 px gap, a 30 x 20 cream readout window, a 2 px gap and a 22 x 20 up key.
 - The keys use the dark key material with a small `legend` triangle about 8 px wide, pointing down or up.
 - The window uses the cream readout material with Space Mono Bold 11 px `ink` text: "-2", "-1", "0", "+1" or "+2".
-- A short legend "OCT" in the key legend style sits to the left of the first rocker, centred on x = 58 and on the rocker row.
+- A short legend "OCT" in the key legend style sits to the left of the first rocker, centred on x = 58, the same line as the MUTE legend, and on the rocker row.
 - The down key is disabled at -2 and the up key at +2: drawn at 40% and not clickable.
 - Accessible titles are "chords octave down", "chords octave up" and "chords octave, -1" for the window, and likewise for bass and melody.
 - Each key is focusable and Enter presses it.

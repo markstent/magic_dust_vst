@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 #include "md/ranges.hpp"
 #include "ui/Tokens.h"
@@ -59,8 +60,13 @@ void OctaveRocker::refresh()
 {
     const int octave = current();
     window_.setText(octaveText(octave));
-    down_.setEnabled(octave > md::kOctaveMin);
-    up_.setEnabled(octave < md::kOctaveMax);
+    // A disabled key also leaves the keyboard focus order.
+    for (auto [key, enabled] : {std::pair<KeyButton*, bool>{&down_, octave > md::kOctaveMin},
+                                std::pair<KeyButton*, bool>{&up_, octave < md::kOctaveMax}})
+    {
+        key->setEnabled(enabled);
+        key->setWantsKeyboardFocus(enabled);
+    }
 }
 
 void OctaveRocker::step(int delta)

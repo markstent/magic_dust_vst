@@ -164,7 +164,8 @@ inline constexpr float mutedAlpha = 0.35F; // a muted lane's display row
 inline constexpr int keyY = 470;
 inline constexpr int keyHeight = 54;
 inline constexpr int keyWidth = 78;
-inline constexpr int muteLegendCentreX = 62;
+inline constexpr int muteLegendCentreX =
+    58; // clear of the first mute key and the first octave rocker
 inline constexpr std::array<int, 3> muteKeyX{74, 166, 258};
 inline constexpr std::array<int, 2> transportKeyX{632, 724};
 inline const juce::Rectangle<int> sprinkleKey{816, keyY, 170, keyHeight};
