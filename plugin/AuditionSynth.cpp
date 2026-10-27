@@ -8,149 +8,119 @@
 namespace md
 {
 
-namespace
+AuditionSynth::AuditionSynth(const VoiceRecipe& recipe) : recipe_(recipe) {}
+
+void AuditionSynth::prepare(double sampleRate)
 {
-
-constexpr int kChannel = 1;
-
-class Sound : public juce::SynthesiserSound
-{
-  public:
-    bool appliesToNote([[maybe_unused]] int midiNoteNumber) override { return true; }
-    bool appliesToChannel([[maybe_unused]] int midiChannel) override { return true; }
-};
-
-class Voice : public juce::SynthesiserVoice
-{
-  public:
-    Voice(const VoiceRecipe& recipe, const std::atomic<float>& level)
-        : recipe_(recipe), level_(&level)
-    {
-    }
-
-    bool canPlaySound(juce::SynthesiserSound* s) override
-    {
-        return dynamic_cast<Sound*>(s) != nullptr;
-    }
-
-    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): fixed by juce::SynthesiserVoice
-    void startNote(int note, float velocity, [[maybe_unused]] juce::SynthesiserSound* sound,
-                   [[maybe_unused]] int currentPitchWheelPosition) override
-    {
-        const double rate = getSampleRate();
-        frequency_ = juce::MidiMessage::getMidiNoteInHertz(note);
-        phase_ = 0.0;
-        env_ = 0.0F;
-        releasing_ = false;
-        velocity_ = velocity;
-        attackStep_ = 1.0F / std::max(1.0F, static_cast<float>(rate * recipe_.attackMs / 1000.0));
-        releaseSamples_ = std::max(1.0F, static_cast<float>(rate * recipe_.releaseMs / 1000.0));
-        partialCount_ = 0;
-        for (std::size_t k = 0; k < recipe_.partials.size(); ++k)
-        {
-            if (frequency_ * static_cast<double>(k + 1) < rate / 2)
-            {
-                partialCount_ = k + 1;
-            }
-        }
-    }
-
-    void stopNote([[maybe_unused]] float velocity, bool allowTailOff) override
-    {
-        if (!allowTailOff || env_ <= 0.0F)
-        {
-            clearCurrentNote();
-            return;
-        }
-        releasing_ = true;
-        releaseStep_ = env_ / releaseSamples_;
-    }
-
-    void pitchWheelMoved([[maybe_unused]] int newPitchWheelValue) override {}
-    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): fixed by juce::SynthesiserVoice
-    void controllerMoved([[maybe_unused]] int controllerNumber,
-                         [[maybe_unused]] int newControllerValue) override
-    {
-    }
-
-    void renderNextBlock(juce::AudioBuffer<float>& buffer, int start, int num) override
-    {
-        const float amp = recipe_.gain * velocity_ * level_->load();
-        const double step = frequency_ / getSampleRate();
-        const int channels = buffer.getNumChannels();
-        for (int i = start; i < start + num; ++i)
-        {
-            if (releasing_)
-            {
-                env_ -= releaseStep_;
-                if (env_ <= 0.0F)
-                {
-                    clearCurrentNote();
-                    return;
-                }
-            }
-            else
-            {
-                env_ = std::min(1.0F, env_ + attackStep_);
-            }
-            double sum = 0.0;
-            double harmonic = 1.0;
-            for (const float partial : std::span(recipe_.partials).first(partialCount_))
-            {
-                sum += static_cast<double>(partial) *
-                       std::sin(2.0 * std::numbers::pi * phase_ * harmonic);
-                harmonic += 1.0;
-            }
-            const float sample = amp * env_ * static_cast<float>(sum);
-            for (int c = 0; c < channels; ++c)
-            {
-                buffer.addSample(c, i, sample);
-            }
-            phase_ += step;
-            phase_ -= std::floor(phase_);
-        }
-    }
-
-  private:
-    VoiceRecipe recipe_;
-    const std::atomic<float>* level_;
-    double frequency_ = 0.0;
-    double phase_ = 0.0;
-    float velocity_ = 0.0F;
-    float env_ = 0.0F;
-    float attackStep_ = 1.0F;
-    float releaseStep_ = 0.0F;
-    float releaseSamples_ = 1.0F;
-    bool releasing_ = false;
-    std::size_t partialCount_ = 0;
-};
-
-} // namespace
-
-AuditionSynth::AuditionSynth(const VoiceRecipe& recipe) : recipe_(recipe)
-{
-    synth_.addSound(new Sound());
-    for (int i = 0; i < recipe_.voices; ++i)
-    {
-        synth_.addVoice(new Voice(recipe_, level_));
-    }
-    synth_.setNoteStealingEnabled(true);
+    sampleRate_ = sampleRate;
+    voices_.fill({});
 }
 
-void AuditionSynth::prepare(double sampleRate) { synth_.setCurrentPlaybackSampleRate(sampleRate); }
-
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): interface fixed by the brief
 void AuditionSynth::noteOn(int note, int velocity)
 {
-    synth_.noteOn(kChannel, note, static_cast<float>(velocity) / 127.0F);
+    const auto pool = std::span(voices_).first(static_cast<std::size_t>(recipe_.voices));
+    const auto free = std::ranges::find_if(pool, [](const Voice& v) { return !v.active; });
+    Voice& v = free != pool.end()
+                   ? *free
+                   : *std::ranges::min_element(pool, [](const Voice& a, const Voice& b)
+                                               { return a.age < b.age; });
+    v = {};
+    v.active = true;
+    v.note = note;
+    v.age = ++noteCounter_;
+    v.frequency = juce::MidiMessage::getMidiNoteInHertz(note);
+    v.velocity = static_cast<float>(velocity) / 127.0F;
+    for (std::size_t k = 0; k < recipe_.partials.size(); ++k)
+    {
+        if (v.frequency * static_cast<double>(k + 1) < sampleRate_ / 2)
+        {
+            v.partialCount = k + 1;
+        }
+    }
 }
 
-void AuditionSynth::noteOff(int note) { synth_.noteOff(kChannel, note, 0.0F, true); }
+void AuditionSynth::release(Voice& v) const
+{
+    if (!v.active || v.releasing)
+    {
+        return;
+    }
+    const auto releaseSamples =
+        std::max(1.0F, static_cast<float>(sampleRate_ * recipe_.releaseMs / 1000.0));
+    v.releasing = true;
+    v.releaseStep = v.env / releaseSamples;
+}
 
-void AuditionSynth::allNotesOff() { synth_.allNotesOff(kChannel, true); }
+void AuditionSynth::noteOff(int note)
+{
+    for (Voice& v : voices_)
+    {
+        if (v.note == note)
+        {
+            release(v);
+        }
+    }
+}
+
+void AuditionSynth::allNotesOff()
+{
+    for (Voice& v : voices_)
+    {
+        release(v);
+    }
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): private helper, one call site
+void AuditionSynth::renderVoice(Voice& v, juce::AudioBuffer<float>& buffer, int start, int num,
+                                float amp) const
+{
+    const float attackStep =
+        1.0F / std::max(1.0F, static_cast<float>(sampleRate_ * recipe_.attackMs / 1000.0));
+    const double step = v.frequency / sampleRate_;
+    const int channels = buffer.getNumChannels();
+    for (int i = start; i < start + num; ++i)
+    {
+        if (v.releasing)
+        {
+            v.env -= v.releaseStep;
+            if (v.env <= 0.0F)
+            {
+                v.active = false;
+                return;
+            }
+        }
+        else
+        {
+            v.env = std::min(1.0F, v.env + attackStep);
+        }
+        double sum = 0.0;
+        double harmonic = 1.0;
+        for (const float partial : std::span(recipe_.partials).first(v.partialCount))
+        {
+            sum += static_cast<double>(partial) *
+                   std::sin(2.0 * std::numbers::pi * v.phase * harmonic);
+            harmonic += 1.0;
+        }
+        const float sample = amp * v.env * static_cast<float>(sum);
+        for (int c = 0; c < channels; ++c)
+        {
+            buffer.addSample(c, i, sample);
+        }
+        v.phase += step;
+        v.phase -= std::floor(v.phase);
+    }
+}
 
 void AuditionSynth::render(juce::AudioBuffer<float>& buffer, int start, int num)
 {
-    synth_.renderNextBlock(buffer, noMidi_, start, num);
+    for (Voice& v : voices_)
+    {
+        if (v.active)
+        {
+            renderVoice(v, buffer, start, num, recipe_.gain * v.velocity * level_.load());
+        }
+    }
 }
 
 } // namespace md

@@ -2,6 +2,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 
@@ -59,10 +60,31 @@ class AuditionSynth
     void setLevel(float level) { level_.store(level); }
 
   private:
+    static constexpr std::size_t kMaxVoices = 8;
+
+    struct Voice
+    {
+        bool active = false;
+        bool releasing = false;
+        int note = 0;
+        std::uint64_t age = 0;
+        double frequency = 0.0;
+        double phase = 0.0;
+        float velocity = 0.0F;
+        float env = 0.0F;
+        float releaseStep = 0.0F;
+        std::size_t partialCount = 0;
+    };
+
+    void release(Voice& v) const;
+    void renderVoice(Voice& v, juce::AudioBuffer<float>& buffer, int start, int num,
+                     float amp) const;
+
     VoiceRecipe recipe_;
     std::atomic<float> level_{0.8F};
-    juce::Synthesiser synth_;
-    juce::MidiBuffer noMidi_;
+    double sampleRate_ = 48000.0;
+    std::uint64_t noteCounter_ = 0;
+    std::array<Voice, kMaxVoices> voices_{};
 };
 
 } // namespace md
