@@ -169,10 +169,9 @@ The AU version cannot send MIDI to other tracks in Ableton Live, so the VST3 is 
 4. The target is at least 1 keep in every 3 ideas.
    Write down the ones that miss, with the style and seed, so they can be fixed.
 
-### The golden before and after files
+### The changed reference ideas
 
-If the music has changed, run `scripts/update-golden.sh` from the project folder.
-It puts the old files in `build/golden-review/before/` and the new files in `build/golden-review/after/`, and lists the cases that changed.
+Phase 2 changed some of the 50 reference ideas: flavour now changes the simple and jazzy ones, and each style now voices its chords in its own shape.
+The old and new versions are in the `golden-review` folder in the `magic-dust` folder on your Desktop, in `before` and `after`, with the changed cases listed in `changed.txt`.
 Drag the same case from both folders into your daw and listen to the before, then the after.
-If you like the after, commit `tests/golden`.
-If not, run `git checkout tests/golden` and report it.
+Say which after files you are happy with and which sound worse, and why.
