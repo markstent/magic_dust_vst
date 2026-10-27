@@ -155,6 +155,12 @@ juce::Rectangle<int> LaneView::labelBounds() const
     return {t::layout::laneLabelPad, 0, t::layout::laneLabelWidth, level_.getY()};
 }
 
+juce::String LaneView::drawnPattern() const
+{
+    return ellipsize(font(Face::monoRegular, t::layout::lanePatternSize), pattern_.toUpperCase(),
+                     static_cast<float>(labelBounds().getWidth()));
+}
+
 void LaneView::mouseDown(const juce::MouseEvent& /*e*/)
 {
     // The OS drag can swallow the mouse-up, so every press starts afresh.
@@ -213,10 +219,10 @@ void LaneView::paint(juce::Graphics& g)
                juce::Rectangle<float>(label.getX(), top, label.getWidth(), nameFont.getHeight()),
                juce::Justification::centredLeft, true);
     g.setFont(patternFont);
-    g.drawText(pattern_.toUpperCase(),
+    g.drawText(drawnPattern(),
                juce::Rectangle<float>(label.getX(), top + nameFont.getHeight(), label.getWidth(),
                                       patternFont.getHeight()),
-               juce::Justification::centredLeft, true);
+               juce::Justification::centredLeft, false);
     if (hasKeyboardFocus(true))
     {
         drawFocusRing(g, getLocalBounds().toFloat(), t::layout::laneRadius, ink);

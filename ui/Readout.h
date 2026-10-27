@@ -21,6 +21,8 @@ class Readout : public juce::Component
     // An error replaces the readout until it is cleared.
     void setError(std::optional<std::string> error);
     [[nodiscard]] const juce::String& getText() const { return text_; }
+    // The text as drawn: cut short with an ellipsis if it does not fit the line.
+    [[nodiscard]] juce::String drawnText() const;
     void paint(juce::Graphics& g) override;
 
   private:

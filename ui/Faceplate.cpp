@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 
+#include "ui/Fonts.h"
 #include "ui/Tokens.h"
 
 namespace md::ui
@@ -78,6 +79,63 @@ void paintFaceplate(juce::Graphics& g, juce::Rectangle<float> bounds)
             paintScrew(g, {x, y});
         }
     }
+}
+
+namespace
+{
+
+constexpr const char* kWordmark = "MAGIC DUST";
+constexpr const char* kTagline = "HOUSE MUSIC IDEA ENGINE";
+constexpr int kTextSlack = 4; // room for the last letter's spacing
+constexpr int kLineHeight = 32;
+
+juce::Font wordmarkFont()
+{
+    return font(Face::serifBold, t::layout::wordmarkFaceSize)
+        .withExtraKerningFactor(t::layout::wordmarkFaceSpacing);
+}
+
+juce::Font taglineFont()
+{
+    return font(Face::groteskMedium, t::layout::taglineSize)
+        .withExtraKerningFactor(t::layout::taglineSpacing);
+}
+
+int taglineLeft()
+{
+    return t::layout::wordmarkX +
+           juce::GlyphArrangement::getStringWidthInt(wordmarkFont(), kWordmark) +
+           t::layout::taglineGap;
+}
+
+} // namespace
+
+int taglineRight()
+{
+    return taglineLeft() + juce::GlyphArrangement::getStringWidthInt(taglineFont(), kTagline);
+}
+
+void paintWordmark(juce::Graphics& g)
+{
+    const juce::Rectangle<int> line(0, t::layout::headerCentreY - (kLineHeight / 2), 0,
+                                    kLineHeight);
+    const auto title = wordmarkFont();
+    g.setFont(title);
+    g.setColour(c::legend);
+    g.drawText(
+        kWordmark,
+        line.withX(t::layout::wordmarkX)
+            .withWidth(juce::GlyphArrangement::getStringWidthInt(title, kWordmark) + kTextSlack),
+        juce::Justification::centredLeft, false);
+
+    const auto tagline = taglineFont();
+    g.setFont(tagline);
+    g.setColour(juce::Colour(0xFFDFE3E8));
+    g.drawText(
+        kTagline,
+        line.withX(taglineLeft())
+            .withWidth(juce::GlyphArrangement::getStringWidthInt(tagline, kTagline) + kTextSlack),
+        juce::Justification::centredLeft, false);
 }
 
 void paintCreamWindow(juce::Graphics& g, juce::Rectangle<float> bounds, float border, float radius,

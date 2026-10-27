@@ -19,6 +19,7 @@
 #include "plugin/PluginProcessor.h"
 #include "ui/ChordCell.h"
 #include "ui/Drag.h"
+#include "ui/Faceplate.h"
 #include "ui/Fonts.h"
 #include "ui/KeyButton.h"
 #include "ui/Knob.h"
@@ -527,8 +528,10 @@ TEST_CASE("every control has an accessible title", "[editor]")
     CHECK(f.find("energyKnob").getTitle() == "energy");
     CHECK(f.find("grooveKnob").getTitle() == "groove");
     CHECK(f.find("flavourKnob").getTitle() == "flavour");
-    CHECK(f.find("spellReadout").getTitle().startsWith("spellReadout, "));
-    CHECK(f.find("tempoReadout").getTitle() == "tempoReadout, 124.0");
+    CHECK(f.find("spellReadout").getTitle() == "spell, 0001");
+    CHECK(f.find("styleMenu").getTitle().startsWith("style, "));
+    CHECK(f.find("keyMenu").getTitle() == "key, a min");
+    CHECK(f.find("tempoReadout").getTitle() == "tempo, 124.0");
     CHECK(f.find("playKey").getTitle() == "play the preview");
     CHECK(f.find("stopKey").getTitle() == "stop the preview");
     CHECK(f.find("sprinkleKey").getTitle() == "sprinkle a new idea");
@@ -621,6 +624,12 @@ TEST_CASE("a long pattern name ellipsizes inside the label column", "[editor]")
     lane.setBounds(0, 0, 656, 64);
     md::Lane data{.id = md::LaneId::chords, .pattern = std::string(60, 'w'), .events = {}};
     lane.set(data, 8, std::nullopt, false);
+    const auto drawn = lane.drawnPattern();
+    CHECK(drawn.endsWith("..."));
+    CHECK(drawn.length() < 60);
+    CHECK(juce::GlyphArrangement::getStringWidth(md::ui::font(md::ui::Face::monoRegular, 10.0F),
+                                                 drawn) <=
+          static_cast<float>(lane.labelBounds().getWidth()));
     CHECK(lane.labelBounds().getWidth() <= 96);
 
     // Nothing is drawn between the label column and the roll.
@@ -633,6 +642,25 @@ TEST_CASE("a long pattern name ellipsizes inside the label column", "[editor]")
             REQUIRE(image.getPixelAt(x, y).getAlpha() == 0);
         }
     }
+}
+
+TEST_CASE("a long error ellipsizes inside the bottom line", "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    auto& bottom = f.find<md::ui::Readout>("bottomLine");
+    bottom.setError(std::string(200, 'w'));
+    const auto drawn = bottom.drawnText();
+    CHECK(drawn.endsWith("..."));
+    CHECK(juce::GlyphArrangement::getStringWidth(md::ui::font(md::ui::Face::monoRegular, 11.0F),
+                                                 drawn) <= static_cast<float>(bottom.getWidth()));
+    bottom.setError(std::nullopt);
+    CHECK_FALSE(bottom.drawnText().endsWith("..."));
+}
+
+TEST_CASE("the tagline ends 16 px clear of the spell window", "[editor]")
+{
+    CHECK(md::ui::taglineRight() + 16 <= 574);
 }
 
 TEST_CASE("at 0.8x every child stays inside the editor", "[editor]")

@@ -34,11 +34,17 @@ void Readout::update()
     }
 }
 
+juce::String Readout::drawnText() const
+{
+    return ellipsize(font(Face::monoRegular, t::layout::bottomLineSize), text_,
+                     static_cast<float>(getWidth()));
+}
+
 void Readout::paint(juce::Graphics& g)
 {
     g.setFont(font(Face::monoRegular, t::layout::bottomLineSize));
     g.setColour(t::console::ink);
-    g.drawText(text_, getLocalBounds(), juce::Justification::centredLeft, true);
+    g.drawText(drawnText(), getLocalBounds(), juce::Justification::centredLeft, false);
 }
 
 } // namespace md::ui

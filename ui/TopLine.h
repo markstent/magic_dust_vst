@@ -18,13 +18,14 @@ juce::String keyText(const md::Key& key);
 class ReadoutWindow : public juce::Button
 {
   public:
-    ReadoutWindow(const juce::String& id, bool interactive);
+    ReadoutWindow(const juce::String& id, juce::String legend, bool interactive);
 
     void setText(const juce::String& text);
     [[nodiscard]] const juce::String& getText() const { return text_; }
     void paintButton(juce::Graphics& g, bool highlighted, bool down) override;
 
   private:
+    juce::String legend_;
     juce::String text_;
 
     MD_COMPONENT_BOILERPLATE(ReadoutWindow)

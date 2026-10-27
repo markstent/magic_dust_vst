@@ -34,4 +34,18 @@ juce::Font font(Face face, float size)
     return {juce::FontOptions(typeface).withPointHeight(size)};
 }
 
+juce::String ellipsize(const juce::Font& font, const juce::String& text, float maxWidth)
+{
+    if (juce::GlyphArrangement::getStringWidth(font, text) <= maxWidth)
+    {
+        return text;
+    }
+    auto cut = text;
+    while (cut.isNotEmpty() && juce::GlyphArrangement::getStringWidth(font, cut + "...") > maxWidth)
+    {
+        cut = cut.dropLastCharacters(1);
+    }
+    return cut + "...";
+}
+
 } // namespace md::ui

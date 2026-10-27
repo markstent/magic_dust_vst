@@ -55,6 +55,8 @@ class LaneView : public juce::Component
     [[nodiscard]] PianoRoll& roll() { return roll_; }
     [[nodiscard]] juce::Slider& levelSlider() { return level_; }
     [[nodiscard]] juce::Rectangle<int> labelBounds() const;
+    // The pattern name as drawn: capitals, cut short with an ellipsis if it does not fit.
+    [[nodiscard]] juce::String drawnPattern() const;
     void paint(juce::Graphics& g) override;
     void resized() override;
     void mouseDown(const juce::MouseEvent& e) override;

@@ -113,7 +113,7 @@ class MagicDustEditor::Body : public juce::Component
         g.setColour(juce::Colours::white.withAlpha(0.12F));
         g.drawRoundedRectangle(group.reduced(0.5F), t::layout::knobGroupRadius, 1.0F);
 
-        paintWordmark(g);
+        md::ui::paintWordmark(g);
     }
 
   private:
@@ -124,27 +124,6 @@ class MagicDustEditor::Body : public juce::Component
         juce::Rectangle<int> bounds;
         int focusOrder;
     };
-
-    static void paintWordmark(juce::Graphics& g)
-    {
-        const auto title = md::ui::font(md::ui::Face::serifBold, t::layout::wordmarkFaceSize)
-                               .withExtraKerningFactor(t::layout::wordmarkFaceSpacing);
-        const auto titleWidth = juce::GlyphArrangement::getStringWidthInt(title, kWordmark);
-        const auto line = juce::Rectangle<int>(0, t::layout::headerCentreY - 16, 0, 32);
-        g.setFont(title);
-        g.setColour(t::console::legend);
-        g.drawText(kWordmark, line.withX(t::layout::wordmarkX).withWidth(titleWidth + 4),
-                   juce::Justification::centredLeft, false);
-
-        const auto tagline = md::ui::font(md::ui::Face::groteskMedium, t::layout::taglineSize)
-                                 .withExtraKerningFactor(t::layout::taglineSpacing);
-        g.setFont(tagline);
-        g.setColour(juce::Colour(0xFFDFE3E8));
-        g.drawText(kTagline,
-                   line.withX(t::layout::wordmarkX + titleWidth + t::layout::taglineGap)
-                       .withWidth(juce::GlyphArrangement::getStringWidthInt(tagline, kTagline) + 4),
-                   juce::Justification::centredLeft, false);
-    }
 
     // Places a knob by its column and row in the knob group.
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
@@ -189,9 +168,6 @@ class MagicDustEditor::Body : public juce::Component
             screen_.setError(error_);
         }
     }
-
-    static constexpr const char* kWordmark = "MAGIC DUST";
-    static constexpr const char* kTagline = "HOUSE MUSIC IDEA ENGINE";
 
     MagicDustProcessor& processor_;
     md::ui::TopLine topLine_;

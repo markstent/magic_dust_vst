@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <string>
+#include <utility>
 
 #include "md/names.hpp"
 #include "md/ranges.hpp"
@@ -51,7 +52,9 @@ juce::String keyText(const md::Key& key)
     return root + " " + juce::String(std::string(md::modeName(key.mode)));
 }
 
-ReadoutWindow::ReadoutWindow(const juce::String& id, bool interactive) : juce::Button(id)
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+ReadoutWindow::ReadoutWindow(const juce::String& id, juce::String legend, bool interactive)
+    : juce::Button(id), legend_(std::move(legend))
 {
     setComponentID(id);
     if (interactive)
@@ -70,7 +73,7 @@ void ReadoutWindow::setText(const juce::String& text)
     if (text != text_)
     {
         text_ = text;
-        setTitle(getComponentID() + ", " + text_);
+        setTitle(legend_ + ", " + text_);
         repaint();
     }
 }
@@ -92,8 +95,9 @@ void ReadoutWindow::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*
 }
 
 TopLine::TopLine(MagicDustProcessor& processor)
-    : processor_(processor), spell_("spellReadout", false), style_("styleMenu", true),
-      key_("keyMenu", true), tempo_("tempoReadout", false)
+    : processor_(processor), spell_("spellReadout", "spell", false),
+      style_("styleMenu", "style", true), key_("keyMenu", "key", true),
+      tempo_("tempoReadout", "tempo", false)
 {
     setComponentID("topLine");
     style_.onClick = [this] { openStyleMenu(); };

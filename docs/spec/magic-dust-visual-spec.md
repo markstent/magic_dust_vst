@@ -92,8 +92,8 @@ Other fixed colours: the tagline is `#DFE3E8`, and the screws run from `#E2E2E2`
 
 | Role | Font | Size | Weight | Colour |
 | --- | --- | --- | --- | --- |
-| Wordmark "MAGIC DUST" | Libre Baskerville | 30 px, letter spacing 0.18 em | Bold | `legend` |
-| Tagline "HOUSE MUSIC IDEA ENGINE" | Space Grotesk | 11 px, letter spacing 0.22 em | 500 | `#DFE3E8` |
+| Wordmark "MAGIC DUST" | Libre Baskerville | 30 px, letter spacing 0.16 em | Bold | `legend` |
+| Tagline "HOUSE MUSIC IDEA ENGINE" | Space Grotesk | 11 px, letter spacing 0.18 em | 500 | `#DFE3E8` |
 | Readout legends | Space Grotesk | 9.5 px, letter spacing 0.2 em | 500 | `legend` |
 | Readout windows | Space Mono | 15 px | 700 | `ink` |
 | Chord name in a cell | Space Mono | 14 px | 700 | `ink` |
@@ -109,6 +109,7 @@ Other fixed colours: the tagline is `#DFE3E8`, and the screws run from `#E2E2E2`
 | Spells panel and toast | Space Mono | 12 px | 400 and 700 | Set in the spells task |
 
 Text that does not fit its box ends in an ellipsis.
+The tagline ends at least 16 px before the spell window (x = 574), which is why its spacing and the wordmark's are slightly tighter than the mockup.
 
 ## Materials
 
@@ -157,7 +158,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 | State | Look |
 | --- | --- |
 | Default | Name in `ink`, feel word below it in `ink` at 60% |
-| Playing | A 3 px tall, 40 px wide `ink` bar at the bottom of the cell |
+| Playing | A 3 px tall, 40 px wide `ink` bar centred at the bottom of the cell, under the name and the feel word |
 | Selected | A 1.5 px `ink` outline, 3 px radius |
 | Focused | A 2 px `ink` focus ring just outside the cell |
 

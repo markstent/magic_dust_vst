@@ -122,9 +122,9 @@ inline constexpr float screwSlotAngle = 35.0F; // degrees
 inline constexpr int wordmarkX = 54;
 inline constexpr int headerCentreY = 44;
 inline constexpr float wordmarkFaceSize = 30.0F;
-inline constexpr float wordmarkFaceSpacing = 0.18F; // em
+inline constexpr float wordmarkFaceSpacing = 0.16F; // em
 inline constexpr float taglineSize = 11.0F;
-inline constexpr float taglineSpacing = 0.22F; // em
+inline constexpr float taglineSpacing = 0.18F; // em
 inline constexpr int taglineGap = 18;
 
 // The header readouts: the group's box, then each window and its legend within it.
