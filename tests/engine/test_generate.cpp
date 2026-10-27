@@ -850,3 +850,35 @@ TEST_CASE("a progression a shape can only leap through is voiced in close positi
         REQUIRE(spread.progression.at(i).voicing == close.progression.at(i).voicing);
     }
 }
+
+TEST_CASE("every lane starts its notes on the shared swing grid at every groove",
+          "[generate][swing]")
+{
+    constexpr int kGuardSeeds = 12;
+    for (const Groove groove :
+         {Groove::straight, Groove::swing54, Groove::ukShuffle58, Groove::heavy62})
+    {
+        Settings settings = settingsFor(Style::ukFunky, 0);
+        settings.groove = groove;
+        const int permille = swingPermille(groove);
+        std::set<int> grid; // the tick each nominal 16th step lands on
+        for (int step = 0; step < settings.bars * kStepsPerBar; ++step)
+        {
+            grid.insert(detail::swung(step * kTicksPerSixteenth, permille));
+        }
+        REQUIRE(grid.size() == static_cast<std::size_t>(settings.bars * kStepsPerBar));
+        for (int seed = 1; seed <= kGuardSeeds; ++seed)
+        {
+            const Idea idea = generate(bank(), settings, static_cast<std::uint32_t>(seed));
+            for (const Lane& lane : idea.lanes)
+            {
+                for (const NoteEvent& n : lane.events)
+                {
+                    INFO("groove " << static_cast<int>(groove) << " seed " << seed << " lane "
+                                   << static_cast<int>(lane.id) << " start " << n.start);
+                    CHECK(grid.contains(n.start));
+                }
+            }
+        }
+    }
+}

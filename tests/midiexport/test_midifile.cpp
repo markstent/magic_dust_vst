@@ -366,3 +366,91 @@ TEST_CASE("shiftOctaves moves every note 12 semitones per step and drops those o
                                                                   note(96, 240, 240, 90),
                                                                   note(103, 720, 240, 90)});
 }
+
+namespace
+{
+
+struct ParsedFile
+{
+    int ticksPerBeat = 0;
+    int tempoMicros = 0;
+    int lengthTicks = 0; // the end-of-track tick
+    int firstNote = 0;
+    int lastNote = 0;
+};
+
+// Reads a format 0 file written by writeMidiFile.
+ParsedFile parseSingleTrack(const Bytes& file)
+{
+    constexpr std::size_t kHeader = 14;
+    constexpr std::size_t kChunkHeader = 8;
+    ParsedFile out;
+    out.ticksPerBeat = (file.at(12) * 256) + file.at(13);
+    out.firstNote = std::numeric_limits<int>::max();
+    std::size_t at = kHeader + kChunkHeader;
+    int tick = 0;
+    while (at < file.size())
+    {
+        int delta = 0;
+        while (file.at(at) >= 0x80)
+        {
+            delta = (delta * 128) + (file.at(at++) - 0x80);
+        }
+        delta = (delta * 128) + file.at(at++);
+        tick += delta;
+        const int status = file.at(at++);
+        if (status == 0xFF)
+        {
+            const int type = file.at(at++);
+            const int length = file.at(at++);
+            if (type == 0x51)
+            {
+                out.tempoMicros = (file.at(at) * 65536) + (file.at(at + 1) * 256) + file.at(at + 2);
+            }
+            if (type == 0x2F)
+            {
+                out.lengthTicks = tick;
+            }
+            at += static_cast<std::size_t>(length);
+        }
+        else
+        {
+            out.firstNote = std::min(out.firstNote, tick);
+            out.lastNote = std::max(out.lastNote, tick);
+            at += 2;
+        }
+    }
+    return out;
+}
+
+} // namespace
+
+TEST_CASE("the three dragged lanes of an idea share length, beat, tempo and a 0 to length span",
+          "[timing]")
+{
+    const Bank bank = loadBundledBank();
+    constexpr int kTempo = 124;
+    for (const Groove groove :
+         {Groove::straight, Groove::swing54, Groove::ukShuffle58, Groove::heavy62})
+    {
+        for (const std::uint32_t seed : {1U, 2U, 3U, 48213U, 99999U})
+        {
+            Settings settings;
+            settings.groove = groove;
+            const Idea idea = generate(bank, settings, seed);
+            for (const LaneId lane : {LaneId::chords, LaneId::bass, LaneId::melody})
+            {
+                INFO("groove " << static_cast<int>(groove) << " seed " << seed << " lane "
+                               << static_cast<int>(lane));
+                const std::vector<MidiTrack> tracks{shiftOctaves(laneTrack(idea, lane), 0)};
+                const ParsedFile file =
+                    parseSingleTrack(writeMidiFile(tracks, kTempo, ideaLengthTicks(idea)));
+                CHECK(file.lengthTicks == 8 * kTicksPerBar);
+                CHECK(file.ticksPerBeat == kTicksPerQuarter);
+                CHECK(file.tempoMicros == 60'000'000 / kTempo);
+                CHECK(file.firstNote >= 0);
+                CHECK(file.lastNote <= file.lengthTicks);
+            }
+        }
+    }
+}
