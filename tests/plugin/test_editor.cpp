@@ -1139,8 +1139,6 @@ TEST_CASE("render the editor", "[.render]")
     {
         f.processor.params.getParameter(id)->setValueNotifyingHost(level);
     }
-    f.find<md::ui::KeyButton>("mute1").setAnimated(false);
-    f.processor.params.getParameter("bassMute")->setValueNotifyingHost(1.0F);
     f.refresh();
     const juce::File out(dir);
     out.createDirectory();
