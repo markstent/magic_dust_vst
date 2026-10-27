@@ -190,17 +190,14 @@ inline const juce::Rectangle<int> laneGroup{54, 420, 372, 146};
 inline constexpr float laneGroupRadius = 4.0F;
 inline constexpr int laneColumnX = 54;
 inline constexpr int laneColumnWidth = 124;
-inline constexpr int laneLegendCentreY = 436;
+inline constexpr int laneLegendCentreY = 456;
 inline constexpr float laneLegendSize = 10.0F;
 inline constexpr float laneLegendSpacing = 0.12F; // em
-inline constexpr int levelKnobOffsetX = 92; // the level knob's centre from its column's left edge
-inline constexpr int bandKnobCentreY = 488;
+inline constexpr int levelKnobOffsetX = 62; // the level knob's centre from its column's left edge
+inline constexpr int bandKnobCentreY = 508;
 inline constexpr int levelKnobWidth = 48;
 inline constexpr int levelKnobHeight = 70;
 inline constexpr float levelKnobDiameter = 34.0F;
-// The Phase 5 pattern knob slot, left empty: centre offset from the column's left edge, and size.
-inline constexpr int patternKnobOffsetX = 38;
-inline constexpr float patternKnobDiameter = 44.0F;
 inline constexpr int volumeKnobCentreX = 950;
 inline constexpr int volumeKnobCentreY = 472;
 inline constexpr int volumeKnobWidth = 96;

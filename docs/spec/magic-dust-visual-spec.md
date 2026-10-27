@@ -201,17 +201,18 @@ The numbers match the order of the console's parts, left to right and top to bot
 
 - A panel at (54, 420, 372, 146): `#000000` at 12%, a 1 px inner line of `#FFFFFF` at 12%, and a 4 px radius.
 - Three columns, at x = 54 + i * 124 and 124 px wide, for chords, bass and melody.
-- The legends "CHORDS", "BASS" and "MELODY" are centred in their column on y 436, in Space Grotesk 700 10 px.
+- The legends "CHORDS", "BASS" and "MELODY" are centred in their column on y 456, in Space Grotesk 700 10 px.
 - Each column has a pattern knob slot and a level knob.
 
 ### 11. Pattern knob slots (Phase 5)
 
-- Centre at (column x + 38, 488), 44 px across.
+- Centre at (column x + 38, 508), 44 px across.
 - Left empty until Phase 5: draw nothing, so the faceplate shows through.
 
 ### 12. Lane level knobs
 
-- Centre at (column x + 92, 488), 34 px across, with the legend "LEVEL".
+- Centre at (column x + 62, 508), 34 px across, with the legend "LEVEL", under the lane legend.
+- Phase 5 moves it to column x + 92, beside the pattern knob at column x + 38.
 - The cap is the lane's colour, and the knob is bound to `chordsLevel`, `bassLevel` or `melodyLevel`.
 - Double-click resets to 100%.
 - Accessible titles are "chords level", "bass level" and "melody level".
@@ -238,7 +239,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 - At (818, 454, 84, 44), with a 5 px radius.
 - Face: the `sprinkle-top` to `sprinkle-bottom` gradient, and a 3 px `key-shadow` below.
 - "SPRINKLE" in white inside it, Space Grotesk 700 10 px with 0.18 em spacing.
-- Its LED sits above at y 442 and is not lit.
+- It has no LED.
 - Writes a new idea, keeping everything pinned, and adds it to the spells list (8 most recent).
 
 ### 16. Phase 5 key slots

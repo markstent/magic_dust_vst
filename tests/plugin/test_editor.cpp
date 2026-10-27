@@ -1,6 +1,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <memory>
@@ -309,7 +310,7 @@ TEST_CASE("the level and volume knobs' faces sit where the layout table puts the
     for (int i = 0; i < 3; ++i)
     {
         const auto id = "level" + std::to_string(i);
-        CHECK(face(id.c_str()) == Rect(54 + (i * 124) + 92 - 17, 488 - 17, 34, 34));
+        CHECK(face(id.c_str()) == Rect(54 + (i * 124) + 62 - 17, 508 - 17, 34, 34));
     }
     CHECK(face("volumeKnob") == Rect(924, 446, 52, 52));
 }
@@ -346,13 +347,19 @@ TEST_CASE("volume knob binds volume", "[editor]")
     CHECK(param(f, "volume") == Approx(0.8F).margin(kTolerance));
 }
 
-TEST_CASE("the lanes carry no level slider", "[editor]")
+TEST_CASE("the lanes carry no slider", "[editor]")
 {
     Fixture f;
+    const auto hasSlider = [](auto&& self, juce::Component& parent) -> bool
+    {
+        const auto& children = parent.getChildren();
+        return std::ranges::any_of(
+            children, [&self](juce::Component* child)
+            { return dynamic_cast<juce::Slider*>(child) != nullptr || self(self, *child); });
+    };
     for (int i = 0; i < 3; ++i)
     {
-        auto& lane = f.find<md::ui::LaneView>(("lane" + std::to_string(i)).c_str());
-        CHECK(lane.getNumChildComponents() == 1);
+        CHECK_FALSE(hasSlider(hasSlider, f.find(("lane" + std::to_string(i)).c_str())));
     }
 }
 

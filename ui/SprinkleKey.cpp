@@ -20,10 +20,7 @@ constexpr const char* kTitle = "sprinkle";
 
 } // namespace
 
-SprinkleKey::SprinkleKey() : KeyButton(kTitle, sprinkle, t::console::ledOn)
-{
-    setLegendBelow(false);
-}
+SprinkleKey::SprinkleKey() : KeyButton(kTitle, sprinkle, std::nullopt) { setLegendBelow(false); }
 
 void SprinkleKey::paintContent(juce::Graphics& g, juce::Rectangle<float> face) const
 {
