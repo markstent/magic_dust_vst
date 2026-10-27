@@ -55,7 +55,7 @@ inline constexpr int dragThreshold = 4;
 namespace layout
 {
 inline constexpr int windowWidth = 1040;
-inline constexpr int windowHeight = 580;
+inline constexpr int windowHeight = 600;
 inline constexpr float minScale = 0.8F;
 inline constexpr float maxScale = 1.5F;
 
@@ -168,6 +168,21 @@ inline constexpr int muteLegendCentreX = 62;
 inline constexpr std::array<int, 3> muteKeyX{74, 166, 258};
 inline constexpr std::array<int, 2> transportKeyX{632, 724};
 inline const juce::Rectangle<int> sprinkleKey{816, keyY, 170, keyHeight};
+// The octave rockers sit under the mute keys' legends, one row, with a short OCT legend to the
+// left of the first one in line with the vertical MUTE legend.
+inline constexpr int octaveY = 550;
+inline constexpr int octaveHeight = 20;
+inline constexpr int octaveKeyWidth = 22;
+inline constexpr int octaveWindowWidth = 30;
+inline constexpr int octaveGap = 2;
+inline constexpr int octaveWidth = (2 * octaveKeyWidth) + octaveWindowWidth + (2 * octaveGap);
+inline constexpr int octaveShadowRoom = 4; // below the keys, for their shadows
+inline constexpr int octaveLegendCentreX =
+    58; // clear of the first rocker; the MUTE legend is at 62
+inline constexpr float octaveTextSize = 11.0F;
+inline constexpr float octaveArrowWidth = 8.0F;
+inline constexpr float octaveArrowHeight = 5.0F;
+inline constexpr float disabledAlpha = 0.4F;
 inline constexpr float keyRadius = 3.0F;
 inline constexpr float sprinkleRadius = 5.0F;
 inline constexpr float keyPressDrop = 1.0F;

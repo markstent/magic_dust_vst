@@ -53,8 +53,9 @@ juce::String keyText(const md::Key& key)
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-ReadoutWindow::ReadoutWindow(const juce::String& id, juce::String legend, bool interactive)
-    : juce::Button(id), legend_(std::move(legend))
+ReadoutWindow::ReadoutWindow(const juce::String& id, juce::String legend, bool interactive,
+                             float textSize)
+    : juce::Button(id), legend_(std::move(legend)), textSize_(textSize)
 {
     setComponentID(id);
     if (interactive)
@@ -83,7 +84,7 @@ void ReadoutWindow::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*
     const auto bounds = getLocalBounds().toFloat();
     paintCreamWindow(g, bounds, t::layout::readoutBorder, t::layout::readoutRadius,
                      t::console::readoutGlowColour, t::layout::readoutGlow);
-    g.setFont(font(Face::monoBold, t::layout::readoutTextSize));
+    g.setFont(font(Face::monoBold, textSize_));
     g.setColour(t::console::ink);
     g.drawText(text_.toUpperCase(),
                bounds.reduced(t::layout::readoutBorder + t::layout::readoutTextPad, 0.0F),

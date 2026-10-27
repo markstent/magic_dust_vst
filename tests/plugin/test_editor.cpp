@@ -87,7 +87,7 @@ struct Fixture
         return *found;
     }
 
-    // The component's bounds in the editor's 1040 x 580 space.
+    // The component's bounds in the editor's 1040 x 600 space.
     Rect boundsOf(const char* id)
     {
         auto& c = find(id);
@@ -134,11 +134,11 @@ float param(Fixture& f, const char* id)
 
 } // namespace
 
-TEST_CASE("the editor opens at 1040 x 580", "[editor]")
+TEST_CASE("the editor opens at 1040 x 600", "[editor]")
 {
     Fixture f;
     CHECK(f.editor->getWidth() == 1040);
-    CHECK(f.editor->getHeight() == 580);
+    CHECK(f.editor->getHeight() == 600);
 }
 
 TEST_CASE("every component sits where the layout table puts it", "[editor]")
@@ -344,6 +344,67 @@ TEST_CASE("the mute keys sit in the key row, named for their lanes", "[editor]")
     }
 }
 
+TEST_CASE("each octave rocker sits under its mute key, bottom row 550 to 570", "[editor][octave]")
+{
+    Fixture f;
+    const std::array<int, 3> x{74, 166, 258};
+    for (std::size_t i = 0; i < 3; ++i)
+    {
+        const auto id = "octave" + std::to_string(i);
+        CHECK(f.boundsOf((id + "Down").c_str()) == Rect(x.at(i), 550, 22, 20));
+        CHECK(f.boundsOf((id + "Window").c_str()) == Rect(x.at(i) + 24, 550, 30, 20));
+        CHECK(f.boundsOf((id + "Up").c_str()) == Rect(x.at(i) + 56, 550, 22, 20));
+    }
+}
+
+TEST_CASE("the octave keys step the parameter, stop at the ends and the window shows it",
+          "[editor][octave]")
+{
+    Fixture f;
+    auto& down = f.find<md::ui::KeyButton>("octave1Down");
+    auto& up = f.find<md::ui::KeyButton>("octave1Up");
+    auto& window = f.find<md::ui::ReadoutWindow>("octave1Window");
+    down.setAnimated(false);
+    up.setAnimated(false);
+    CHECK(window.getText() == "0");
+    CHECK(window.getTitle() == "bass octave, 0");
+    CHECK(down.getTitle() == "bass octave down");
+    CHECK(up.getTitle() == "bass octave up");
+
+    click(down, {11.0F, 10.0F});
+    CHECK(param(f, "bassOctave") == -1.0F);
+    CHECK(window.getText() == "-1");
+    CHECK(window.getTitle() == "bass octave, -1");
+    click(down, {11.0F, 10.0F});
+    CHECK(window.getText() == "-2");
+    CHECK_FALSE(down.isEnabled());
+    CHECK(up.isEnabled());
+    click(down, {11.0F, 10.0F});
+    CHECK(param(f, "bassOctave") == -2.0F);
+
+    REQUIRE(up.keyPressed(juce::KeyPress(juce::KeyPress::returnKey)));
+    CHECK(param(f, "bassOctave") == -1.0F);
+    for (int i = 0; i < 5; ++i)
+    {
+        click(up, {11.0F, 10.0F});
+    }
+    CHECK(param(f, "bassOctave") == 2.0F);
+    CHECK(window.getText() == "+2");
+    CHECK_FALSE(up.isEnabled());
+    CHECK(f.processor.octave(md::LaneId::bass) == 2);
+    CHECK(f.processor.octave(md::LaneId::chords) == 0);
+}
+
+TEST_CASE("an octave set by the host shows in its window after a refresh", "[editor][octave]")
+{
+    Fixture f;
+    auto* parameter = f.processor.params.getParameter("melodyOctave");
+    parameter->setValueNotifyingHost(parameter->convertTo0to1(1.0F));
+    dynamic_cast<MagicDustEditor&>(*f.editor).refresh();
+    CHECK(f.find<md::ui::ReadoutWindow>("octave2Window").getText() == "+1");
+    CHECK(f.find("octave2Window").getTitle() == "melody octave, +1");
+}
+
 TEST_CASE("the mute keys toggle their lane's parameter and light their LEDs", "[editor]")
 {
     Fixture f;
@@ -535,7 +596,8 @@ TEST_CASE("moving 4 px is a click and moving 5 px is a drag", "[editor]")
     CHECK(screen.selection().kind == md::ui::Selection::Kind::none);
 }
 
-TEST_CASE("tab visits the wordmark, header, cells, lanes, knobs, levels, volume, then the keys",
+TEST_CASE("tab visits the wordmark, header, cells, lanes, knobs, levels, volume, then the keys, "
+          "each mute key followed by its octave keys",
           "[editor]")
 {
     Fixture f;
@@ -543,16 +605,17 @@ TEST_CASE("tab visits the wordmark, header, cells, lanes, knobs, levels, volume,
     juce::KeyboardFocusTraverser traverser;
     std::vector<std::string> order;
     auto* current = traverser.getDefaultComponent(f.editor.get());
-    while (current != nullptr && order.size() < 30)
+    while (current != nullptr && order.size() < 40)
     {
         order.push_back(current->getComponentID().toStdString());
         current = traverser.getNextComponent(current);
     }
     const std::vector<std::string> expected{
-        "wordmark",   "styleMenu",   "keyMenu", "cell0",   "cell1",    "cell2",
-        "cell3",      "lane0",       "lane1",   "lane2",   "moodKnob", "energyKnob",
-        "grooveKnob", "flavourKnob", "level0",  "level1",  "level2",   "volumeKnob",
-        "mute0",      "mute1",       "mute2",   "playKey", "stopKey",  "sprinkleKey"};
+        "wordmark",   "styleMenu",   "keyMenu",   "cell0",   "cell1",       "cell2",
+        "cell3",      "lane0",       "lane1",     "lane2",   "moodKnob",    "energyKnob",
+        "grooveKnob", "flavourKnob", "level0",    "level1",  "level2",      "volumeKnob",
+        "mute0",      "octave0Down", "octave0Up", "mute1",   "octave1Down", "octave1Up",
+        "mute2",      "octave2Down", "octave2Up", "playKey", "stopKey",     "sprinkleKey"};
     CHECK(order == expected);
 }
 
@@ -867,7 +930,7 @@ TEST_CASE("at 0.8x every child stays inside the editor", "[editor]")
     Fixture f;
     f.idea(4);
     f.refresh();
-    f.editor->setSize(832, 464);
+    f.editor->setSize(832, 480);
     const auto outside = [&f](auto&& self, juce::Component& parent) -> bool
     {
         for (auto* child : parent.getChildren())
@@ -921,7 +984,7 @@ TEST_CASE("a click on the bare faceplate closes the about panel", "[editor][abou
     Fixture f;
     auto& panel = f.find<md::ui::AboutPanel>("aboutPanel");
     panel.open();
-    click(*f.editor->getChildComponent(0), {10.0F, 580.0F});
+    click(*f.editor->getChildComponent(0), {10.0F, 590.0F});
     CHECK_FALSE(panel.isVisible());
 }
 
@@ -1056,7 +1119,7 @@ TEST_CASE("full magic dust turns the instance main and the editor becomes the ma
     CHECK(f.processor.mode() == InstanceMode::main);
     dynamic_cast<MagicDustEditor&>(*f.editor).sync();
     CHECK(f.editor->getWidth() == 1040);
-    CHECK(f.editor->getHeight() == 580);
+    CHECK(f.editor->getHeight() == 600);
     CHECK(Fixture::search(*f.editor, "playKey") != nullptr);
     CHECK(Fixture::search(*f.editor, "senderMainKey") == nullptr);
 }
@@ -1093,7 +1156,7 @@ TEST_CASE("the editor swaps views, size and limits as the mode changes", "[edito
     }();
     std::unique_ptr<juce::AudioProcessorEditor> editor{main.createEditor()};
     auto& mine = dynamic_cast<MagicDustEditor&>(*editor);
-    checkWindow(*editor, 1040, 580);
+    checkWindow(*editor, 1040, 600);
 
     main.setStateInformation(senderState.getData(), static_cast<int>(senderState.getSize()));
     REQUIRE(main.mode() == InstanceMode::sender);
@@ -1103,7 +1166,7 @@ TEST_CASE("the editor swaps views, size and limits as the mode changes", "[edito
 
     main.becomeMain();
     mine.sync();
-    checkWindow(*editor, 1040, 580);
+    checkWindow(*editor, 1040, 600);
     CHECK(Fixture::search(*editor, "playKey") != nullptr);
 }
 
@@ -1139,13 +1202,20 @@ TEST_CASE("render the editor", "[.render]")
     {
         f.processor.params.getParameter(id)->setValueNotifyingHost(level);
     }
+    for (const auto& [id, octave] :
+         {std::pair{"bassOctave", -1.0F}, std::pair{"melodyOctave", 1.0F}})
+    {
+        f.processor.params.getParameter(id)->setValueNotifyingHost(
+            f.processor.params.getParameter(id)->convertTo0to1(octave));
+    }
+    dynamic_cast<MagicDustEditor&>(*f.editor).refresh();
     f.refresh();
     const juce::File out(dir);
     out.createDirectory();
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
     const auto write = [&](const char* name, int width, float scale)
     {
-        f.editor->setSize(width, width * 580 / 1040);
+        f.editor->setSize(width, width * 600 / 1040);
         const auto image =
             f.editor->createComponentSnapshot(f.editor->getLocalBounds(), true, scale);
         juce::FileOutputStream stream(out.getChildFile(name));

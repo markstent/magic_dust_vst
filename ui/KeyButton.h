@@ -20,12 +20,14 @@ struct KeyMaterial
     float shadowDrop;
 };
 
-// What a dark key shows inside its face; a cream key shows nothing.
+// What a dark key shows inside its face; a cream key shows nothing. A disabled key draws at 40%.
 enum class KeyIcon : std::uint8_t
 {
     none,
     play,
-    stop
+    stop,
+    arrowDown,
+    arrowUp
 };
 
 // A key with a hard shadow below, a legend under it and an optional LED above. Pressing moves it
@@ -33,8 +35,8 @@ enum class KeyIcon : std::uint8_t
 class KeyButton : public juce::Button, private juce::Timer
 {
   public:
-    // The label is drawn in capitals under the key. An icon makes the key dark and draws the
-    // icon inside it.
+    // The label is drawn in capitals under the key; an empty one draws nothing. An icon makes the
+    // key dark and draws the icon inside it.
     KeyButton(const juce::String& label, std::optional<juce::Colour> led,
               KeyIcon icon = KeyIcon::none);
 

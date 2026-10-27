@@ -9,6 +9,7 @@
 class MagicDustProcessor;
 
 #include "ui/Boilerplate.h"
+#include "ui/Tokens.h"
 
 namespace md::ui
 {
@@ -20,7 +21,8 @@ juce::String keyText(const md::Key& key);
 class ReadoutWindow : public juce::Button
 {
   public:
-    ReadoutWindow(const juce::String& id, juce::String legend, bool interactive);
+    ReadoutWindow(const juce::String& id, juce::String legend, bool interactive,
+                  float textSize = tokens::layout::readoutTextSize);
 
     void setText(const juce::String& text);
     [[nodiscard]] const juce::String& getText() const { return text_; }
@@ -29,6 +31,7 @@ class ReadoutWindow : public juce::Button
   private:
     juce::String legend_;
     juce::String text_;
+    float textSize_;
 
     MD_COMPONENT_BOILERPLATE(ReadoutWindow)
 };

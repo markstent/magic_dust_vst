@@ -17,6 +17,7 @@
 #include "ui/KeyButton.h"
 #include "ui/Knob.h"
 #include "ui/LaneView.h"
+#include "ui/OctaveRocker.h"
 #include "ui/ScreenComponent.h"
 #include "ui/SprinkleKey.h"
 #include "ui/Tokens.h"
@@ -34,6 +35,7 @@ constexpr std::array<md::LaneId, 3> kLanes{md::LaneId::chords, md::LaneId::bass,
                                            md::LaneId::melody};
 
 constexpr std::array<const char*, 3> kMuteIds{"chordsMute", "bassMute", "melodyMute"};
+constexpr std::array<const char*, 3> kOctaveIds{"chordsOctave", "bassOctave", "melodyOctave"};
 
 md::ui::KnobLook knobLook(const char* legend, juce::StringArray rangeWords,
                           juce::StringArray stepWords)
@@ -99,7 +101,7 @@ class WordmarkButton : public juce::Button
 
 } // namespace
 
-// The instrument body, drawn at the logical 1040 x 580 size; the editor scales it as a whole.
+// The instrument body, drawn at the logical 1040 x 600 size; the editor scales it as a whole.
 class MagicDustEditor::Body : public juce::Component
 {
   public:
@@ -118,6 +120,9 @@ class MagicDustEditor::Body : public juce::Component
           muteKeys_{md::ui::KeyButton(md::ui::laneLook(kLanes.at(0)).label, t::console::ledOn),
                     md::ui::KeyButton(md::ui::laneLook(kLanes.at(1)).label, t::console::ledOn),
                     md::ui::KeyButton(md::ui::laneLook(kLanes.at(2)).label, t::console::ledOn)},
+          rockers_{md::ui::OctaveRocker(processor.params, kOctaveIds.at(0), "chords", 0),
+                   md::ui::OctaveRocker(processor.params, kOctaveIds.at(1), "bass", 1),
+                   md::ui::OctaveRocker(processor.params, kOctaveIds.at(2), "melody", 2)},
           playKey_("play", t::console::ledOn, md::ui::KeyIcon::play),
           stopKey_("stop", std::nullopt, md::ui::KeyIcon::stop)
     {
@@ -149,20 +154,20 @@ class MagicDustEditor::Body : public juce::Component
                 .title = "play the preview",
                 .bounds = {t::layout::transportKeyX.at(0), t::layout::keyY, t::layout::keyWidth,
                            t::layout::keyHeight},
-                .focusOrder = 15},
+                .focusOrder = 21},
                [this] { processor_.play(); });
         addKey(stopKey_,
                {.id = "stopKey",
                 .title = "stop the preview",
                 .bounds = {t::layout::transportKeyX.at(1), t::layout::keyY, t::layout::keyWidth,
                            t::layout::keyHeight},
-                .focusOrder = 16},
+                .focusOrder = 22},
                [this] { processor_.stop(); });
         addKey(sprinkleKey_,
                {.id = "sprinkleKey",
                 .title = "sprinkle a new idea",
                 .bounds = t::layout::sprinkleKey,
-                .focusOrder = 17},
+                .focusOrder = 23},
                [this]
                {
                    processor_.sprinkle();
@@ -180,6 +185,10 @@ class MagicDustEditor::Body : public juce::Component
     {
         updateError();
         playKey_.setLit(processor_.previewPlaying());
+        for (auto& rocker : rockers_)
+        {
+            rocker.refresh();
+        }
         topLine_.refresh();
         screen_.refresh();
     }
@@ -217,6 +226,7 @@ class MagicDustEditor::Body : public juce::Component
             g.fillRect(x, t::layout::dividerY, 1, t::layout::dividerHeight);
         }
         paintMuteLegend(g);
+        paintOctaveLegend(g);
 
         md::ui::paintWordmark(g);
     }
@@ -263,13 +273,18 @@ class MagicDustEditor::Body : public juce::Component
             auto& mute = muteKeys_.at(i);
             mute.setComponentID("mute" + juce::String(i));
             mute.setTitle(juce::String(md::ui::laneLook(kLanes.at(i)).label) + " mute");
-            mute.setExplicitFocusOrder(12 + static_cast<int>(i));
+            mute.setExplicitFocusOrder(12 + (3 * static_cast<int>(i)));
             mute.setClickingTogglesState(true);
             mute.setBounds(t::layout::muteKeyX.at(i), t::layout::keyY, t::layout::keyWidth,
                            t::layout::keyHeight);
             muteAttachments_.at(i) = std::make_unique<juce::ButtonParameterAttachment>(
                 *processor_.params.getParameter(kMuteIds.at(i)), mute);
             addAndMakeVisible(mute);
+
+            auto& rocker = rockers_.at(i);
+            rocker.setExplicitFocusOrder(13 + (3 * static_cast<int>(i)));
+            rocker.setTopLeftPosition(t::layout::muteKeyX.at(i), t::layout::octaveY);
+            addAndMakeVisible(rocker);
         }
     }
 
@@ -299,6 +314,20 @@ class MagicDustEditor::Body : public juce::Component
         g.drawText("MUTE",
                    juce::Rectangle<float>(static_cast<float>(t::layout::legendHeight) * 5.0F,
                                           static_cast<float>(t::layout::legendHeight))
+                       .withCentre(centre),
+                   juce::Justification::centred, false);
+    }
+
+    // "OCT" left of the first rocker, centred on the same line as the MUTE legend above it.
+    static void paintOctaveLegend(juce::Graphics& g)
+    {
+        g.setColour(t::console::legend);
+        g.setFont(md::ui::font(md::ui::Face::groteskMedium, t::layout::legendSize)
+                      .withExtraKerningFactor(t::layout::legendSpacing));
+        const auto centre = juce::Point<int>(t::layout::octaveLegendCentreX,
+                                             t::layout::octaveY + (t::layout::octaveHeight / 2));
+        g.drawText("OCT",
+                   juce::Rectangle<int>(t::layout::legendHeight * 3, t::layout::legendHeight)
                        .withCentre(centre),
                    juce::Justification::centred, false);
     }
@@ -352,6 +381,7 @@ class MagicDustEditor::Body : public juce::Component
     md::ui::Knob volume_;
     std::array<md::ui::KeyButton, 3> muteKeys_;
     std::array<std::unique_ptr<juce::ButtonParameterAttachment>, 3> muteAttachments_;
+    std::array<md::ui::OctaveRocker, 3> rockers_;
     md::ui::KeyButton playKey_;
     md::ui::KeyButton stopKey_;
     md::ui::SprinkleKey sprinkleKey_;

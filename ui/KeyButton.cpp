@@ -143,6 +143,11 @@ void KeyButton::timerCallback()
 
 void KeyButton::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down*/)
 {
+    const bool disabled = !isEnabled();
+    if (disabled)
+    {
+        g.beginTransparencyLayer(t::layout::disabledAlpha);
+    }
     const auto pressed = easeOut(press_);
     const auto rest = getLocalBounds().toFloat();
     const auto face = rest.translated(0.0F, t::layout::keyPressDrop * pressed);
@@ -190,6 +195,10 @@ void KeyButton::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down
         g.setColour(t::console::ledOff.interpolatedWith(*led_, ledLevel_));
         g.fillEllipse(spot);
     }
+    if (disabled)
+    {
+        g.endTransparencyLayer();
+    }
 }
 
 juce::Rectangle<float> KeyButton::legendBounds() const
@@ -206,9 +215,22 @@ void KeyButton::paintContent(juce::Graphics& g, juce::Rectangle<float> face) con
     {
         return;
     }
+    g.setColour(t::console::legend);
+    if (icon_ == KeyIcon::arrowDown || icon_ == KeyIcon::arrowUp)
+    {
+        const auto arrow =
+            juce::Rectangle<float>(t::layout::octaveArrowWidth, t::layout::octaveArrowHeight)
+                .withCentre(face.getCentre());
+        juce::Path triangle;
+        const bool down = icon_ == KeyIcon::arrowDown;
+        triangle.addTriangle(down ? arrow.getTopLeft() : arrow.getBottomLeft(),
+                             down ? arrow.getTopRight() : arrow.getBottomRight(),
+                             {arrow.getCentreX(), down ? arrow.getBottom() : arrow.getY()});
+        g.fillPath(triangle);
+        return;
+    }
     const auto size = t::layout::keyIconSize;
     const auto box = juce::Rectangle<float>(size, size).withCentre(face.getCentre());
-    g.setColour(t::console::legend);
     if (icon_ == KeyIcon::stop)
     {
         g.fillRect(box);
