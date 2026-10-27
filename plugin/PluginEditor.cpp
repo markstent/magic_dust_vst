@@ -1,11 +1,16 @@
 #include "PluginEditor.h"
 
+#include <functional>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "PluginProcessor.h"
+#include "plugin/DragFiles.h"
 #include "ui/Fonts.h"
+#include "ui/KeyButton.h"
 #include "ui/ScreenComponent.h"
+#include "ui/SprinkleKey.h"
 #include "ui/Tokens.h"
 
 namespace t = md::tokens;
@@ -14,22 +19,52 @@ namespace t = md::tokens;
 class MagicDustEditor::Body : public juce::Component
 {
   public:
-    explicit Body(MagicDustProcessor& processor) : processor_(processor), screen_(processor)
+    explicit Body(MagicDustProcessor& processor)
+        : processor_(processor), screen_(processor),
+          playKey_("play", "M7 4.5l13 7.5-13 7.5z", t::layout::keyIconSize, t::gold),
+          stopKey_("stop", "M5 7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z",
+                   t::layout::stopIconSize, std::nullopt)
     {
         setBounds(0, 0, t::layout::windowWidth, t::layout::windowHeight);
         screen_.setBounds(t::layout::screenOuter);
+        screen_.setExplicitFocusOrder(1);
+        screen_.setOnStatus([this](std::optional<std::string> status)
+                            { setFileError(std::move(status)); });
         addAndMakeVisible(screen_);
+
+        addKey(playKey_,
+               {.id = "playKey",
+                .title = "play the preview",
+                .bounds = {t::layout::playKeyX, t::layout::keyY, t::layout::keySize,
+                           t::layout::keySize},
+                .focusOrder = 2},
+               [this] { processor_.play(); });
+        addKey(stopKey_,
+               {.id = "stopKey",
+                .title = "stop the preview",
+                .bounds = {t::layout::stopKeyX, t::layout::keyY, t::layout::keySize,
+                           t::layout::keySize},
+                .focusOrder = 3},
+               [this] { processor_.stop(); });
+        addKey(sprinkleKey_,
+               {.id = "sprinkleKey",
+                .title = "sprinkle a new idea",
+                .bounds = {t::layout::sprinkleKeyX, t::layout::keyY, t::layout::sprinkleKeyWidth,
+                           t::layout::keySize},
+                .focusOrder = 4},
+               [this]
+               {
+                   processor_.sprinkle();
+                   screen_.refresh();
+               });
+        md::cleanDragFolder();
         refresh();
     }
 
     void refresh()
     {
-        const auto error = processor_.lastError();
-        if (error != error_)
-        {
-            error_ = error;
-            repaint(t::layout::statusLine);
-        }
+        updateError();
+        playKey_.setLit(processor_.previewPlaying());
         screen_.refresh();
     }
 
@@ -61,6 +96,45 @@ class MagicDustEditor::Body : public juce::Component
     }
 
   private:
+    struct KeySpec
+    {
+        const char* id;
+        const char* title;
+        juce::Rectangle<int> bounds;
+        int focusOrder;
+    };
+
+    // Places a key in the keys row; its click clears the status line, then does its action.
+    void addKey(md::ui::KeyButton& key, const KeySpec& spec, std::function<void()> onPress)
+    {
+        key.setComponentID(spec.id);
+        key.setTitle(spec.title);
+        key.setExplicitFocusOrder(spec.focusOrder);
+        key.setBounds(spec.bounds);
+        key.onClick = [this, action = std::move(onPress)]
+        {
+            setFileError(std::nullopt);
+            action();
+        };
+        addAndMakeVisible(key);
+    }
+
+    void setFileError(std::optional<std::string> status)
+    {
+        fileError_ = std::move(status);
+        updateError();
+    }
+
+    void updateError()
+    {
+        const auto error = fileError_ ? fileError_ : processor_.lastError();
+        if (error != error_)
+        {
+            error_ = error;
+            repaint(t::layout::statusLine);
+        }
+    }
+
     // Repeating from the bottom edge: 1 px white, then 2 px black.
     static void paintBrushing(juce::Graphics& g, juce::Rectangle<float> inner)
     {
@@ -88,6 +162,10 @@ class MagicDustEditor::Body : public juce::Component
 
     MagicDustProcessor& processor_;
     md::ui::ScreenComponent screen_;
+    md::ui::KeyButton playKey_;
+    md::ui::KeyButton stopKey_;
+    md::ui::SprinkleKey sprinkleKey_;
+    std::optional<std::string> fileError_;
     std::optional<std::string> error_;
 };
 

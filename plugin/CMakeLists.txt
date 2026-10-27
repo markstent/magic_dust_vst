@@ -49,12 +49,13 @@ juce_add_binary_data(MdFonts
     ${CMAKE_SOURCE_DIR}/ui/fonts/SpaceMonoBold.ttf)
 
 add_library(md_plugin_core STATIC PluginProcessor.cpp PluginEditor.cpp Playback.cpp
-  AuditionSynth.cpp Link.cpp
+  AuditionSynth.cpp Link.cpp DragFiles.cpp
   ${CMAKE_SOURCE_DIR}/ui/Fonts.cpp ${CMAKE_SOURCE_DIR}/ui/ChordBubble.cpp ${CMAKE_SOURCE_DIR}/ui/LaneView.cpp ${CMAKE_SOURCE_DIR}/ui/AuraPad.cpp
-  ${CMAKE_SOURCE_DIR}/ui/StatusFields.cpp ${CMAKE_SOURCE_DIR}/ui/Readout.cpp ${CMAKE_SOURCE_DIR}/ui/TopLine.cpp ${CMAKE_SOURCE_DIR}/ui/ScreenComponent.cpp)
+  ${CMAKE_SOURCE_DIR}/ui/StatusFields.cpp ${CMAKE_SOURCE_DIR}/ui/Readout.cpp ${CMAKE_SOURCE_DIR}/ui/TopLine.cpp ${CMAKE_SOURCE_DIR}/ui/ScreenComponent.cpp
+  ${CMAKE_SOURCE_DIR}/ui/KeyButton.cpp ${CMAKE_SOURCE_DIR}/ui/SprinkleKey.cpp)
 target_include_directories(md_plugin_core PUBLIC ${CMAKE_SOURCE_DIR})
 target_link_libraries(md_plugin_core
-  PUBLIC md_juce_headers md_engine md_bank
+  PUBLIC md_juce_headers md_engine md_bank md_midiexport
   PRIVATE MdFonts juce::juce_recommended_warning_flags)
 # The generated font header is not our code, so lint treats it as a system header.
 get_target_property(md_font_includes MdFonts INTERFACE_INCLUDE_DIRECTORIES)

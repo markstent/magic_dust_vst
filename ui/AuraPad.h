@@ -8,6 +8,9 @@
 namespace md::ui
 {
 
+// The four-point sparkle on its 24 x 24 grid.
+juce::Path sparklePath();
+
 class AuraPad : public juce::Component
 {
   public:
@@ -19,6 +22,8 @@ class AuraPad : public juce::Component
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseDrag(const juce::MouseEvent& e) override;
     void mouseUp(const juce::MouseEvent& e) override;
+    void focusGained(FocusChangeType /*cause*/) override { repaint(); }
+    void focusLost(FocusChangeType /*cause*/) override { repaint(); }
 
   private:
     void move(juce::Point<float> position);

@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -14,6 +15,7 @@
 #include "plugin/PluginProcessor.h"
 #include "ui/AuraPad.h"
 #include "ui/ChordBubble.h"
+#include "ui/KeyButton.h"
 #include "ui/LaneView.h"
 #include "ui/ScreenComponent.h"
 #include "ui/StatusFields.h"
@@ -305,6 +307,139 @@ TEST_CASE("the aura field names the quadrant at mood and energy 50", "[editor]")
     CHECK(set(50, 50) == "aura, starburst");
     CHECK(set(49, 49) == "aura, moonlight");
     CHECK(set(50, 49) == "aura, daydream");
+}
+
+TEST_CASE("the keys sit where the layout table puts them", "[editor]")
+{
+    Fixture f;
+    CHECK(f.boundsOf("playKey") == Rect{27, 575, 82, 82});
+    CHECK(f.boundsOf("stopKey") == Rect{121, 575, 82, 82});
+    CHECK(f.boundsOf("sprinkleKey") == Rect{227, 575, 176, 82});
+}
+
+TEST_CASE("clicking play then stop toggles the preview", "[editor]")
+{
+    Fixture f;
+    f.processor.prepareToPlay(48000.0, 512);
+    juce::AudioBuffer<float> buffer(2, 512);
+    juce::MidiBuffer midi;
+
+    click(f.find("playKey"), {40.0F, 40.0F});
+    f.processor.processBlock(buffer, midi);
+    CHECK(f.processor.previewPlaying());
+    click(f.find("stopKey"), {40.0F, 40.0F});
+    f.processor.processBlock(buffer, midi);
+    CHECK_FALSE(f.processor.previewPlaying());
+}
+
+TEST_CASE("clicking sprinkle writes a new idea and the bubbles follow", "[editor]")
+{
+    Fixture f;
+    juce::Random::getSystemRandom().setSeed(7);
+    const auto before = f.idea(4).seed;
+    const auto titles = [&]
+    {
+        juce::StringArray all;
+        for (int i = 0; i < 4; ++i)
+        {
+            all.add(f.find(("bubble" + std::to_string(i)).c_str()).getTitle());
+        }
+        return all.joinIntoString("|");
+    };
+    const auto bubblesBefore = titles();
+
+    click(f.find("sprinkleKey"), {40.0F, 40.0F});
+
+    REQUIRE(f.processor.idea() != nullptr);
+    CHECK(f.processor.idea()->seed != before);
+    CHECK(titles() != bubblesBefore);
+}
+
+TEST_CASE("a pressed key moves down and jumps when animation is off", "[editor]")
+{
+    Fixture f;
+    auto& key = f.find<md::ui::KeyButton>("playKey");
+    key.setAnimated(false);
+    const auto at = juce::Point<float>(40.0F, 40.0F);
+    CHECK(key.pressedAmount() == Approx(0.0F));
+    juce::Component& component = key;
+    component.mouseDown(mouseAt(component, at, at, false));
+    CHECK(key.pressedAmount() == Approx(1.0F));
+    component.mouseUp(mouseAt(component, at, at, false));
+    CHECK(key.pressedAmount() == Approx(0.0F));
+}
+
+TEST_CASE("clicking a bubble selects its chord and a lane click selects the lane", "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    auto& screen = f.find<md::ui::ScreenComponent>("screen");
+    click(f.find("bubble2"), {40.0F, 40.0F});
+    CHECK(screen.selection().kind == md::ui::Selection::Kind::chord);
+    CHECK(screen.selection().index == 2);
+    click(f.find("lane1"), {20.0F, 20.0F});
+    CHECK(screen.selection().kind == md::ui::Selection::Kind::lane);
+    CHECK(screen.selection().index == 1);
+}
+
+TEST_CASE("moving 4 px is a click and moving 5 px is a drag", "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    auto& screen = f.find<md::ui::ScreenComponent>("screen");
+    int bubbleDrags = 0;
+    int laneDrags = 0;
+    auto& bubble = f.find<md::ui::ChordBubble>("bubble1");
+    auto& lane = f.find<md::ui::LaneView>("lane2");
+    bubble.setOnDrag([&] { ++bubbleDrags; });
+    lane.setOnDrag([&] { ++laneDrags; });
+
+    const auto down = juce::Point<float>(40.0F, 40.0F);
+    const auto drag = [&](juce::Component& c, float distance)
+    {
+        c.mouseDown(mouseAt(c, down, down, false));
+        const auto to = down.translated(distance, 0.0F);
+        c.mouseDrag(mouseAt(c, to, down, true));
+        c.mouseUp(mouseAt(c, to, down, true));
+    };
+    drag(bubble, 4.0F);
+    drag(lane, 4.0F);
+    CHECK(bubbleDrags == 0);
+    CHECK(laneDrags == 0);
+    CHECK(screen.selection().kind == md::ui::Selection::Kind::lane);
+
+    screen.setSelection({});
+    drag(bubble, 5.0F);
+    drag(lane, 5.0F);
+    CHECK(bubbleDrags == 1);
+    CHECK(laneDrags == 1);
+    CHECK(screen.selection().kind == md::ui::Selection::Kind::none);
+}
+
+TEST_CASE("tab visits top line, bubbles, lanes, aura pad, fields, then keys", "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    juce::KeyboardFocusTraverser traverser;
+    std::vector<std::string> order;
+    auto* current = traverser.getDefaultComponent(f.editor.get());
+    while (current != nullptr && order.size() < 30)
+    {
+        order.push_back(current->getComponentID().toStdString());
+        current = traverser.getNextComponent(current);
+    }
+    const std::vector<std::string> expected{
+        "keyMenu", "styleMenu", "bubble0", "bubble1", "bubble2", "bubble3", "lane0",      "lane1",
+        "lane2",   "auraPad",   "groove",  "flavour", "playKey", "stopKey", "sprinkleKey"};
+    CHECK(order == expected);
+}
+
+TEST_CASE("every key and bubble has an accessible title", "[editor]")
+{
+    Fixture f;
+    CHECK(f.find("playKey").getTitle() == "play the preview");
+    CHECK(f.find("stopKey").getTitle() == "stop the preview");
+    CHECK(f.find("sprinkleKey").getTitle() == "sprinkle a new idea");
 }
 
 TEST_CASE("opening and closing the editor leaks nothing", "[editor]")

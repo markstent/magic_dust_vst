@@ -1,6 +1,8 @@
 #pragma once
 
+#include <functional>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -52,11 +54,24 @@ class LaneView : public juce::Component
     [[nodiscard]] PianoRoll& roll() { return roll_; }
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void mouseDrag(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent& e) override;
+    bool keyPressed(const juce::KeyPress& key) override;
+    void focusGained(FocusChangeType /*cause*/) override { repaint(); }
+    void focusLost(FocusChangeType /*cause*/) override { repaint(); }
+
+    // Called on a click, or Space or Enter while focused.
+    void setOnClick(std::function<void()> callback) { onClick_ = std::move(callback); }
+    // Called once the pointer has moved far enough to count as a drag.
+    void setOnDrag(std::function<void()> callback) { onDrag_ = std::move(callback); }
 
   private:
     md::LaneId lane_;
     PianoRoll roll_;
     bool selected_ = false;
+    bool dragging_ = false;
+    std::function<void()> onClick_;
+    std::function<void()> onDrag_;
 
     MD_COMPONENT_BOILERPLATE(LaneView)
 };

@@ -25,6 +25,8 @@ constexpr int kMaxVoiceMove = 7;
 constexpr int kMaxMelodyLeap = 7;
 constexpr int kTempoMin = 60;
 constexpr int kTempoMax = 200;
+// The tempo written into dragged MIDI files when the host reports none.
+constexpr int kDefaultTempo = 124;
 // The MIDI writer's accepted tempo range, wider than the settings tempo range above.
 constexpr int kMidiTempoMin = 20;
 constexpr int kMidiTempoMax = 999;

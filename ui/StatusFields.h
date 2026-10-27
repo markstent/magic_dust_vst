@@ -19,6 +19,9 @@ class FieldRow : public juce::Component
     void cycle(int steps);
     void paint(juce::Graphics& g) override;
     void mouseUp(const juce::MouseEvent& e) override;
+    bool keyPressed(const juce::KeyPress& key) override;
+    void focusGained(FocusChangeType /*cause*/) override { repaint(); }
+    void focusLost(FocusChangeType /*cause*/) override { repaint(); }
     void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
 
   private:

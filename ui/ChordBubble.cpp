@@ -1,5 +1,6 @@
 #include "ui/ChordBubble.h"
 
+#include "plugin/DragFiles.h"
 #include "ui/Fonts.h"
 #include "ui/Tokens.h"
 
@@ -27,6 +28,27 @@ void ChordBubble::set(const juce::String& name, const juce::String& feel, bool p
     selected_ = selected;
     setTitle("chord " + juce::String(slot_ + 1) + ", " + name_ + ", " + feel_);
     repaint(getLocalBounds().expanded(t::layout::bubbleOverflow));
+}
+
+void ChordBubble::mouseDrag(const juce::MouseEvent& e)
+{
+    juce::Button::mouseDrag(e);
+    if (!dragging_ && md::exceedsDragThreshold(e.getMouseDownPosition(), e.getPosition()))
+    {
+        dragging_ = true;
+        // A drag is not a click.
+        setState(juce::Button::buttonNormal);
+        if (onDrag_)
+        {
+            onDrag_();
+        }
+    }
+}
+
+void ChordBubble::mouseUp(const juce::MouseEvent& e)
+{
+    dragging_ = false;
+    juce::Button::mouseUp(e);
 }
 
 void ChordBubble::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down*/)

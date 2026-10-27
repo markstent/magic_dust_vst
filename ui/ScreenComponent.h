@@ -1,11 +1,16 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <optional>
+#include <string>
+#include <utility>
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include "md/types.hpp"
 #include "ui/AuraPad.h"
 #include "ui/ChordBubble.h"
 #include "ui/LaneView.h"
@@ -41,10 +46,20 @@ class ScreenComponent : public juce::Component
     // Pulls everything the screen shows from the processor.
     void refresh();
     void setSelection(Selection selection);
+    [[nodiscard]] Selection selection() const { return selection_; }
     void paint(juce::Graphics& g) override;
     void resized() override;
 
+    // Told the status line text a click or drag produced: an error, or nothing once it succeeds.
+    void setOnStatus(std::function<void(std::optional<std::string>)> callback)
+    {
+        onStatus_ = std::move(callback);
+    }
+
   private:
+    void startDrag(std::optional<md::LaneId> lane, std::optional<std::size_t> slot);
+    void report(std::optional<std::string> status);
+
     MagicDustProcessor& processor_;
     TopLine topLine_;
     std::array<ChordBubble, 4> bubbles_;
@@ -53,6 +68,7 @@ class ScreenComponent : public juce::Component
     StatusFields fields_;
     Readout readout_;
     Selection selection_;
+    std::function<void(std::optional<std::string>)> onStatus_;
 
     MD_COMPONENT_BOILERPLATE(ScreenComponent)
 };

@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include "ui/Focus.h"
 #include "ui/Fonts.h"
 #include "ui/Tokens.h"
 
@@ -52,6 +53,7 @@ FieldRow::FieldRow(juce::AudioProcessorValueTreeState& params, const char* id, b
 {
     setComponentID(id);
     setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    setWantsKeyboardFocus(true);
 }
 
 void FieldRow::refresh()
@@ -78,6 +80,20 @@ void FieldRow::cycle(int steps)
 void FieldRow::paint(juce::Graphics& g)
 {
     drawLine(g, getLocalBounds(), choice_.getName(64), true, shown_);
+    if (hasKeyboardFocus(true))
+    {
+        drawFocusRing(g, getLocalBounds().toFloat(), t::layout::laneRadius);
+    }
+}
+
+bool FieldRow::keyPressed(const juce::KeyPress& key)
+{
+    if (key == juce::KeyPress::returnKey || key == juce::KeyPress::spaceKey)
+    {
+        cycle(1);
+        return true;
+    }
+    return false;
 }
 
 void FieldRow::mouseUp(const juce::MouseEvent& e)

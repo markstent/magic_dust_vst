@@ -46,6 +46,7 @@ inline const juce::Colour goldLight{0xFFFFE29A};
 inline const juce::Colour goldEdge{0xFFC9992F};
 inline const juce::Colour goldBase{0xFFB88A2A};
 inline const juce::Colour onColour{0xFF050507};
+inline const juce::Colour sprinkleInk{0xFF12101F};
 inline const juce::Colour focus{0xFF8C6CF5};
 
 // Body material.
@@ -70,6 +71,15 @@ inline constexpr float laneLabelSize = 11.0F;
 inline constexpr float fieldSize = 13.0F;
 inline constexpr float readoutSize = 12.0F;
 inline constexpr float statusLineSize = 11.0F;
+inline constexpr float keyLabelSize = 10.0F;
+inline constexpr float sprinkleTitleSize = 22.0F;
+
+// Motion, in ms.
+inline constexpr double keyPressMs = 80.0;
+inline constexpr double ledFadeMs = 120.0;
+
+// A drag starts after the pointer moves more than this many px.
+inline constexpr int dragThreshold = 4;
 
 // Layout, in logical px from the window's top-left corner (visual spec, "Layout").
 namespace layout
@@ -141,6 +151,36 @@ inline constexpr float chevronGrid = 24.0F; // the chevron is drawn on a 24 x 24
 inline constexpr float chevronStroke = 1.0F;
 inline constexpr std::array<std::array<float, 2>, 3> chevronPoints{
     {{6.0F, 9.0F}, {12.0F, 15.0F}, {18.0F, 9.0F}}};
+
+inline constexpr int keyY = 575;
+inline constexpr int keySize = 82;
+inline constexpr int playKeyX = 27;
+inline constexpr int stopKeyX = 121;
+inline constexpr int sprinkleKeyX = 227;
+inline constexpr int sprinkleKeyWidth = 176;
+inline constexpr float keyRadius = 12.0F;
+inline constexpr float keyPressDrop = 3.0F;
+inline constexpr float keyBaseDrop = 4.0F;        // the solid base below a key at rest
+inline constexpr float keyBasePressedDrop = 1.0F; // and below a pressed key
+inline constexpr float keyShadowDrop = 6.0F;      // the soft shadow's offset at rest
+inline constexpr float keyShadowPressedDrop = 2.0F;
+inline constexpr float keyShadowPressedBlur = 4.0F;
+inline constexpr float keyShadowPressedAlpha = 0.12F;
+inline constexpr float keycapShadowBlur = 10.0F;
+inline constexpr float keycapShadowAlpha = 0.12F;
+inline constexpr float sprinkleShadowBlur = 12.0F;
+inline constexpr float sprinkleShadowAlpha = 0.14F;
+inline constexpr float keyIconSize = 22.0F;
+inline constexpr float stopIconSize = 20.0F;
+inline constexpr float keyIconGrid = 24.0F;
+inline constexpr float keyLabelGap = 6.0F;
+inline constexpr float ledSize = 7.0F;
+inline constexpr float ledInset = 10.0F; // from the key's top and right edges
+inline constexpr float ledGlow = 6.0F;
+inline constexpr float sprinkleIconSize = 28.0F;
+inline constexpr float sprinkleIconGap = 10.0F;
+inline constexpr float sprinkleLabelGap = 4.0F;
+inline constexpr float focusRingStroke = 2.0F; // the screen's focus outline, drawn just inside
 } // namespace layout
 
 } // namespace md::tokens

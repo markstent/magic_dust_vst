@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "ui/Focus.h"
 #include "ui/Tokens.h"
 
 namespace md::ui
@@ -14,18 +15,6 @@ namespace
 {
 
 constexpr float kSpan = 1.0F - (2.0F * t::layout::auraInset); // the sparkle's travel
-
-juce::Path sparkle()
-{
-    juce::Path p;
-    p.startNewSubPath(t::layout::sparkleStart.at(0), t::layout::sparkleStart.at(1));
-    for (const auto& c : t::layout::sparkleCurves)
-    {
-        p.cubicTo(c.at(0), c.at(1), c.at(2), c.at(3), c.at(4), c.at(5));
-    }
-    p.closeSubPath();
-    return p;
-}
 
 // The sparkle's centre as a fraction of the pad's inner box; stays auraInset in from each edge.
 float fractionOf(int value)
@@ -41,9 +30,22 @@ int valueOf(float fraction)
 
 } // namespace
 
+juce::Path sparklePath()
+{
+    juce::Path p;
+    p.startNewSubPath(t::layout::sparkleStart.at(0), t::layout::sparkleStart.at(1));
+    for (const auto& c : t::layout::sparkleCurves)
+    {
+        p.cubicTo(c.at(0), c.at(1), c.at(2), c.at(3), c.at(4), c.at(5));
+    }
+    p.closeSubPath();
+    return p;
+}
+
 AuraPad::AuraPad(juce::AudioProcessorValueTreeState& params) : params_(params)
 {
     setMouseCursor(juce::MouseCursor::CrosshairCursor);
+    setWantsKeyboardFocus(true);
 }
 
 void AuraPad::set(int mood, int energy)
@@ -71,15 +73,20 @@ void AuraPad::paint(juce::Graphics& g)
     g.fillRect(t::layout::auraBorder, bounds.getCentreY(),
                bounds.getWidth() - (2 * t::layout::auraBorder), 1);
 
+    if (hasKeyboardFocus(true))
+    {
+        drawFocusRing(g, bounds.toFloat(), t::layout::auraRadius);
+    }
+
     const auto centre =
         juce::Point<float>(inner.getX() + (fractionOf(mood_) * inner.getWidth()),
                            inner.getY() + (fractionOf(100 - energy_) * inner.getHeight()));
     const auto scale = t::layout::auraSparkle / t::layout::sparkleGrid;
     g.setColour(t::gold);
-    g.fillPath(sparkle(), juce::AffineTransform::translation(-t::layout::sparkleGrid / 2.0F,
-                                                             -t::layout::sparkleGrid / 2.0F)
-                              .scaled(scale)
-                              .translated(centre.x, centre.y));
+    g.fillPath(sparklePath(), juce::AffineTransform::translation(-t::layout::sparkleGrid / 2.0F,
+                                                                 -t::layout::sparkleGrid / 2.0F)
+                                  .scaled(scale)
+                                  .translated(centre.x, centre.y));
 }
 
 void AuraPad::mouseDown(const juce::MouseEvent& e)

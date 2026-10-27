@@ -5,11 +5,13 @@
 #include <cmath>
 #include <cstddef>
 #include <optional>
+#include <string>
 #include <utility>
 
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
 #include "md/types.hpp"
+#include "plugin/DragFiles.h"
 #include "plugin/PluginProcessor.h"
 #include "ui/Tokens.h"
 
@@ -53,24 +55,73 @@ ScreenComponent::ScreenComponent(MagicDustProcessor& processor)
       auraPad_(processor.params), fields_(processor.params)
 {
     setComponentID("screen");
+    // Tab order: top line, bubbles, lanes, aura pad, then the fields.
+    int order = 0;
+    topLine_.setExplicitFocusOrder(++order);
     addAndMakeVisible(topLine_);
     for (std::size_t i = 0; i < bubbles_.size(); ++i)
     {
-        bubbles_.at(i).setComponentID("bubble" + juce::String(i));
-        addChildComponent(bubbles_.at(i));
+        auto& bubble = bubbles_.at(i);
+        bubble.setComponentID("bubble" + juce::String(i));
+        bubble.setExplicitFocusOrder(++order);
+        bubble.onClick = [this, i]
+        {
+            setSelection({.kind = Selection::Kind::chord, .index = static_cast<int>(i)});
+            processor_.auditionChord(i);
+            report(std::nullopt);
+        };
+        bubble.setOnDrag([this, i] { startDrag(std::nullopt, i); });
+        addChildComponent(bubble);
     }
     for (std::size_t i = 0; i < lanes_.size(); ++i)
     {
-        lanes_.at(i).setComponentID("lane" + juce::String(i));
-        lanes_.at(i).roll().setComponentID("roll" + juce::String(i));
-        addAndMakeVisible(lanes_.at(i));
+        auto& lane = lanes_.at(i);
+        lane.setComponentID("lane" + juce::String(i));
+        lane.roll().setComponentID("roll" + juce::String(i));
+        lane.setExplicitFocusOrder(++order);
+        lane.setOnClick(
+            [this, i]
+            {
+                setSelection({.kind = Selection::Kind::lane, .index = static_cast<int>(i)});
+                report(std::nullopt);
+            });
+        lane.setOnDrag([this, i] { startDrag(static_cast<md::LaneId>(i), std::nullopt); });
+        addAndMakeVisible(lane);
     }
+    auraPad_.setExplicitFocusOrder(++order);
+    fields_.setExplicitFocusOrder(++order);
     auraPad_.setComponentID("auraPad");
     fields_.setComponentID("statusFields");
     readout_.setComponentID("readout");
     addAndMakeVisible(auraPad_);
     addAndMakeVisible(fields_);
     addAndMakeVisible(readout_);
+}
+
+void ScreenComponent::report(std::optional<std::string> status)
+{
+    if (onStatus_)
+    {
+        onStatus_(std::move(status));
+    }
+}
+
+void ScreenComponent::startDrag(std::optional<md::LaneId> lane, std::optional<std::size_t> slot)
+{
+    const auto* idea = processor_.idea();
+    if (idea == nullptr)
+    {
+        return;
+    }
+    const auto file = md::writeDragFile(*idea, lane, slot, md::dragTempo(processor_.hostBpm()));
+    if (!file)
+    {
+        report("couldn't write the midi file");
+        return;
+    }
+    report(std::nullopt);
+    juce::DragAndDropContainer::performExternalDragDropOfFiles({file->getFullPathName()}, false,
+                                                               this);
 }
 
 void ScreenComponent::setSelection(Selection selection)

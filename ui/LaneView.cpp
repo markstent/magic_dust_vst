@@ -3,8 +3,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <utility>
 
 #include "md/ranges.hpp"
+#include "plugin/DragFiles.h"
+#include "ui/Focus.h"
 #include "ui/Fonts.h"
 #include "ui/Tokens.h"
 
@@ -103,7 +106,7 @@ void PianoRoll::paint(juce::Graphics& g)
 LaneView::LaneView(md::LaneId lane) : lane_(lane), roll_(lane)
 {
     addAndMakeVisible(roll_);
-    setInterceptsMouseClicks(false, true);
+    setWantsKeyboardFocus(true);
 }
 
 void LaneView::set(const md::Lane& lane, int bars, std::optional<float> playhead, bool selected)
@@ -123,6 +126,37 @@ void LaneView::resized()
                     t::layout::rollHeight);
 }
 
+void LaneView::mouseDrag(const juce::MouseEvent& e)
+{
+    if (!dragging_ && md::exceedsDragThreshold(e.getMouseDownPosition(), e.getPosition()))
+    {
+        dragging_ = true;
+        if (onDrag_)
+        {
+            onDrag_();
+        }
+    }
+}
+
+void LaneView::mouseUp(const juce::MouseEvent& e)
+{
+    const auto wasDragging = std::exchange(dragging_, false);
+    if (!wasDragging && getLocalBounds().contains(e.getPosition()) && onClick_)
+    {
+        onClick_();
+    }
+}
+
+bool LaneView::keyPressed(const juce::KeyPress& key)
+{
+    if ((key == juce::KeyPress::returnKey || key == juce::KeyPress::spaceKey) && onClick_)
+    {
+        onClick_();
+        return true;
+    }
+    return false;
+}
+
 void LaneView::paint(juce::Graphics& g)
 {
     if (selected_)
@@ -138,6 +172,10 @@ void LaneView::paint(juce::Graphics& g)
                                     t::layout::rollX - t::layout::laneX - t::layout::laneLabelPad,
                                     getHeight()),
                juce::Justification::centredLeft, false);
+    if (hasKeyboardFocus(true))
+    {
+        drawFocusRing(g, getLocalBounds().toFloat(), t::layout::laneRadius);
+    }
 }
 
 } // namespace md::ui
