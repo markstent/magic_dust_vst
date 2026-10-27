@@ -144,12 +144,15 @@ Build first with `cmake --build --preset dev` and rescan your plug-ins as above.
 
 Use the VST3 version of Magic Dust here.
 The AU version cannot send MIDI to other tracks in Ableton Live, so the VST3 is the one to load.
+The AU and the VST3 are separate and cannot see each other, so load both the main Magic Dust and the sender as VST3.
 
-1. Load Magic Dust on a MIDI track.
+1. Load Magic Dust (VST3) on a MIDI track.
    This is the main one, with the full screen.
-2. Make a second MIDI track and load Magic Dust on it too.
+2. Make a second MIDI track and load Magic Dust (VST3) on it too.
    It opens as "magic dust sender".
+   A new sender starts on chords, the first lane nobody sends, so the main one's organ goes quiet at once.
 3. Click the lane you want to send: chords, bass or melody.
+   The main one's built-in sound for any lane being sent is silent while it is sent.
    The light on the key shows your pick, and the status line says "sending bass from magic dust" (or the lane you picked).
    If it says "no magic dust found", load Magic Dust on another track first.
 4. Make a third track and load your own instrument on it.
@@ -164,6 +167,7 @@ The AU version cannot send MIDI to other tracks in Ableton Live, so the VST3 is 
 ### The listening review
 
 1. Sprinkle 20 ideas in each of the families: uk funky, mk dub, soulful, bassline, festival and ny groove.
+   To change family, click the style name on the screen's top line.
 2. Drag the ones you like into clips in your daw.
 3. Rate every idea keep, close or skip.
 4. The target is at least 1 keep in every 3 ideas.
