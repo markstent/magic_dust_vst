@@ -7,29 +7,37 @@
 namespace md
 {
 
+namespace
+{
+
+void addLane(PlaybackPattern& p, const Lane& lane, std::uint8_t channel)
+{
+    for (const NoteEvent& n : lane.events)
+    {
+        const auto note = static_cast<std::uint8_t>(n.pitch);
+        p.events.push_back({.tick = n.start,
+                            .channel = channel,
+                            .note = note,
+                            .velocity = static_cast<std::uint8_t>(n.velocity),
+                            .on = true});
+        p.events.push_back({.tick = n.start + n.length,
+                            .channel = channel,
+                            .note = note,
+                            .velocity = 0,
+                            .on = false});
+    }
+}
+
+} // namespace
+
 PlaybackPattern makePattern(const Idea& idea)
 {
     PlaybackPattern p{.events = {}, .lengthTicks = idea.settings.bars * kTicksPerBar};
-    std::uint8_t channel = 0;
-    for (const Lane& lane : idea.lanes)
+    for (std::uint8_t channel = 0; const Lane& lane : idea.lanes)
     {
-        for (const NoteEvent& n : lane.events)
+        if (!lane.muted)
         {
-            if (lane.muted)
-            {
-                break;
-            }
-            const auto note = static_cast<std::uint8_t>(n.pitch);
-            p.events.push_back({.tick = n.start,
-                                .channel = channel,
-                                .note = note,
-                                .velocity = static_cast<std::uint8_t>(n.velocity),
-                                .on = true});
-            p.events.push_back({.tick = n.start + n.length,
-                                .channel = channel,
-                                .note = note,
-                                .velocity = 0,
-                                .on = false});
+            addLane(p, lane, channel);
         }
         ++channel;
     }

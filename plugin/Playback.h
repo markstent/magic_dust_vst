@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "md/ranges.hpp"
 #include "md/types.hpp"
 
 namespace md
@@ -21,8 +22,8 @@ struct PlayEvent
     bool on;
 };
 
-// Sorted by tick, offs before ons at the same tick. An off at lengthTicks fires before the loop
-// restarts.
+// Events must be sorted by tick, offs before ons at the same tick (makePattern does this). An off
+// at lengthTicks fires before the loop restarts.
 struct PlaybackPattern
 {
     std::vector<PlayEvent> events;
@@ -40,7 +41,9 @@ struct ScheduledEvent
 class SoundingNotes
 {
   public:
-    void apply(const PlayEvent& e) { held_.at(e.channel % 16).set(e.note % 128, e.on); }
+    // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access): the indices are
+    // reduced below the sizes, and .at() could throw on the audio thread.
+    void apply(const PlayEvent& e) { held_[e.channel % 16][e.note % 128] = e.on; }
 
     // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward): a callback invoked many times
     template <class F> void releaseAll(F&& emitOff)
@@ -50,7 +53,7 @@ class SoundingNotes
         {
             for (std::uint8_t note = 0; note < 128; ++note)
             {
-                if (notes.test(note))
+                if (notes[note])
                 {
                     emitOff(channel, note);
                 }
@@ -60,49 +63,58 @@ class SoundingNotes
         }
     }
 
+    // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
+
   private:
     std::array<std::bitset<128>, 16> held_;
 };
 
-constexpr double kPpqTicks = 960.0;
+// The one expression for how far the beat position moves in a block, so a block's end and the next
+// block's start are the same double.
+inline double ppqForSamples(int numSamples, double bpm, double sampleRate)
+{
+    return numSamples * bpm / 60.0 / sampleRate;
+}
 
 // Calls emit for every event of the looping pattern that falls in the block starting at startPpq.
-// NOLINTBEGIN(bugprone-easily-swappable-parameters,cppcoreguidelines-missing-std-forward)
 template <class F>
+// NOLINTBEGIN(bugprone-easily-swappable-parameters,cppcoreguidelines-missing-std-forward): the
+// signature is fixed by the spec and emit is a callback invoked many times, never moved.
 void schedule(const PlaybackPattern& p, double startPpq, double bpm, double sampleRate,
               int numSamples, F&& emit)
+// NOLINTEND(bugprone-easily-swappable-parameters,cppcoreguidelines-missing-std-forward)
 {
     if (p.events.empty() || p.lengthTicks <= 0 || numSamples <= 0)
     {
         return;
     }
-    const double loopPpq = p.lengthTicks / kPpqTicks;
-    const double ppqPerSample = bpm / 60.0 / sampleRate;
-    const double endPpq = startPpq + (numSamples * ppqPerSample);
-    // One pass back, so an off at the very end of the previous pass still fires at a block start.
-    const auto firstPass =
-        std::max(0LL, static_cast<long long>(std::floor(startPpq / loopPpq)) - 1);
+    const double loopPpq = p.lengthTicks / static_cast<double>(kTicksPerQuarter);
+    const double endPpq = startPpq + ppqForSamples(numSamples, bpm, sampleRate);
+    const auto firstPass = static_cast<long long>(std::floor(startPpq / loopPpq));
     for (auto pass = firstPass; static_cast<double>(pass) * loopPpq < endPpq; ++pass)
     {
         for (const PlayEvent& e : p.events)
         {
-            const double eventPpq = (static_cast<double>(pass) * loopPpq) + (e.tick / kPpqTicks);
-            if (eventPpq >= endPpq)
+            const double eventPpq = (static_cast<double>(pass) * loopPpq) +
+                                    (e.tick / static_cast<double>(kTicksPerQuarter));
+            // An off at lengthTicks belongs to the block that ends the pass, so its edges are
+            // (start, end]; every other event uses [start, end).
+            const bool passEnd = e.tick >= p.lengthTicks;
+            if (passEnd ? eventPpq > endPpq : eventPpq >= endPpq)
             {
                 break;
             }
-            if (eventPpq < startPpq)
+            if (passEnd ? eventPpq <= startPpq : eventPpq < startPpq)
             {
                 continue;
             }
-            const double offset = std::floor((eventPpq - startPpq) / ppqPerSample);
+            const double offset = std::floor((eventPpq - startPpq) * 60.0 / bpm * sampleRate);
             emit(ScheduledEvent{.sampleOffset =
                                     static_cast<int>(std::clamp(offset, 0.0, numSamples - 1.0)),
                                 .event = e});
         }
     }
 }
-// NOLINTEND(bugprone-easily-swappable-parameters,cppcoreguidelines-missing-std-forward)
 
 class InternalClock
 {
@@ -119,7 +131,7 @@ class InternalClock
     {
         if (running_)
         {
-            ppq_ += numSamples * bpm / 60.0 / sampleRate;
+            ppq_ += ppqForSamples(numSamples, bpm, sampleRate);
         }
     }
 

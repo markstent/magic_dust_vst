@@ -74,6 +74,69 @@ TEST_CASE("the loop wraps with offs before the restart")
     CHECK(out.at(0).sampleOffset <= out.at(1).sampleOffset);
 }
 
+TEST_CASE("the internal clock drives every event once across the loop wrap")
+{
+    constexpr int loop = 8 * 3840;
+    std::vector<md::PlayEvent> pattern;
+    pattern.reserve(9);
+    for (int channel = 0; channel < 3; ++channel)
+    {
+        pattern.push_back(ev(0, channel, 60 + channel, 100));
+    }
+    for (int channel = 0; channel < 3; ++channel)
+    {
+        pattern.push_back(ev(100, channel, 60 + channel, 0));
+    }
+    for (int channel = 0; channel < 3; ++channel)
+    {
+        pattern.push_back(ev(loop, channel, 60 + channel, 0));
+    }
+    const md::PlaybackPattern p{.events = pattern, .lengthTicks = loop};
+
+    std::vector<md::PlayEvent> expected;
+    for (int pass = 0; pass < 3; ++pass)
+    {
+        const bool last = pass == 2;
+        expected.insert(expected.end(), pattern.begin(), pattern.begin() + (last ? 6 : 9));
+    }
+    constexpr int total = 2048 * 700; // 65 ppq at 120 bpm and 44100 Hz
+    for (const int block : {32, 64, 512, 2048})
+    {
+        md::InternalClock clock;
+        clock.start();
+        std::vector<md::PlayEvent> got;
+        for (int done = 0; done < total; done += block)
+        {
+            md::schedule(p, clock.ppq(), 120.0, 44100.0, block,
+                         [&](const md::ScheduledEvent& e) { got.push_back(e.event); });
+            clock.advance(block, 120.0, 44100.0);
+        }
+        REQUIRE(got.size() == expected.size());
+        for (std::size_t i = 0; i < got.size(); ++i)
+        {
+            CHECK(got.at(i).channel == expected.at(i).channel);
+            CHECK(got.at(i).on == expected.at(i).on);
+            CHECK(got.at(i).tick == expected.at(i).tick);
+        }
+    }
+}
+
+TEST_CASE("a block starting on the loop boundary fires tick 0 once and not the end offs")
+{
+    constexpr int loop = 8 * 3840;
+    const md::PlaybackPattern p{.events = {ev(0, 0, 60, 100), ev(0, 1, 40, 90), ev(0, 2, 72, 80),
+                                           ev(loop, 0, 60, 0), ev(loop, 1, 40, 0),
+                                           ev(loop, 2, 72, 0)},
+                                .lengthTicks = loop};
+    const auto out = run(p, 32.0, 120.0, 44100.0, 512);
+    REQUIRE(out.size() == 3);
+    for (std::size_t i = 0; i < out.size(); ++i)
+    {
+        CHECK(out.at(i).event.on);
+        CHECK(out.at(i).event.channel == i);
+    }
+}
+
 TEST_CASE("a tempo change moves events with that block's tempo")
 {
     const auto p = onePattern();
