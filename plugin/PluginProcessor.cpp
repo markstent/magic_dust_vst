@@ -51,6 +51,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout makeLayout()
         layout.add(std::make_unique<juce::AudioParameterBool>(
             ParameterID{id, 1}, juce::String(id).replace("Mute", " mute"), false));
     }
+    for (const char* id : {"chordsOctave", "bassOctave", "melodyOctave"})
+    {
+        layout.add(std::make_unique<juce::AudioParameterInt>(
+            ParameterID{id, 1}, juce::String(id).replace("Octave", " octave"), md::kOctaveMin,
+            md::kOctaveMax, 0));
+    }
     return layout;
 }
 
@@ -132,7 +138,10 @@ MagicDustProcessor::MagicDustProcessor(std::optional<md::Bank> bank,
       bassLevel_(params.getRawParameterValue("bassLevel")),
       melodyLevel_(params.getRawParameterValue("melodyLevel")),
       mutes_{params.getRawParameterValue("chordsMute"), params.getRawParameterValue("bassMute"),
-             params.getRawParameterValue("melodyMute")}
+             params.getRawParameterValue("melodyMute")},
+      octaves_{params.getRawParameterValue("chordsOctave"),
+               params.getRawParameterValue("bassOctave"),
+               params.getRawParameterValue("melodyOctave")}
 {
     Link& link = Link::instance();
     const bool sender = link.oldestMain() != nullptr;
@@ -292,14 +301,23 @@ void MagicDustProcessor::auditionChord(std::size_t slot)
     {
         return;
     }
-    const md::Voicing& voicing = idea_->progression.at(slot).voicing;
-    const std::size_t count = std::min(voicing.size(), kMaxAuditionNotes);
-    std::uint64_t packed = count;
-    for (std::size_t i = 0; i < count; ++i)
+    // The chord sounds at the chords octave; a note shifted out of range is dropped.
+    const int shift = octave(md::LaneId::chords) * md::kPitchClasses;
+    std::uint64_t packed = 0;
+    std::size_t count = 0;
+    for (const int pitch : idea_->progression.at(slot).voicing)
     {
-        packed |= (static_cast<std::uint64_t>(voicing.at(i)) & 0x7FU) << (8 * (i + 1));
+        const int note = pitch + shift;
+        if (count < kMaxAuditionNotes && note >= md::kMidiPitchMin && note <= md::kMidiPitchMax)
+        {
+            ++count;
+            packed |= static_cast<std::uint64_t>(note) << (8 * count);
+        }
     }
-    auditionRequest_.store(packed);
+    if (count > 0)
+    {
+        auditionRequest_.store(packed | count);
+    }
 }
 
 void MagicDustProcessor::timerCallback() { tick(juce::Time::getMillisecondCounter()); }
@@ -392,8 +410,9 @@ MagicDustProcessor::Transport MagicDustProcessor::readTransport()
 
 void MagicDustProcessor::releaseAllNotes(juce::MidiBuffer& midi)
 {
-    sounding_.releaseAll([&midi](std::uint8_t channel, std::uint8_t note)
-                         { addMidi(midi, false, channel, note, 0, 0); });
+    // A held note went out at its lane's octave, which cannot have changed since.
+    sounding_.releaseAll([this, &midi](std::uint8_t channel, std::uint8_t note)
+                         { addMidi(midi, false, channel, shiftedNote(channel, note), 0, 0); });
     organ_.allNotesOff();
     subBass_.allNotesOff();
     pluck_.allNotesOff();
@@ -422,14 +441,26 @@ void MagicDustProcessor::endAudition()
     auditionPacked_ = 0;
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+int MagicDustProcessor::shiftedNote(unsigned lane, int note) const
+{
+    const int octave = lane < octave_.size() ? octave_.at(lane) : 0;
+    return note + (octave * md::kPitchClasses);
+}
+
+// A note shifted past 0 or 127 is dropped, not clamped: clamping would sound it at the wrong pitch,
+// doubling another note, and a byte above 127 is not a note at all. Its note-off is dropped with
+// it, because only a sent note is held.
 bool MagicDustProcessor::emitMidi(const md::PlayEvent& e, juce::MidiBuffer& midi, int offset)
 {
-    if (e.on ? (mutedMask_ & (1U << (e.channel % 16U))) != 0U : !sounding_.holds(e))
+    const int note = shiftedNote(e.channel, e.note);
+    const bool inRange = note >= md::kMidiPitchMin && note <= md::kMidiPitchMax;
+    if (e.on ? (mutedMask_ & (1U << (e.channel % 16U))) != 0U || !inRange : !sounding_.holds(e))
     {
         return false;
     }
     sounding_.apply(e);
-    addMidi(midi, e.on, e.channel, e.note, e.velocity, offset);
+    addMidi(midi, e.on, e.channel, note, e.velocity, offset);
     return true;
 }
 
@@ -441,13 +472,14 @@ void MagicDustProcessor::emitEvent(const md::PlayEvent& e, juce::MidiBuffer& mid
         return;
     }
     md::AuditionSynth& voice = voiceFor(e.channel);
+    const int note = shiftedNote(e.channel, e.note);
     if (e.on)
     {
-        voice.noteOn(e.note, e.velocity);
+        voice.noteOn(note, e.velocity);
     }
     else
     {
-        voice.noteOff(e.note);
+        voice.noteOff(note);
     }
 }
 
@@ -496,6 +528,7 @@ void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
     lastSource_ = t.source;
     lastPattern_ = pattern;
     updateMutes(midi, sender);
+    updateOctaves(midi, sender);
 
     if (sender)
     {
@@ -540,10 +573,37 @@ void MagicDustProcessor::updateMutes(juce::MidiBuffer& midi, bool sender)
     {
         if ((fresh & (1U << lane)) != 0U)
         {
-            sounding_.releaseChannel(static_cast<std::uint8_t>(lane),
-                                     [&midi](std::uint8_t channel, std::uint8_t note)
-                                     { addMidi(midi, false, channel, note, 0, 0); });
-            voiceFor(static_cast<int>(lane)).allNotesOff();
+            releaseLane(midi, lane);
+        }
+    }
+}
+
+// Releases a lane's notes at the pitch they were sent at.
+void MagicDustProcessor::releaseLane(juce::MidiBuffer& midi, unsigned lane)
+{
+    sounding_.releaseChannel(static_cast<std::uint8_t>(lane),
+                             [this, &midi](std::uint8_t channel, std::uint8_t note)
+                             { addMidi(midi, false, channel, shiftedNote(channel, note), 0, 0); });
+    voiceFor(static_cast<int>(lane)).allNotesOff();
+}
+
+// A lane whose octave just changed releases at once, at the old octave, so no note sticks; the
+// next note start uses the new one. A sender follows the octaves of the main instance it plays for.
+void MagicDustProcessor::updateOctaves(juce::MidiBuffer& midi, bool sender)
+{
+    Link& link = Link::instance();
+    for (unsigned lane = 0; lane < octave_.size(); ++lane)
+    {
+        const auto id = static_cast<md::LaneId>(lane);
+        const int next = sender ? link.octave(link.oldestMain(), id) : octave(id);
+        if (!sender)
+        {
+            link.setOctave(this, id, next);
+        }
+        if (next != octave_.at(lane))
+        {
+            releaseLane(midi, lane);
+            octave_.at(lane) = next;
         }
     }
 }

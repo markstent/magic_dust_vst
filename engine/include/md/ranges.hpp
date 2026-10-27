@@ -30,6 +30,10 @@ constexpr int kDefaultTempo = 124;
 // The MIDI writer's accepted tempo range, wider than the settings tempo range above.
 constexpr int kMidiTempoMin = 20;
 constexpr int kMidiTempoMax = 999;
+constexpr int kMidiPitchMin = 0;
+constexpr int kMidiPitchMax = 127;
+constexpr int kOctaveMin = -2;
+constexpr int kOctaveMax = 2;
 constexpr int kSwingMinPermille = 500;
 constexpr int kSwingMaxPermille = 750;
 constexpr int kWeightMaxMilli = 10000;

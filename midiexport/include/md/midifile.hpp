@@ -31,6 +31,10 @@ int ideaLengthTicks(const Idea& idea);
 MidiTrack laneTrack(const Idea& idea, LaneId lane);
 std::vector<MidiTrack> ideaTracks(const Idea& idea);
 
+// Shifts every note by 12 semitones per octave. A note that would leave MIDI's 0 to 127 is dropped,
+// not clamped: clamping would play it at the wrong pitch, on top of another note.
+MidiTrack shiftOctaves(MidiTrack track, int octaves);
+
 // The chord lane notes that start inside placed chord `slot`, shifted so the chord starts at
 // tick 0 and clipped to its length. Throws std::out_of_range for a missing slot.
 MidiTrack chordSlotTrack(const Idea& idea, std::size_t slot);

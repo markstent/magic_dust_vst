@@ -236,6 +236,18 @@ MidiTrack laneTrack(const Idea& idea, LaneId lane)
     return track;
 }
 
+MidiTrack shiftOctaves(MidiTrack track, int octaves)
+{
+    const int shift = octaves * kPitchClasses;
+    std::erase_if(track.notes, [shift](const NoteEvent& n)
+                  { return n.pitch + shift < kMidiPitchMin || n.pitch + shift > kMidiPitchMax; });
+    for (NoteEvent& n : track.notes)
+    {
+        n.pitch += shift;
+    }
+    return track;
+}
+
 MidiTrack chordSlotTrack(const Idea& idea, std::size_t slot)
 {
     const PlacedChord& chord = idea.progression.at(slot);

@@ -13,10 +13,11 @@ namespace md
 // ~/Library/Caches/Magic Dust/drag/
 juce::File defaultDragFolder();
 
-// Writes the MIDI file for one chord (slot) or one lane, under the name dragFileName gives.
+// Writes the MIDI file for one chord (slot) or one lane, under the name dragFileName gives, with
+// its notes shifted by the part's octave (see shiftOctaves).
 // Returns nothing when the file cannot be written, the slot is missing or neither is given.
 std::optional<juce::File> writeDragFile(const Idea& idea, std::optional<LaneId> lane,
-                                        std::optional<std::size_t> slot, int tempoBpm,
+                                        std::optional<std::size_t> slot, int tempoBpm, int octave,
                                         const juce::File& folder = defaultDragFolder());
 
 // Removes .mid files in the folder that are more than 24 hours old; nothing else is touched.

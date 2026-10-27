@@ -93,6 +93,30 @@ unsigned Link::mutes(const void* owner) const
     return 0;
 }
 
+void Link::setOctave(const void* owner, md::LaneId lane, int octave)
+{
+    for (Slot& slot : slots_)
+    {
+        if (slot.owner.load() == owner)
+        {
+            slot.octaves.at(static_cast<std::size_t>(lane)).store(octave);
+            return;
+        }
+    }
+}
+
+int Link::octave(const void* owner, md::LaneId lane) const
+{
+    for (const Slot& slot : slots_)
+    {
+        if (slot.owner.load() == owner)
+        {
+            return slot.octaves.at(static_cast<std::size_t>(lane)).load();
+        }
+    }
+    return 0;
+}
+
 void Link::retire(std::chrono::steady_clock::time_point now)
 {
     const std::scoped_lock lock(mutex_);
@@ -134,6 +158,10 @@ void Link::remove(const void* owner)
         slot->owner.store(nullptr);
         slot->pattern.store(nullptr);
         slot->mutes.store(0);
+        for (auto& octave : slot->octaves)
+        {
+            octave.store(0);
+        }
         retireLocked(std::move(slot->keep));
         slot->keep.reset();
     }

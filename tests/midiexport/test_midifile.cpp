@@ -346,3 +346,23 @@ TEST_CASE("dragFileName names each drag")
     idea.progression.erase(idea.progression.begin() + 2, idea.progression.end());
     CHECK(dragFileName(idea, std::nullopt, std::nullopt, 90) == "Magic Dust - Am9 D9 - 90bpm.mid");
 }
+
+TEST_CASE("shiftOctaves moves every note 12 semitones per step and drops those out of range")
+{
+    const MidiTrack track{.name = "T",
+                          .notes = {note(60, 0, 240, 90), note(120, 240, 240, 90),
+                                    note(5, 480, 240, 90), note(127, 720, 240, 90)},
+                          .markers = {{0, "Am"}},
+                          .channel = 2};
+    CHECK(shiftOctaves(track, 0).notes == track.notes);
+    const MidiTrack up = shiftOctaves(track, 1);
+    CHECK(up.notes == std::vector<NoteEvent>{note(72, 0, 240, 90), note(17, 480, 240, 90)});
+    CHECK(up.channel == 2);
+    CHECK(up.markers == track.markers);
+    CHECK(shiftOctaves(track, -1).notes == std::vector<NoteEvent>{note(48, 0, 240, 90),
+                                                                  note(108, 240, 240, 90),
+                                                                  note(115, 720, 240, 90)});
+    CHECK(shiftOctaves(track, -2).notes == std::vector<NoteEvent>{note(36, 0, 240, 90),
+                                                                  note(96, 240, 240, 90),
+                                                                  note(103, 720, 240, 90)});
+}

@@ -1,6 +1,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -202,6 +203,54 @@ TEST_CASE("a sender plays nothing while its main has that lane muted and resumes
     main.processBlock(mainBuffer, mainMidi);
     const Run resumed = runBlocks(bass, head, 100);
     CHECK_FALSE(resumed.events.empty());
+}
+
+TEST_CASE("a sender plays its lane at its main's octave and releases when that changes")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor main;
+    MagicDustProcessor chords;
+    MagicDustProcessor bass;
+    bass.setSenderLane(md::LaneId::bass);
+    FakeHead head;
+    prepare(bass, head);
+    prepare(main, head);
+    const auto setOctave = [&main](int octave)
+    {
+        auto* param = main.params.getParameter("bassOctave");
+        param->setValueNotifyingHost(param->convertTo0to1(static_cast<float>(octave)));
+        // The main instance publishes its octaves from its own audio thread.
+        juce::AudioBuffer<float> buffer(2, kBlock);
+        juce::MidiBuffer midi;
+        midi.ensureSize(16384);
+        main.processBlock(buffer, midi);
+    };
+
+    setOctave(-1);
+    constexpr int blocks = 187;
+    const Run run = runBlocks(bass, head, blocks);
+    const double endPpq = md::ppqForSamples(blocks * kBlock, 120.0, kRate);
+    auto expected = laneEventsUpTo(*main.idea(), kBassChannel, endPpq);
+    REQUIRE_FALSE(expected.empty());
+    for (Ev& e : expected)
+    {
+        e.note -= 12;
+    }
+    CHECK(run.events == expected);
+
+    // Mid-note: back to 0 releases at the pitch that was sent.
+    std::vector<Ev> played;
+    while (sounding(played).empty())
+    {
+        const Run r = runBlocks(bass, head, 1);
+        played.insert(played.end(), r.events.begin(), r.events.end());
+        REQUIRE(head.ppq < 64.0);
+    }
+    const auto held = *sounding(played).begin();
+    setOctave(0);
+    const Run changed = runBlocks(bass, head, 1);
+    CHECK(std::ranges::find(changed.events, Ev{held.first, held.second, false}) !=
+          changed.events.end());
 }
 
 TEST_CASE("a sender ignores the internal clock and plays only with the host")

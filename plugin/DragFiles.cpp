@@ -16,9 +16,11 @@ juce::File defaultDragFolder()
         .getChildFile("Library/Caches/Magic Dust/drag");
 }
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters): the tempo and octave are clear at the call
 std::optional<juce::File> writeDragFile(const Idea& idea, std::optional<LaneId> lane,
-                                        std::optional<std::size_t> slot, int tempoBpm,
+                                        std::optional<std::size_t> slot, int tempoBpm, int octave,
                                         const juce::File& folder)
+// NOLINTEND(bugprone-easily-swappable-parameters)
 {
     std::vector<MidiTrack> tracks;
     int totalTicks = ideaLengthTicks(idea);
@@ -28,12 +30,12 @@ std::optional<juce::File> writeDragFile(const Idea& idea, std::optional<LaneId> 
         {
             return std::nullopt;
         }
-        tracks.push_back(chordSlotTrack(idea, *slot));
+        tracks.push_back(shiftOctaves(chordSlotTrack(idea, *slot), octave));
         totalTicks = idea.progression.at(*slot).bars * kTicksPerBar;
     }
     else if (lane)
     {
-        tracks.push_back(laneTrack(idea, *lane));
+        tracks.push_back(shiftOctaves(laneTrack(idea, *lane), octave));
     }
     else
     {

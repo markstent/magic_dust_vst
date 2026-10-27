@@ -53,7 +53,7 @@ TEST_CASE("a chord's drag file holds that chord's notes under the expected name"
     const TempFolder temp;
 
     const auto file =
-        md::writeDragFile(idea, std::nullopt, 1, kTempo, temp.folder).value_or(juce::File());
+        md::writeDragFile(idea, std::nullopt, 1, kTempo, 0, temp.folder).value_or(juce::File());
     REQUIRE(file != juce::File());
     CHECK(file.getFileName().toStdString() == md::dragFileName(idea, std::nullopt, 1, kTempo));
     const std::vector<md::MidiTrack> tracks{md::chordSlotTrack(idea, 1)};
@@ -70,8 +70,9 @@ TEST_CASE("a lane's drag file holds that lane for the whole idea", "[dragfiles]"
     const auto& idea = *processor.idea();
     const TempFolder temp;
 
-    const auto file = md::writeDragFile(idea, md::LaneId::bass, std::nullopt, kTempo, temp.folder)
-                          .value_or(juce::File());
+    const auto file =
+        md::writeDragFile(idea, md::LaneId::bass, std::nullopt, kTempo, 0, temp.folder)
+            .value_or(juce::File());
     REQUIRE(file != juce::File());
     CHECK(file.getFileName().toStdString() ==
           md::dragFileName(idea, md::LaneId::bass, std::nullopt, kTempo));
@@ -89,9 +90,9 @@ TEST_CASE("a folder that cannot be made gives no file", "[dragfiles]")
     const auto blocker = temp.folder.getChildFile("blocker");
     REQUIRE(blocker.create().wasOk());
 
-    CHECK_FALSE(
-        md::writeDragFile(*processor.idea(), std::nullopt, 0, kTempo, blocker.getChildFile("drag"))
-            .has_value());
+    CHECK_FALSE(md::writeDragFile(*processor.idea(), std::nullopt, 0, kTempo, 0,
+                                  blocker.getChildFile("drag"))
+                    .has_value());
 }
 
 TEST_CASE("a missing chord or no target gives no file", "[dragfiles]")
@@ -103,10 +104,11 @@ TEST_CASE("a missing chord or no target gives no file", "[dragfiles]")
     const auto& idea = *processor.idea();
     const TempFolder temp;
 
-    CHECK_FALSE(md::writeDragFile(idea, std::nullopt, idea.progression.size(), kTempo, temp.folder)
-                    .has_value());
     CHECK_FALSE(
-        md::writeDragFile(idea, std::nullopt, std::nullopt, kTempo, temp.folder).has_value());
+        md::writeDragFile(idea, std::nullopt, idea.progression.size(), kTempo, 0, temp.folder)
+            .has_value());
+    CHECK_FALSE(
+        md::writeDragFile(idea, std::nullopt, std::nullopt, kTempo, 0, temp.folder).has_value());
     CHECK(temp.folder.getNumberOfChildFiles(juce::File::findFilesAndDirectories) == 0);
 }
 
@@ -157,4 +159,31 @@ TEST_CASE("a drag starts only past 4 px of movement", "[dragfiles]")
     CHECK_FALSE(md::ui::exceedsDragThreshold({10, 10}, {13, 13}));
     CHECK(md::ui::exceedsDragThreshold({10, 10}, {15, 10}));
     CHECK(md::ui::exceedsDragThreshold({10, 10}, {14, 14}));
+}
+
+TEST_CASE("dragged chords and lanes carry the part's octave", "[dragfiles]")
+{
+    const juce::ScopedJuceInitialiser_GUI gui;
+    MagicDustProcessor processor;
+    setSeed(processor, kFourChordSeed);
+    REQUIRE(processor.idea() != nullptr);
+    const auto& idea = *processor.idea();
+    const TempFolder temp;
+
+    const auto lane =
+        md::writeDragFile(idea, md::LaneId::bass, std::nullopt, kTempo, -1, temp.folder)
+            .value_or(juce::File());
+    REQUIRE(lane != juce::File());
+    const std::vector<md::MidiTrack> laneTracks{
+        md::shiftOctaves(md::laneTrack(idea, md::LaneId::bass), -1)};
+    CHECK(contents(lane) == md::writeMidiFile(laneTracks, kTempo, md::ideaLengthTicks(idea)));
+    CHECK(contents(lane) != md::writeMidiFile(std::vector{md::laneTrack(idea, md::LaneId::bass)},
+                                              kTempo, md::ideaLengthTicks(idea)));
+
+    const auto chord =
+        md::writeDragFile(idea, std::nullopt, 1, kTempo, 2, temp.folder).value_or(juce::File());
+    REQUIRE(chord != juce::File());
+    const std::vector<md::MidiTrack> chordTracks{md::shiftOctaves(md::chordSlotTrack(idea, 1), 2)};
+    CHECK(contents(chord) ==
+          md::writeMidiFile(chordTracks, kTempo, idea.progression.at(1).bars * md::kTicksPerBar));
 }

@@ -1,7 +1,9 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <atomic>
+#include <cmath>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -9,6 +11,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include "md/generate.hpp"
+#include "md/ranges.hpp"
 #include "md/style.hpp"
 #include "md/types.hpp"
 #include "plugin/AuditionSynth.h"
@@ -79,6 +82,13 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access): 3 lanes
         return mutes_[static_cast<std::size_t>(lane)]->load() >= 0.5F;
     }
+    // The part's octave step, -2 to 2.
+    [[nodiscard]] int octave(md::LaneId lane) const
+    {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access): 3 lanes
+        const auto raw = octaves_[static_cast<std::size_t>(lane)]->load();
+        return std::clamp(static_cast<int>(std::lround(raw)), md::kOctaveMin, md::kOctaveMax);
+    }
     [[nodiscard]] md::LaneId senderLane() const { return senderLane_.load(); }
     void setSenderLane(md::LaneId lane);
     // Turns a sender into a main instance with an idea of its own.
@@ -128,6 +138,10 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
                      const Transport& t);
     void muteSentLanes();
     void updateMutes(juce::MidiBuffer& midi, bool sender);
+    void updateOctaves(juce::MidiBuffer& midi, bool sender);
+    void releaseLane(juce::MidiBuffer& midi, unsigned lane);
+    // The pitch a lane's note goes out at: its octave applied, not yet range-checked.
+    [[nodiscard]] int shiftedNote(unsigned lane, int note) const;
     void startAudition(double bpm);
     void endAudition();
     void renderVoices(juce::AudioBuffer<float>& buffer, int start, int num);
@@ -142,6 +156,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     const std::atomic<float>* bassLevel_;
     const std::atomic<float>* melodyLevel_;
     std::array<const std::atomic<float>*, 3> mutes_;
+    std::array<const std::atomic<float>*, 3> octaves_;
     std::atomic<InstanceMode> mode_{InstanceMode::main};
     std::atomic<md::LaneId> senderLane_{md::LaneId::chords};
     std::optional<md::Idea> idea_;
@@ -172,6 +187,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     md::SoundingNotes sounding_;
     const md::PlaybackPattern* lastPattern_ = nullptr;
     Source lastSource_ = Source::none;
+    std::array<int, 3> octave_{};    // per lane, this block; a sender follows its main instance
     unsigned mutedMask_ = 0;         // lane bits, this block; a sender follows its main instance
     std::array<bool, 3> laneSent_{}; // a sender plays the lane, so the built-in sound is muted
     double expectedPpq_ = 0.0;

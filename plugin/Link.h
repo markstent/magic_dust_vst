@@ -36,6 +36,10 @@ class Link
     // are lock-free; a main that has published nothing reads as unmuted.
     void setMutes(const void* owner, unsigned mask);
     [[nodiscard]] unsigned mutes(const void* owner) const;
+    // The octave (-2 to 2) of each lane of a published main instance, published the same way; a
+    // main that has published nothing reads as 0.
+    void setOctave(const void* owner, md::LaneId lane, int octave);
+    [[nodiscard]] int octave(const void* owner, md::LaneId lane) const;
 
   private:
     struct Slot
@@ -43,6 +47,7 @@ class Link
         std::atomic<const void*> owner{nullptr};
         std::atomic<const md::PlaybackPattern*> pattern{nullptr};
         std::atomic<unsigned> mutes{0};
+        std::array<std::atomic<int>, 3> octaves{};
         std::shared_ptr<const md::PlaybackPattern> keep;
     };
     struct Retired

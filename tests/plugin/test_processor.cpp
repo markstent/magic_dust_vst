@@ -2,8 +2,11 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <set>
@@ -472,6 +475,242 @@ TEST_CASE("lane mutes round trip, and a state saved without them loads all off")
     CHECK_FALSE(fresh.laneMuted(md::LaneId::melody));
 }
 
+namespace
+{
+
+constexpr int kOctave = 12;
+
+// The events of the lane's channel, in order.
+std::vector<Ev> onChannel(const std::vector<Ev>& events, int channel)
+{
+    std::vector<Ev> out;
+    std::ranges::copy_if(events, std::back_inserter(out),
+                         [channel](const Ev& e) { return e.channel == channel; });
+    return out;
+}
+
+// Runs blocks until the lane has a held note, and returns what has played so far.
+std::vector<Ev> runUntilHeld(MagicDustProcessor& p, FakeHead& head, int channel)
+{
+    std::vector<Ev> played;
+    while (!std::ranges::any_of(sounding(played),
+                                [channel](const auto& n) { return n.first == channel; }))
+    {
+        const Run r = runBlocks(p, head, 1);
+        played.insert(played.end(), r.events.begin(), r.events.end());
+        REQUIRE(head.ppq < 64.0);
+    }
+    return played;
+}
+
+} // namespace
+
+TEST_CASE("a part's octave shifts its midi out by 12 semitones per step and no other part")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    setSeed(processor, 48213);
+    setParam(processor, "bassOctave", -1);
+    setParam(processor, "melodyOctave", 2);
+    processor.prepareToPlay(kRate, kBlock);
+    FakeHead head;
+    processor.setPlayHead(&head);
+
+    constexpr int blocks = 187;
+    const Run run = runBlocks(processor, head, blocks);
+
+    const double endPpq = md::ppqForSamples(blocks * kBlock, 120.0, kRate);
+    auto expected = expectedEvents(*processor.idea(), endPpq);
+    for (Ev& e : expected)
+    {
+        const std::array<int, 3> octaves{0, -1, 2};
+        e.note += octaves.at(static_cast<std::size_t>(e.channel)) * kOctave;
+    }
+    CHECK(run.events == expected);
+    CHECK(hasChannel(run.events, 1));
+    CHECK(hasChannel(run.events, 2));
+}
+
+TEST_CASE("the built-in sound follows the octave, and a chord audition does too")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    // How often the left channel crosses zero: it halves when the pitch drops an octave.
+    const auto crossings = [](MagicDustProcessor& processor, FakeHead& head, int blocks)
+    {
+        processor.setPlayHead(&head);
+        juce::AudioBuffer<float> buffer(2, kBlock);
+        juce::MidiBuffer midi;
+        int count = 0;
+        float last = 0.0F;
+        for (int b = 0; b < blocks; ++b)
+        {
+            processor.processBlock(buffer, midi);
+            for (int i = 0; i < kBlock; ++i)
+            {
+                const float v = buffer.getSample(0, i);
+                count += (last < 0.0F) != (v < 0.0F) && v != 0.0F ? 1 : 0;
+                last = v != 0.0F ? v : last;
+            }
+            head.ppq += md::ppqForSamples(kBlock, head.bpm, kRate);
+        }
+        return count;
+    };
+    const auto played = [&](const char* lane, int octave)
+    {
+        MagicDustProcessor processor;
+        setSeed(processor, 48213);
+        for (const char* level : {"chordsLevel", "bassLevel", "melodyLevel"})
+        {
+            setLevel(processor, level, 0.0F);
+        }
+        setLevel(processor, (std::string(lane) + "Level").c_str(), 1.0F);
+        setParam(processor, (std::string(lane) + "Octave").c_str(), octave);
+        processor.prepareToPlay(kRate, kBlock);
+        FakeHead head;
+        return crossings(processor, head, 187);
+    };
+    for (const char* lane : {"bass", "melody"})
+    {
+        const double plain = played(lane, 0);
+        REQUIRE(plain > 0.0);
+        CHECK(played(lane, -1) < plain * 0.7);
+        CHECK(played(lane, 1) > plain * 1.3);
+    }
+
+    const auto audition = [&](int octave)
+    {
+        MagicDustProcessor processor;
+        setSeed(processor, 48213);
+        setParam(processor, "chordsOctave", octave);
+        FakeHead head;
+        head.playing = false;
+        processor.prepareToPlay(kRate, kBlock);
+        processor.auditionChord(0);
+        return crossings(processor, head, 4);
+    };
+    CHECK(audition(-1) < audition(0) * 0.7);
+}
+
+TEST_CASE("a note shifted outside 0 to 127 is dropped with its note-off, never clamped")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    setParam(processor, "bassOctave", -1);
+    setParam(processor, "melodyOctave", 1);
+    processor.prepareToPlay(kRate, kBlock);
+    constexpr std::uint8_t kMelody = 2;
+    const auto event = [](int tick, std::uint8_t channel, int note, bool on)
+    {
+        return md::PlayEvent{.tick = tick,
+                             .channel = channel,
+                             .note = static_cast<std::uint8_t>(note),
+                             .velocity = static_cast<std::uint8_t>(on ? 90 : 0),
+                             .on = on};
+    };
+    auto pattern = std::make_shared<const md::PlaybackPattern>(md::PlaybackPattern{
+        .events = {event(0, 1, 5, true), event(0, kMelody, 120, true), event(0, kMelody, 60, true),
+                   event(240, 1, 5, false), event(240, kMelody, 120, false),
+                   event(240, kMelody, 60, false)},
+        .lengthTicks = md::kTicksPerBar});
+    Link::instance().publish(&processor, pattern);
+    FakeHead head;
+    processor.setPlayHead(&head);
+
+    const Run run = runBlocks(processor, head, 20);
+    CHECK(run.events ==
+          std::vector<Ev>{{kMelody, 60 + kOctave, true}, {kMelody, 60 + kOctave, false}});
+    Link::instance().remove(&processor);
+}
+
+TEST_CASE("changing an octave mid-note releases the note at the pitch it was sent at")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    setSeed(processor, 48213);
+    setParam(processor, "bassOctave", -1);
+    processor.prepareToPlay(kRate, kBlock);
+    FakeHead head;
+    processor.setPlayHead(&head);
+
+    std::vector<Ev> played = runUntilHeld(processor, head, kBassChannel);
+    const auto held = *sounding(played).begin();
+    REQUIRE(held.first == kBassChannel);
+
+    setParam(processor, "bassOctave", 1);
+    const Run changed = runBlocks(processor, head, 1);
+    CHECK(std::ranges::find(changed.events, Ev{kBassChannel, held.second, false}) !=
+          changed.events.end());
+    played.insert(played.end(), changed.events.begin(), changed.events.end());
+    CHECK_FALSE(std::ranges::any_of(sounding(played),
+                                    [](const auto& n) { return n.first == kBassChannel; }));
+
+    // The next notes start two octaves up, and stopping leaves nothing held.
+    const Run later = runBlocks(processor, head, 187);
+    const auto bass = onChannel(later.events, kBassChannel);
+    REQUIRE_FALSE(bass.empty());
+    const auto expected = onChannel(expectedEvents(*processor.idea(), 1000.0), kBassChannel);
+    CHECK(std::ranges::any_of(expected, [&](const Ev& e)
+                              { return e.on && e.note + kOctave == bass.front().note; }));
+    played.insert(played.end(), later.events.begin(), later.events.end());
+    head.playing = false;
+    const Run stopped = runBlocks(processor, head, 1);
+    played.insert(played.end(), stopped.events.begin(), stopped.events.end());
+    CHECK(sounding(played).empty());
+}
+
+TEST_CASE("muting a shifted lane releases its notes at the pitch they were sent at")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    setSeed(processor, 48213);
+    setParam(processor, "bassOctave", 2);
+    processor.prepareToPlay(kRate, kBlock);
+    FakeHead head;
+    processor.setPlayHead(&head);
+
+    std::vector<Ev> played = runUntilHeld(processor, head, kBassChannel);
+    setLevel(processor, "bassMute", 1.0F);
+    const Run muted = runBlocks(processor, head, 1);
+    played.insert(played.end(), muted.events.begin(), muted.events.end());
+    CHECK_FALSE(std::ranges::any_of(sounding(played),
+                                    [](const auto& n) { return n.first == kBassChannel; }));
+}
+
+TEST_CASE("octaves round trip, and a state saved without them loads 0")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    setParam(processor, "chordsOctave", -2);
+    setParam(processor, "bassOctave", -1);
+    setParam(processor, "melodyOctave", 2);
+    juce::MemoryBlock state;
+    processor.getStateInformation(state);
+    MagicDustProcessor fresh;
+    fresh.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+    CHECK(fresh.octave(md::LaneId::chords) == -2);
+    CHECK(fresh.octave(md::LaneId::bass) == -1);
+    CHECK(fresh.octave(md::LaneId::melody) == 2);
+
+    auto saved =
+        juce::AudioProcessor::getXmlFromBinary(state.getData(), static_cast<int>(state.getSize()));
+    REQUIRE(saved != nullptr);
+    auto* params = saved->getChildByName(fresh.params.state.getType());
+    REQUIRE(params != nullptr);
+    for (const char* id : {"chordsOctave", "bassOctave", "melodyOctave"})
+    {
+        auto* child = params->getChildByAttribute("id", id);
+        REQUIRE(child != nullptr);
+        params->removeChildElement(child, true);
+    }
+    juce::MemoryBlock old;
+    juce::AudioProcessor::copyXmlToBinary(*saved, old);
+    fresh.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+    for (const auto lane : {md::LaneId::chords, md::LaneId::bass, md::LaneId::melody})
+    {
+        CHECK(fresh.octave(lane) == 0);
+    }
+}
+
 TEST_CASE("stopping the host releases every sounding note")
 {
     const juce::ScopedJuceInitialiser_GUI juceInit;
@@ -789,6 +1028,22 @@ TEST_CASE("link publishes per owner and removes")
     CHECK(link.current(&b) == nullptr);
     link.remove(&a);
     CHECK(link.current(&a) == nullptr);
+    link.retire();
+}
+
+TEST_CASE("link publishes a main's octaves, which read 0 before and after")
+{
+    int a = 0;
+    Link& link = Link::instance();
+    link.setOctave(&a, md::LaneId::bass, 2);
+    CHECK(link.octave(&a, md::LaneId::bass) == 0);
+    link.publish(&a, std::make_shared<const md::PlaybackPattern>(
+                         md::PlaybackPattern{.events = {}, .lengthTicks = 960}));
+    link.setOctave(&a, md::LaneId::bass, -2);
+    CHECK(link.octave(&a, md::LaneId::bass) == -2);
+    CHECK(link.octave(&a, md::LaneId::chords) == 0);
+    link.remove(&a);
+    CHECK(link.octave(&a, md::LaneId::bass) == 0);
     link.retire();
 }
 
