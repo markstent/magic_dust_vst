@@ -1,6 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <chrono>
 #include <cmath>
+#include <memory>
 #include <optional>
 #include <set>
 #include <string>
@@ -166,6 +168,17 @@ TEST_CASE("allocation guard counts allocations")
     CHECK(md_test::disarmAllocationCount() == 0);
 }
 
+TEST_CASE("allocation guard counts malloc, realloc and calloc")
+{
+    if (!md_test::kCountsMalloc)
+    {
+        SKIP("sanitizer builds keep their own malloc");
+    }
+    md_test::armAllocationCount();
+    md_test::mallocOnce();
+    CHECK(md_test::disarmAllocationCount() >= 1);
+}
+
 TEST_CASE("processor identity")
 {
     const juce::ScopedJuceInitialiser_GUI juceInit;
@@ -266,6 +279,7 @@ TEST_CASE("stopping the host releases every sounding note")
         released.insert({e.channel, e.note});
     }
     CHECK(released == held);
+    CHECK(next.events.size() == held.size());
 }
 
 TEST_CASE("the play key runs the internal clock and stop releases")
@@ -297,6 +311,7 @@ TEST_CASE("the play key runs the internal clock and stop releases")
         released.insert({e.channel, e.note});
     }
     CHECK(released == held);
+    CHECK(stopped.events.size() == held.size());
     CHECK_FALSE(processor.previewPlaying());
 }
 
@@ -313,6 +328,35 @@ TEST_CASE("an audition request plays the chord on the built-in sound only")
     const Run run = runBlocks(processor, head, 4);
     CHECK(run.events.empty());
     CHECK(run.energy > 0.0);
+
+    runBlocks(processor, head, 70); // one beat at 120 bpm plus the release
+    CHECK(runBlocks(processor, head, 1).energy == 0.0);
+}
+
+TEST_CASE("suspending and re-preparing releases held notes")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    setSeed(processor, 48213);
+    processor.prepareToPlay(kRate, kBlock);
+    FakeHead head;
+    processor.setPlayHead(&head);
+
+    const auto held = sounding(runBlocks(processor, head, 40).events);
+    REQUIRE_FALSE(held.empty());
+
+    processor.releaseResources();
+    processor.prepareToPlay(kRate, kBlock);
+    head.playing = false;
+    const Run next = runBlocks(processor, head, 1);
+    std::set<std::pair<int, int>> released;
+    for (const Ev& e : next.events)
+    {
+        CHECK_FALSE(e.on);
+        released.insert({e.channel, e.note});
+    }
+    CHECK(released == held);
+    CHECK(next.events.size() == held.size());
 }
 
 TEST_CASE("flavour regenerates after a quiet spell and groove at once")
@@ -430,6 +474,60 @@ TEST_CASE("a failed generation keeps the previous idea and reports it")
     CHECK(processor.lastError() == std::optional<std::string>("couldn't write that idea"));
 }
 
+TEST_CASE("a bank that failed to load leaves no idea and says so")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor(std::nullopt);
+    CHECK(processor.idea() == nullptr);
+    CHECK(processor.lastError() == std::optional<std::string>("the style bank failed to load"));
+
+    processor.prepareToPlay(kRate, kBlock);
+    FakeHead head;
+    processor.setPlayHead(&head);
+    const Run run = runBlocks(processor, head, 4);
+    CHECK(run.events.empty());
+    CHECK(run.energy == 0.0);
+}
+
+TEST_CASE("a state with no parameters resets them to their defaults")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    setParam(processor, "mood", 80);
+    setParam(processor, "flavour", 2);
+
+    juce::XmlElement old("MagicDust");
+    juce::MemoryBlock block;
+    juce::AudioProcessor::copyXmlToBinary(old, block);
+    processor.setStateInformation(block.getData(), static_cast<int>(block.getSize()));
+
+    CHECK(processor.idea()->settings.mood == 30);
+    CHECK(processor.idea()->settings.flavour == md::Flavour::soulful);
+}
+
+TEST_CASE("a state whose idea cannot be written keeps the saved settings matching the idea")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    md::Bank bank = md::loadBundledBank();
+    std::erase_if(bank.entries,
+                  [](const md::StyleEntry& e) { return e.family == md::Family::mkDub; });
+    MagicDustProcessor processor(std::move(bank));
+
+    juce::XmlElement state("MagicDust");
+    state.setAttribute("style", static_cast<int>(md::Style::mkDub));
+    state.setAttribute("keyRoot", 2);
+    juce::MemoryBlock block;
+    juce::AudioProcessor::copyXmlToBinary(state, block);
+    processor.setStateInformation(block.getData(), static_cast<int>(block.getSize()));
+
+    juce::MemoryBlock saved;
+    processor.getStateInformation(saved);
+    const auto xml =
+        juce::AudioProcessor::getXmlFromBinary(saved.getData(), static_cast<int>(saved.getSize()));
+    CHECK(xml->getIntAttribute("style") == static_cast<int>(processor.idea()->settings.style));
+    CHECK(xml->getIntAttribute("keyRoot") == processor.idea()->settings.keyRoot);
+}
+
 TEST_CASE("link publishes per owner and removes")
 {
     int a = 0;
@@ -443,4 +541,22 @@ TEST_CASE("link publishes per owner and removes")
     link.remove(&a);
     CHECK(link.current(&a) == nullptr);
     link.retire();
+}
+
+TEST_CASE("a replaced pattern outlives retire for a second and is then freed")
+{
+    int owner = 0;
+    Link& link = Link::instance();
+    auto first = std::make_shared<const md::PlaybackPattern>(
+        md::PlaybackPattern{.events = {}, .lengthTicks = 960});
+    const std::weak_ptr<const md::PlaybackPattern> watch = first;
+    link.publish(&owner, std::move(first));
+    link.publish(&owner, std::make_shared<const md::PlaybackPattern>(
+                             md::PlaybackPattern{.events = {}, .lengthTicks = 1920}));
+
+    link.retire();
+    CHECK_FALSE(watch.expired());
+    link.retire(std::chrono::steady_clock::now() + std::chrono::milliseconds(1100));
+    CHECK(watch.expired());
+    link.remove(&owner);
 }

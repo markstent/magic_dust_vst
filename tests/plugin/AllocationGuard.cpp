@@ -1,7 +1,10 @@
 #include "AllocationGuard.h"
 
 #include <cstdlib>
+#include <malloc/malloc.h>
 #include <new>
+
+#include <juce_core/juce_core.h>
 
 // This file is the test binary's allocator, so it manages memory by hand with thread-local state.
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables,cppcoreguidelines-no-malloc,hicpp-no-malloc,readability-named-parameter,hicpp-named-parameter,readability-inconsistent-declaration-parameter-name,misc-new-delete-overloads)
@@ -17,7 +20,7 @@ void* allocate(std::size_t size)
     {
         ++count;
     }
-    return std::malloc(size == 0 ? 1 : size);
+    return malloc_zone_malloc(malloc_default_zone(), size == 0 ? 1 : size);
 }
 
 void* allocateAligned(std::size_t size, std::align_val_t alignment)
@@ -65,7 +68,46 @@ int disarmAllocationCount()
     ::operator delete(p);
 }
 
+[[gnu::noinline]] void mallocOnce()
+{
+    juce::HeapBlock<char> block;
+    block.malloc(64);
+}
+
 } // namespace md_test
+
+#if !__has_feature(address_sanitizer) && !__has_feature(thread_sanitizer)
+// JUCE containers allocate through malloc, realloc and calloc, not operator new. The test binary
+// defines them itself so code linked into it is counted; the real work goes to the default zone.
+// Frameworks bind to the system's malloc and are not counted. The sanitizer builds keep their own.
+extern "C"
+{
+    void* malloc(std::size_t size)
+    {
+        if (armed)
+        {
+            ++count;
+        }
+        return malloc_zone_malloc(malloc_default_zone(), size);
+    }
+    void* calloc(std::size_t n, std::size_t size)
+    {
+        if (armed)
+        {
+            ++count;
+        }
+        return malloc_zone_calloc(malloc_default_zone(), n, size);
+    }
+    void* realloc(void* p, std::size_t size)
+    {
+        if (armed)
+        {
+            ++count;
+        }
+        return malloc_zone_realloc(malloc_default_zone(), p, size);
+    }
+}
+#endif
 
 void* operator new(std::size_t size) { return orThrow(allocate(size)); }
 void* operator new[](std::size_t size) { return orThrow(allocate(size)); }

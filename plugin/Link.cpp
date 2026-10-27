@@ -65,10 +65,10 @@ const md::PlaybackPattern* Link::current(const void* owner) const
     return nullptr;
 }
 
-void Link::retire()
+void Link::retire(std::chrono::steady_clock::time_point now)
 {
     const std::scoped_lock lock(mutex_);
-    const auto cutoff = std::chrono::steady_clock::now() - kRetireAfter;
+    const auto cutoff = now - kRetireAfter;
     std::erase_if(retired_, [cutoff](const Retired& r) { return r.at < cutoff; });
 }
 

@@ -7,11 +7,20 @@
 namespace md_test
 {
 
+// The sanitizer builds keep their own malloc, so only operator new is counted there.
+#if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer)
+inline constexpr bool kCountsMalloc = false;
+#else
+inline constexpr bool kCountsMalloc = true;
+#endif
+
 void armAllocationCount();
 // Disarms and returns how many allocations happened since armAllocationCount.
 int disarmAllocationCount();
 // Makes one allocation the optimiser cannot remove.
 void allocateOnce();
+// Makes one allocation through JUCE's malloc wrapper, as its containers do.
+void mallocOnce();
 
 // Fails the test if anything allocates in its scope.
 struct ScopedNoAllocation

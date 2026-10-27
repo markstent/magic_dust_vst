@@ -18,8 +18,9 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
 {
   public:
     MagicDustProcessor();
-    // For tests: runs on the given bank instead of the bundled one.
-    explicit MagicDustProcessor(md::Bank bank);
+    // For tests: runs on the given bank instead of the bundled one; nullopt simulates a bank that
+    // failed to load.
+    explicit MagicDustProcessor(std::optional<md::Bank> bank);
     MagicDustProcessor(const MagicDustProcessor&) = delete;
     MagicDustProcessor& operator=(const MagicDustProcessor&) = delete;
     MagicDustProcessor(MagicDustProcessor&&) = delete;
@@ -88,8 +89,6 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
         double bpm;
     };
 
-    explicit MagicDustProcessor(std::optional<md::Bank> bank);
-
     void timerCallback() override;
     [[nodiscard]] md::Settings currentSettings() const;
     bool regenerate(std::uint32_t seed, const md::LaneSeeds& laneSeeds);
@@ -99,18 +98,19 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     void releaseAllNotes(juce::MidiBuffer& midi);
     void startAudition(double bpm);
     void endAudition();
-    void renderSegments(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi);
+    void renderVoices(juce::AudioBuffer<float>& buffer, int start, int num);
     void emitEvent(const md::PlayEvent& e, juce::MidiBuffer& midi, int offset);
     md::AuditionSynth& voiceFor(int channel);
 
     std::optional<md::Bank> bank_;
+    const std::atomic<float>* volume_;
     std::optional<md::Idea> idea_;
     std::optional<std::string> lastError_;
     std::uint32_t seed_ = 0;
     md::LaneSeeds laneSeeds_{};
-    md::Style style_ = md::Style::ukFunky;
-    int keyRoot_ = 9;
-    int bars_ = 8;
+    md::Style style_ = md::Settings{}.style;
+    int keyRoot_ = md::Settings{}.keyRoot;
+    int bars_ = md::Settings{}.bars;
 
     md::Settings generated_;
     md::Settings seen_;
@@ -119,6 +119,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     // Audio thread only, except the atomics.
     std::atomic<Key> keyCommand_{Key::none};
     std::atomic<std::uint64_t> auditionRequest_{0};
+    std::atomic<bool> releasePending_{false};
     std::atomic<bool> previewPlaying_{false};
     std::atomic<double> previewPpq_{0.0};
     std::atomic<double> hostBpm_{0.0};
@@ -132,9 +133,6 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     double expectedPpq_ = 0.0;
     double bpm_ = 120.0;
     double sampleRate_ = 48000.0;
-    static constexpr std::size_t kMaxScheduled = 256;
-    std::array<md::ScheduledEvent, kMaxScheduled> scheduled_{};
-    std::size_t scheduledCount_ = 0;
     std::uint64_t auditionPacked_ = 0; // see auditionChord
     int auditionSamplesLeft_ = 0;
 };

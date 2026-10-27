@@ -44,6 +44,10 @@ class SoundingNotes
     // NOLINTBEGIN(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access): the indices are
     // reduced below the sizes, and .at() could throw on the audio thread.
     void apply(const PlayEvent& e) { held_[e.channel % 16][e.note % 128] = e.on; }
+    [[nodiscard]] bool holds(const PlayEvent& e) const
+    {
+        return held_[e.channel % 16][e.note % 128];
+    }
 
     // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward): a callback invoked many times
     template <class F> void releaseAll(F&& emitOff)

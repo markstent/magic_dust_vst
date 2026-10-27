@@ -98,14 +98,10 @@ void addMidi(juce::MidiBuffer& midi, bool on, int channel, int note, int velocit
 
 MagicDustProcessor::MagicDustProcessor() : MagicDustProcessor(tryLoadBank()) {}
 
-MagicDustProcessor::MagicDustProcessor(md::Bank bank)
-    : MagicDustProcessor(std::optional<md::Bank>(std::move(bank)))
-{
-}
-
 MagicDustProcessor::MagicDustProcessor(std::optional<md::Bank> bank)
     : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      params(*this, nullptr, "params", makeLayout()), bank_(std::move(bank))
+      params(*this, nullptr, "params", makeLayout()), bank_(std::move(bank)),
+      volume_(params.getRawParameterValue("volume"))
 {
     if (!bank_)
     {
@@ -237,12 +233,15 @@ void MagicDustProcessor::tick(juce::int64 nowMs)
 void MagicDustProcessor::prepareToPlay(double sampleRate, int /*samplesPerBlock*/)
 {
     sampleRate_ = sampleRate;
+    auditionRequest_.store(0);
+    auditionPacked_ = 0;
+    releasePending_.store(true);
     organ_.prepare(sampleRate);
     subBass_.prepare(sampleRate);
     softLead_.prepare(sampleRate);
 }
 
-void MagicDustProcessor::releaseResources() {}
+void MagicDustProcessor::releaseResources() { releasePending_.store(true); }
 
 md::AuditionSynth& MagicDustProcessor::voiceFor(int channel)
 {
@@ -317,6 +316,10 @@ void MagicDustProcessor::endAudition()
 
 void MagicDustProcessor::emitEvent(const md::PlayEvent& e, juce::MidiBuffer& midi, int offset)
 {
+    if (!e.on && !sounding_.holds(e))
+    {
+        return;
+    }
     sounding_.apply(e);
     addMidi(midi, e.on, e.channel, e.note, e.velocity, offset);
     md::AuditionSynth& voice = voiceFor(e.channel);
@@ -330,27 +333,11 @@ void MagicDustProcessor::emitEvent(const md::PlayEvent& e, juce::MidiBuffer& mid
     }
 }
 
-// Splits the block at each scheduled event so every note starts on its own sample.
-void MagicDustProcessor::renderSegments(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+void MagicDustProcessor::renderVoices(juce::AudioBuffer<float>& buffer, int start, int num)
 {
-    int pos = 0;
-    const auto renderTo = [&](int end)
-    {
-        if (end > pos)
-        {
-            organ_.render(buffer, pos, end - pos);
-            subBass_.render(buffer, pos, end - pos);
-            softLead_.render(buffer, pos, end - pos);
-            pos = end;
-        }
-    };
-    for (std::size_t i = 0; i < scheduledCount_; ++i)
-    {
-        const md::ScheduledEvent& s = scheduled_.at(i);
-        renderTo(s.sampleOffset);
-        emitEvent(s.event, midi, s.sampleOffset);
-    }
-    renderTo(buffer.getNumSamples());
+    organ_.render(buffer, start, num);
+    subBass_.render(buffer, start, num);
+    softLead_.render(buffer, start, num);
 }
 
 void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
@@ -361,12 +348,12 @@ void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
     midi.clear();
     const int numSamples = buffer.getNumSamples();
 
-    const float volume = params.getRawParameterValue("volume")->load();
+    const float volume = volume_->load();
     organ_.setLevel(volume);
     subBass_.setLevel(volume);
     softLead_.setLevel(volume);
 
-    bool release = false;
+    bool release = releasePending_.exchange(false);
     const Key key = keyCommand_.exchange(Key::none);
     if (key == Key::play)
     {
@@ -389,22 +376,32 @@ void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
     lastSource_ = t.source;
     lastPattern_ = pattern;
 
-    scheduledCount_ = 0;
+    startAudition(t.bpm);
+    // Each scheduled event splits the block, so every note starts on its own sample.
+    int rendered = 0;
+    const auto renderTo = [&](int end)
+    {
+        if (end > rendered)
+        {
+            renderVoices(buffer, rendered, end - rendered);
+            rendered = end;
+        }
+    };
     if (pattern != nullptr && t.source != Source::none)
     {
         md::schedule(*pattern, t.ppq, t.bpm, sampleRate_, numSamples,
-                     [this](const md::ScheduledEvent& e)
+                     [&](const md::ScheduledEvent& e)
                      {
-                         if (scheduledCount_ < kMaxScheduled)
-                         {
-                             scheduled_.at(scheduledCount_++) = e;
-                         }
+                         renderTo(e.sampleOffset);
+                         emitEvent(e.event, midi, e.sampleOffset);
                      });
     }
-    startAudition(t.bpm);
-    renderSegments(buffer, midi);
+    renderTo(numSamples);
 
-    auditionSamplesLeft_ -= numSamples;
+    if (auditionPacked_ != 0)
+    {
+        auditionSamplesLeft_ = std::max(0, auditionSamplesLeft_ - numSamples);
+    }
     internal_.advance(numSamples, t.bpm, sampleRate_);
     expectedPpq_ = t.ppq + md::ppqForSamples(numSamples, t.bpm, sampleRate_);
     previewPlaying_.store(t.source != Source::none);
@@ -472,13 +469,24 @@ void MagicDustProcessor::setStateInformation(const void* data, int sizeInBytes)
     {
         params.replaceState(juce::ValueTree::fromXml(*child));
     }
-    const int style = xml->getIntAttribute("style", static_cast<int>(md::Style::ukFunky));
+    else
+    {
+        for (auto* parameter : getParameters())
+        {
+            parameter->setValueNotifyingHost(parameter->getDefaultValue());
+        }
+    }
+    const md::Settings defaults;
+    const md::Style oldStyle = style_;
+    const int oldKeyRoot = keyRoot_;
+    const int oldBars = bars_;
+    const int style = xml->getIntAttribute("style", static_cast<int>(defaults.style));
     style_ = style >= 0 && style <= static_cast<int>(md::Style::nyGroove)
                  ? static_cast<md::Style>(style)
-                 : md::Style::ukFunky;
-    keyRoot_ = std::clamp(xml->getIntAttribute("keyRoot", 9), 0, 11);
-    const int bars = xml->getIntAttribute("bars", 8);
-    bars_ = bars == 4 || bars == 16 ? bars : 8;
+                 : defaults.style;
+    keyRoot_ = std::clamp(xml->getIntAttribute("keyRoot", defaults.keyRoot), 0, 11);
+    const int bars = xml->getIntAttribute("bars", defaults.bars);
+    bars_ = bars == 4 || bars == 8 || bars == 16 ? bars : defaults.bars;
 
     const auto seed = static_cast<std::uint32_t>(
         std::clamp(xml->getIntAttribute("seed", static_cast<int>(seed_)), 0, md::kSeedMax));
@@ -489,7 +497,12 @@ void MagicDustProcessor::setStateInformation(const void* data, int sizeInBytes)
         chords && bass && melody
             ? md::LaneSeeds{.chords = *chords, .bass = *bass, .melody = *melody}
             : md::defaultLaneSeeds(seed);
-    regenerate(seed, laneSeeds);
+    if (!regenerate(seed, laneSeeds))
+    {
+        style_ = oldStyle;
+        keyRoot_ = oldKeyRoot;
+        bars_ = oldBars;
+    }
 }
 
 // Entry point JUCE's plugin wrappers call to create the processor.

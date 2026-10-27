@@ -21,7 +21,8 @@ class Link
 
     void publish(const void* owner, std::shared_ptr<const md::PlaybackPattern> pattern);
     [[nodiscard]] const md::PlaybackPattern* current(const void* owner) const;
-    void retire();
+    // now is a parameter so tests need not wait out the second.
+    void retire(std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now());
     void remove(const void* owner);
 
   private:
