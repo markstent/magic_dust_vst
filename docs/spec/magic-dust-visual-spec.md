@@ -4,18 +4,19 @@ Version 1.0, 26 October 2026.
 Companion to `magic-dust-spec.md`, which covers the product, music engine, architecture, build plan, testing and release.
 
 This document defines exactly how the Magic Dust plugin window looks and behaves.
-Where this document and the reference HTML disagree, the reference HTML wins for appearance and this document wins for behaviour, and the disagreement goes in `docs/DECISIONS.md`.
+The visual target is the studio console mockup, `visual/studio-console-mockup.html`.
+Where this document and the mockup disagree, the mockup wins for appearance and this document wins for behaviour, and the disagreement goes in `docs/DECISIONS.md`.
+The older reference HTML and PNGs in `visual/` are superseded; they stay only as history.
 
 ## Files
 
 | File | What it is | How to use it |
 | --- | --- | --- |
-| `visual/magic-dust-reference.html` | A playable reference of the whole window in plain HTML, CSS and JavaScript. | Open it in a browser. Read its CSS custom properties for exact token values and its class names for component names. Interact with it to see every behaviour. |
-| `visual/magic-dust-ui.png` | The default state at 2x. | The visual target for the default state. |
-| `visual/magic-dust-ui-annotated.png` | The default state with numbered zones. | The numbers match the "Components" section below. |
-| `visual/magic-dust-ui-states.png` | Playing, pinned chords, a selected and pinned lane, a muted lane, the spells panel and a toast. | The visual target for those states. |
+| `visual/studio-console-mockup.html` | The studio console look in plain HTML, CSS and JavaScript. | The visual target. Open it in a browser and read its CSS for exact values. |
+| `visual/magic-dust-reference.html` | The earlier dark look, as a playable reference. | Superseded, history only. |
+| `visual/magic-dust-ui.png`, `visual/magic-dust-ui-annotated.png`, `visual/magic-dust-ui-states.png` | Renders of the earlier dark look. | Superseded, history only. |
 
-The note patterns in the reference are illustrative placeholders.
+The note patterns in the mockup are illustrative placeholders.
 In the plugin, every note on the screen is drawn from the engine's real output (see "Lanes").
 
 ## Rules for building the look in JUCE
@@ -30,7 +31,7 @@ In the plugin, every note on the screen is drawn from the engine's real output (
 - Use shading only where this document lists it (see "Materials").
   Everything else is flat.
 - Match positions and sizes to within 1 px at 100% scale.
-  The UI snapshot tests compare the JUCE editor with approved renders of the JUCE editor itself; use the reference PNGs for the human side-by-side review, because browser and JUCE text rendering differ slightly.
+  The UI snapshot tests compare the JUCE editor with approved renders of the JUCE editor itself; use the mockup for the human side-by-side review, because browser and JUCE text rendering differ slightly.
 - Panel legends and readouts are spaced capitals, and chord symbols such as `Am9` keep their case.
   Accessible titles stay lowercase.
 - Never use the em dash character in any interface text.
@@ -62,7 +63,7 @@ The look is the studio console in `visual/studio-console-mockup.html`; the numbe
 | Chord cells | 137 x 48 px at x = 166 + i * 137, y = 98. The cell is drawn inset by 4 px. |
 | Lane rows | 656 x 64 px at x = 62, y = 154, 222 and 290. The label column starts at x = 66 and is 96 px wide. The piano roll is 548 x 56 px at x = 166, 4 px below the row's top. |
 | Bottom line | 648 x 20 px at (66, 360). |
-| Knobs | Diameter 56 px. Column centres at x = 809 and 927. Faces at y = 116 to 172 (mood, energy) and y = 262 to 318 (groove, flavour). |
+| Knobs | Diameter 56 px. Column centres at x = 809 and 927. Faces at y = 144 to 200 (mood, energy) and y = 290 to 346 (groove, flavour), which centres the block of legends, ticks and words in the group box. |
 | Keys | Play at (450, 464) and stop at (498, 464), 36 x 24 px. Sprinkle at (818, 454), 84 x 44 px. |
 | Spells panel | 340 px wide, 14 px from the display's left inner edge and 40 px below its top inner edge. |
 | Toast | Centred horizontally on the display, 96 px above its bottom inner edge. |
@@ -70,7 +71,6 @@ The look is the studio console in `visual/studio-console-mockup.html`; the numbe
 ## Colour tokens
 
 Use these names in code (the `console` block of `ui/Tokens.h`).
-The sender screen and the keys still use the older tokens in the same file until they are restyled.
 
 | Token | Value | Used for |
 | --- | --- | --- |
@@ -85,6 +85,9 @@ The sender screen and the keys still use the older tokens in the same file until
 | `key-top`, `key-bottom`, `key-shadow` | `#F0ECE0`, `#C9C2AD`, `#2C2F33` | Other keys, with a 2 px shadow below |
 | `walnut-a`, `walnut-b`, `walnut-c` | `#3D2516`, `#4B2E1B`, `#35200F` | Cheek stripes |
 | `knob-light`, `knob-dark` | `#4B4B4B`, `#141414` | Knob body gradient |
+| `knob-cap` | `#8A8F96` | Cap of the mood, energy, groove, flavour and volume knobs |
+| `display-glow` | `#AA6E1E` at 45% | Inner glow of the display and the about panel |
+| `readout-glow` | `#FFBE5A` at 60% | Inner glow of the readout windows and the sender status window |
 
 Other fixed colours: the tagline is `#DFE3E8`, and the screws run from `#E2E2E2` to `#6D6D6D` with a `#444444` slot.
 
@@ -103,9 +106,8 @@ Other fixed colours: the tagline is `#DFE3E8`, and the screws run from `#E2E2E2`
 | Bottom line | Space Mono | 11 px | 400 | `ink` |
 | Knob legend | Space Grotesk | 10 px, letter spacing 0.12 em | 700 | `legend` |
 | Knob words | Space Grotesk | 8 px | 500 | `legend` |
-| Key label | Space Mono | 10 px | 400 | `ink` |
-| Sprinkle title | Space Grotesk | 22 px, line height 1 | 700 | `#12101F` |
-| Sprinkle subline "new idea" | Space Mono | 10 px | 400 | `#12101F` |
+| Key label | Space Grotesk | 9.5 px, letter spacing 0.2 em, capitals | 500 | `legend` |
+| Sprinkle title | Space Grotesk | 10 px, letter spacing 0.18 em | 700 | white |
 | Spells panel and toast | Space Mono | 12 px | 400 and 700 | Set in the spells task |
 
 Text that does not fit its box ends in an ellipsis.
@@ -122,8 +124,8 @@ These are the only places shading is allowed.
 | Screws | Radial gradient from `#E2E2E2` to `#6D6D6D`, highlight at 35% across and 30% down, with a 2 px slot in `#444444` at 35 degrees. |
 | Cream window | A `bezel` border (3 px on the display, 2 px on readout windows), a radial cream gradient from `display-centre` to `display-edge` inside it, and an inner glow along the inside edge. The display has a 5 px radius and the readout windows 2 px. |
 | Knob | See the knob control in `ui/Knob.cpp`: black body with a radial gradient from `knob-light` to `knob-dark`, a cap disc at 52% of the diameter, and an off-white pointer. |
-| Keycap | 82 x 82 px, corner radius 12 px, vertical gradient, border and a solid base below. Restyled to the console keys in the keys task. |
-| LED | 7 px circle. Off: `led-off`. On: the LED's colour plus a 6 px glow in the same colour. |
+| Key | 36 x 24 px, 3 px radius (sprinkle 84 x 44, 5 px), vertical gradient and a hard `key-shadow` below. See "Keys" and "Sprinkle". |
+| LED | 6 px circle. Off: `led-off`. On: the LED's colour plus a 6 px glow in the same colour. |
 
 ## Components
 
@@ -134,16 +136,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 - "MAGIC DUST" in the serif face, with the tagline "HOUSE MUSIC IDEA ENGINE" after it.
 - A button that opens the about panel (see "About panel"), with the title "about magic dust".
 
-### 2. Speaker grille
-
-- Removed in the console look.
-
-### 3. Volume
-
-- Sets the audition synth's output level only; it never affects the MIDI.
-- Moves to a knob at the bottom right in the keys and volume task.
-
-### 4. Header readouts
+### 2. Header readouts
 
 - Four cream windows, each with a legend above: "SPELL", "STYLE", "KEY" and "TEMPO".
 - Spell shows the idea's seed as four digits, for example "0417".
@@ -153,7 +146,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 - Tempo shows the host tempo with one decimal, or "124.0" when the host sends none.
   It is read-only.
 
-### 5. Chord cells
+### 3. Chord cells
 
 | State | Look |
 | --- | --- |
@@ -166,7 +159,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 - Click: select the cell and audition its chord.
 - Drag (more than 4 px of movement): drag that chord into your daw as a MIDI clip.
 
-### 6. Lanes
+### 4. Lanes
 
 - Three rows: chords, bass and melody.
 - Each row has a 96 px label column, with the name and pattern centred in it, and a 548 x 56 px piano roll with a 1 px bar line at every bar in `ink` at 18%, and a 1 px `ink` playhead while playing.
@@ -174,42 +167,42 @@ The numbers match the order of the console's parts, left to right and top to bot
 - Notes are `ink` rectangles with a 1 px radius.
   Horizontal position and width come from the note's start and length across the 8 bars.
   Vertical position comes from pitch, with the highest pitch at the top: chords span MIDI 48 to 79, bass 28 to 48, and melody 60 to 84.
-- The lane's level is a knob in the lane group below the display (components 10 to 12), not in the row.
+- The lane's level is a knob in the lane group below the display (components 8 to 10), not in the row.
 - Selected: an `ink` band at 8% behind the row.
 - Muted: drawn at 35% (arrives with muting).
 - Click: select the lane.
   Drag (more than 4 px of movement): drag the lane into your daw as a MIDI clip.
 
-### 7. Mood and energy knobs
+### 5. Mood and energy knobs
 
 - Continuous knobs from 0 to 100, "MOOD" (dark to bright) and "ENERGY" (low to high), on the mood and energy parameters.
 - Unpinned parts regenerate 150 ms after the value stops changing.
 
-### 8. Groove and flavour knobs
+### 6. Groove and flavour knobs
 
 - Stepped knobs with one printed word per position.
-- "GROOVE": "STR", "54", "58" and "62".
+- "GROOVE": "STRAIGHT", "54", "58" and "62".
 - "FLAVOUR": "SIMPLE", "SOULFUL" and "JAZZY".
   Changing it regenerates unpinned chords.
 
-### 9. Bottom line
+### 7. Bottom line
 
 - One line along the bottom of the display: "BAR 3 OF 8 - SELECTED: CHORD 2 - NOTHING PINNED", or "STOPPED - ..." when stopped.
 - While there is an error, the line shows the error instead, and the readout returns once it clears.
 
-### 10. Lane group
+### 8. Lane group
 
 - A panel at (54, 420, 372, 146): `#000000` at 12%, a 1 px inner line of `#FFFFFF` at 12%, and a 4 px radius.
 - Three columns, at x = 54 + i * 124 and 124 px wide, for chords, bass and melody.
 - The legends "CHORDS", "BASS" and "MELODY" are centred in their column on y 456, in Space Grotesk 700 10 px.
 - Each column has a pattern knob slot and a level knob.
 
-### 11. Pattern knob slots (Phase 5)
+### 9. Pattern knob slots (Phase 5)
 
 - Centre at (column x + 38, 508), 44 px across.
 - Left empty until Phase 5: draw nothing, so the faceplate shows through.
 
-### 12. Lane level knobs
+### 10. Lane level knobs
 
 - Centre at (column x + 62, 508), 34 px across, with the legend "LEVEL", under the lane legend.
 - Phase 5 moves it to column x + 92, beside the pattern knob at column x + 38.
@@ -217,12 +210,12 @@ The numbers match the order of the console's parts, left to right and top to bot
 - Double-click resets to 100%.
 - Accessible titles are "chords level", "bass level" and "melody level".
 
-### 13. Volume
+### 11. Volume
 
-- A knob centred at (950, 472), 52 px across, with the legend "VOLUME" and the end words "MIN" and "MAX".
+- A knob centred at (950, 508), 52 px across, like the lane level knobs, with the legend "VOLUME" centred on y 456 like the lane legends, and the end words "MIN" and "MAX".
 - Bound to `volume`; double-click resets to 80%.
 
-### 14. Keys
+### 12. Keys
 
 - A key is 36 x 24 px, with its top at y 464.
 - Face: the `key-top` to `key-bottom` gradient with a 3 px radius, and a 2 px `key-shadow` below.
@@ -234,7 +227,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 - Stop is at x 498 and has no LED.
 - Neither key has an icon, because none reads cleanly at this size.
 
-### 15. Sprinkle
+### 13. Sprinkle
 
 - At (818, 454, 84, 44), with a 5 px radius.
 - Face: the `sprinkle-top` to `sprinkle-bottom` gradient, and a 3 px `key-shadow` below.
@@ -242,7 +235,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 - It has no LED.
 - Writes a new idea, keeping everything pinned, and adds it to the spells list (8 most recent).
 
-### 16. Phase 5 key slots
+### 14. Phase 5 key slots
 
 These keys are not built yet, and their slots stay plain faceplate.
 They use the key material, with the top at y 464.
@@ -282,7 +275,8 @@ Rerolling or swapping a pinned item changes nothing and shows "unpin it first" (
   Clicking a key selects that lane.
 - A fourth key, "FULL MAGIC DUST", 120 x 24 px at x 322, with its legend below and no LED.
   Clicking it turns the instance into a full Magic Dust and the window becomes the main window.
-- The status window at (50, 176, 420, 28) uses the readout window material, with Space Mono 11 px `ink` text that ends in an ellipsis if it is too long: "sending bass from magic dust" (the chosen lane), or "no magic dust found - load magic dust on another track first" when there is no main instance to follow.
+- The status window at (50, 176, 420, 28) uses the readout window material, with Space Mono 10 px `ink` text in capitals, 10 px in from the bezel's outer edge, that ends in an ellipsis if it is too long: "SENDING BASS FROM MAGIC DUST" (the chosen lane), or "NO MAGIC DUST FOUND - LOAD MAGIC DUST ON ANOTHER TRACK FIRST" when there is no main instance to follow.
+  Its accessible text stays lowercase.
 
 ### About panel
 
@@ -300,7 +294,7 @@ Rerolling or swapping a pinned item changes nothing and shows "unpin it first" (
 
 ### Spells panel
 
-- Opens below the spell number, over the bubbles.
+- Opens below the spell number, over the chord cells.
 - Background `screen-panel`, border 1 px `screen-line`, corner radius 12 px, 8 px padding.
 - Title "recent spells", then one row per spell, newest first: the seed, the four chord names, and "kept" if it is a favourite.
   The current spell's row has a `spell-current` background.
@@ -318,10 +312,8 @@ Rerolling or swapping a pinned item changes nothing and shows "unpin it first" (
 | --- | --- | --- | --- |
 | Notes | A lane is regenerated | Each note fades in while scaling 0.1, then 1.3, then 1. Each note's delay is its horizontal position in percent times 3.2 ms, capped at 320 ms, so the dust sweeps left to right. | 420 ms, cubic-bezier(0.2, 0.8, 0.2, 1) |
 | Chord name | A chord changes | Fades in while scaling 0.5, then 1.12, then 1 | 380 ms, ease-out |
-| Knob pointer | The value changes | Rotates to the new angle | 120 ms, ease-out |
 | Key | Pressed | Moves down 1 px; the base shadow shrinks | 80 ms, ease-out |
 | LED | Turns on or off | Colour and glow fade | 120 ms |
-| Bubble | Pinned or playing state changes | Fill and ring fade | 120 ms, ease-out |
 
 Pinned parts never animate when other parts regenerate.
 A "motion" setting turns every animation off, and the plugin also turns them off when macOS "Reduce motion" is on.
@@ -344,13 +336,12 @@ A "motion" setting turns every animation off, and the plugin also turns them off
 | `md-body` | `MagicDustEditor` (the `AudioProcessorEditor`) | Owns the scale transform; its main view paints the faceplate (`paintFaceplate`) |
 | `md-screen` | `ScreenComponent` | The display: paints the bezel and cream window; owns the cells, lanes and bottom line |
 | `md-topline` | `TopLine` | Four `ReadoutWindow`s: spell, style, key and tempo |
-| `md-bubble` | `ChordCell` (x4) | Custom `juce::Button`; starts an external drag after 4 px of movement |
+| `md-cell` | `ChordCell` (x4) | Custom `juce::Button`; starts an external drag after 4 px of movement |
 | `md-lane` | `LaneView` (x3) | Custom component with a `PianoRoll` child; starts an external drag after 4 px of movement |
-| `md-knob` | `Knob` (x4 for mood, energy, groove and flavour) | Subclass of `juce::Slider` |
+| `md-knob` | `Knob` (x8: mood, energy, groove, flavour, three level knobs and volume) | Subclass of `juce::Slider` in `RotaryVerticalDrag` mode with custom drawing |
 | `md-readout` | `Readout` | The display's bottom line |
 | `md-spells` | `SpellsPanel` | Child of the screen, not a separate window |
 | `md-toast` | `Toast` | Child of the screen; hidden by a timer |
-| `md-encoder` | `Encoder` (x4) | Subclass of `juce::Slider` in `RotaryVerticalDrag` mode with custom drawing; a click without drag is the push |
 | `md-key` | `KeyButton` | Custom `juce::Button` with an optional LED; the sender view uses it for its lane keys and the full key |
 | `md-wordmark` | `WordmarkButton` | A `juce::Button` over the wordmark; draws only its focus ring |
 | `md-about` | `AboutPanel` | Child of the main view over the display; holds a `juce::HyperlinkButton` |

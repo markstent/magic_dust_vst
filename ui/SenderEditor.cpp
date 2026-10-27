@@ -82,9 +82,9 @@ void SenderBody::refresh()
 
 juce::String SenderBody::drawnStatus() const
 {
-    const auto inner = t::layout::readoutBorder + t::layout::readoutTextPad;
-    return ellipsize(font(Face::monoRegular, t::layout::senderStatusSize), status_,
-                     static_cast<float>(t::layout::senderStatus.getWidth()) - (2.0F * inner));
+    return ellipsize(font(Face::monoRegular, t::layout::senderStatusSize), status_.toUpperCase(),
+                     static_cast<float>(t::layout::senderStatus.getWidth()) -
+                         (2.0F * t::layout::senderStatusInset));
 }
 
 void SenderBody::paint(juce::Graphics& g)
@@ -118,8 +118,7 @@ void SenderBody::paint(juce::Graphics& g)
                      t::console::readoutGlowColour, t::layout::readoutGlow);
     g.setFont(font(Face::monoRegular, t::layout::senderStatusSize));
     g.setColour(t::console::ink);
-    g.drawText(drawnStatus(),
-               window.reduced(t::layout::readoutBorder + t::layout::readoutTextPad, 0.0F),
+    g.drawText(drawnStatus(), window.reduced(t::layout::senderStatusInset, 0.0F),
                juce::Justification::centredLeft, false);
 }
 

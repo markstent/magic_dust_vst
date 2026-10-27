@@ -172,10 +172,10 @@ TEST_CASE("each knob's face sits where the layout table puts it", "[editor]")
         auto& knob = f.find<md::ui::Knob>(id);
         return f.editor->getLocalArea(&knob, knob.faceBounds());
     };
-    CHECK(face("moodKnob") == Rect(781, 116, 56, 56));
-    CHECK(face("energyKnob") == Rect(899, 116, 56, 56));
-    CHECK(face("grooveKnob") == Rect(781, 262, 56, 56));
-    CHECK(face("flavourKnob") == Rect(899, 262, 56, 56));
+    CHECK(face("moodKnob") == Rect(781, 144, 56, 56));
+    CHECK(face("energyKnob") == Rect(899, 144, 56, 56));
+    CHECK(face("grooveKnob") == Rect(781, 290, 56, 56));
+    CHECK(face("flavourKnob") == Rect(899, 290, 56, 56));
 }
 
 TEST_CASE("the knobs move the processor's parameters", "[editor]")
@@ -313,7 +313,7 @@ TEST_CASE("the level and volume knobs' faces sit where the layout table puts the
         const auto id = "level" + std::to_string(i);
         CHECK(face(id.c_str()) == Rect(54 + (i * 124) + 62 - 17, 508 - 17, 34, 34));
     }
-    CHECK(face("volumeKnob") == Rect(924, 446, 52, 52));
+    CHECK(face("volumeKnob") == Rect(924, 482, 52, 52));
 }
 
 TEST_CASE("level knobs bind their lanes", "[editor]")
@@ -738,16 +738,25 @@ TEST_CASE("escape closes the about panel and focus goes to the wordmark", "[edit
 {
     Fixture f;
     auto& panel = f.find<md::ui::AboutPanel>("aboutPanel");
-    auto* wordmark = &f.find("wordmark");
-    int closed = 0;
-    panel.setOnClose([&closed] { ++closed; });
+    auto& wordmark = f.find("wordmark");
+    f.editor->addToDesktop(0);
+    f.editor->setVisible(true);
     panel.open();
+    REQUIRE(panel.hasKeyboardFocus(false));
     CHECK_FALSE(panel.keyPressed(juce::KeyPress(juce::KeyPress::returnKey)));
     CHECK(panel.isVisible());
     CHECK(panel.keyPressed(juce::KeyPress(juce::KeyPress::escapeKey)));
     CHECK_FALSE(panel.isVisible());
-    CHECK(closed == 1);
-    CHECK(wordmark->isVisible());
+    CHECK(wordmark.hasKeyboardFocus(false));
+}
+
+TEST_CASE("a click on the bare faceplate closes the about panel", "[editor][about]")
+{
+    Fixture f;
+    auto& panel = f.find<md::ui::AboutPanel>("aboutPanel");
+    panel.open();
+    click(*f.editor->getChildComponent(0), {10.0F, 580.0F});
+    CHECK_FALSE(panel.isVisible());
 }
 
 TEST_CASE("a click on the about panel closes it", "[editor][about]")
@@ -846,9 +855,9 @@ TEST_CASE("the longest sender status fits inside its window whole", "[editor][se
     f.main = nullptr;
     f.body().refresh();
     const auto drawn = f.body().drawnStatus();
-    CHECK(drawn == f.body().status());
-    const auto status = md::ui::font(md::ui::Face::monoRegular, 11.0F);
-    CHECK(juce::GlyphArrangement::getStringWidth(status, drawn) <= 420.0F - 8.0F);
+    CHECK(drawn == f.body().status().toUpperCase());
+    const auto status = md::ui::font(md::ui::Face::monoRegular, 10.0F);
+    CHECK(juce::GlyphArrangement::getStringWidth(status, drawn) <= 420.0F - 20.0F);
 }
 
 TEST_CASE("the sender lane keys carry their lane colours and the main key no LED",
@@ -1093,6 +1102,27 @@ TEST_CASE("Continuous knob covers its range in 160 px", "[knob]")
     knob->setValue(0, juce::sendNotificationSync);
     KnobFixture::dragUp(*knob, 80.0F, juce::ModifierKeys(juce::ModifierKeys::shiftModifier));
     CHECK(knob->getValue() == Approx(12.5).margin(1));
+}
+
+TEST_CASE("Pressing shift mid-drag does not make the value jump", "[knob]")
+{
+    KnobFixture f;
+    auto knob = f.make("mood");
+    knob->setValue(0, juce::sendNotificationSync);
+    const auto down = knob->faceBounds().getCentre().toFloat();
+    const auto shift = juce::ModifierKeys(juce::ModifierKeys::shiftModifier);
+    const auto at = [&](float dy, juce::ModifierKeys mods, bool dragged = true)
+    { return mouseAt(*knob, down.translated(0.0F, -dy), down, dragged, mods); };
+    knob->mouseDown(at(0.0F, {}, false));
+    knob->mouseDrag(at(40.0F, {}));
+    CHECK(knob->getValue() == Approx(25).margin(0.5));
+    knob->mouseDrag(at(40.0F, shift));
+    CHECK(knob->getValue() == Approx(25).margin(0.5));
+    knob->mouseDrag(at(80.0F, shift));
+    CHECK(knob->getValue() == Approx(31.25).margin(0.5));
+    knob->mouseDrag(at(80.0F, {}));
+    CHECK(knob->getValue() == Approx(31.25).margin(0.5));
+    knob->mouseUp(at(80.0F, {}));
 }
 
 TEST_CASE("Arrow keys step a knob", "[knob]")

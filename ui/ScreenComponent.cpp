@@ -177,7 +177,7 @@ void ScreenComponent::refresh()
 void ScreenComponent::paint(juce::Graphics& g)
 {
     paintCreamWindow(g, getLocalBounds().toFloat(), t::layout::displayBorder,
-                     t::layout::displayRadius, juce::Colour(0xFFAA6E1E).withAlpha(0.45F),
+                     t::layout::displayRadius, t::console::displayGlowColour,
                      t::layout::displayGlow);
 }
 

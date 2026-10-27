@@ -26,9 +26,6 @@ namespace t = md::tokens;
 namespace
 {
 
-// The knobs' cap colour: the console's neutral grey.
-const juce::Colour kKnobCap{0xFF8A8F96};
-
 constexpr float kWordmarkRingRadius = 3.0F;
 constexpr int kContinuousKnobHeight = 100;
 constexpr int kSteppedKnobHeight = 112;
@@ -42,7 +39,7 @@ md::ui::KnobLook knobLook(const char* legend, juce::StringArray rangeWords,
     return {.legend = legend,
             .rangeWords = std::move(rangeWords),
             .stepWords = std::move(stepWords),
-            .cap = kKnobCap,
+            .cap = t::console::knobCap,
             .diameter = t::layout::knobDiameter,
             .resetValue = std::nullopt};
 }
@@ -62,9 +59,10 @@ md::ui::KnobLook volumeLook()
     return {.legend = "VOLUME",
             .rangeWords = {"MIN", "MAX"},
             .stepWords = {},
-            .cap = kKnobCap,
+            .cap = t::console::knobCap,
             .diameter = t::layout::volumeKnobDiameter,
-            .resetValue = 0.8};
+            .resetValue = 0.8,
+            .legendGap = t::layout::volumeLegendGap};
 }
 
 // The wordmark as a button: it only draws its focus ring, the body paints the lettering.
@@ -100,7 +98,8 @@ class MagicDustEditor::Body : public juce::Component
         : processor_(processor), topLine_(processor), screen_(processor),
           mood_(processor.params, "mood", knobLook("MOOD", {"DARK", "BRIGHT"}, {})),
           energy_(processor.params, "energy", knobLook("ENERGY", {"LOW", "HIGH"}, {})),
-          groove_(processor.params, "groove", knobLook("GROOVE", {}, {"STR", "54", "58", "62"})),
+          groove_(processor.params, "groove",
+                  knobLook("GROOVE", {}, {"STRAIGHT", "54", "58", "62"})),
           flavour_(processor.params, "flavour",
                    knobLook("FLAVOUR", {}, {"SIMPLE", "SOULFUL", "JAZZY"})),
           levels_{md::ui::Knob(processor.params, "chordsLevel", levelLook(kLanes.at(0))),
@@ -154,12 +153,13 @@ class MagicDustEditor::Body : public juce::Component
         volume_.setComponentID("volumeKnob");
         volume_.setExplicitFocusOrder(14);
         volume_.setBounds(t::layout::volumeKnobCentreX - (t::layout::volumeKnobWidth / 2),
-                          t::layout::volumeKnobCentreY - volume_.faceBounds().getCentreY(),
+                          t::layout::bandKnobCentreY - volume_.faceBounds().getCentreY(),
                           t::layout::volumeKnobWidth, t::layout::volumeKnobHeight);
         addAndMakeVisible(volume_);
         about_.setBounds(t::layout::aboutPanel);
         about_.setOnClose([this] { wordmark_.grabKeyboardFocus(); });
         addChildComponent(about_);
+        addMouseListener(this, true); // a click on anything in the body closes the about panel
         md::cleanDragFolder();
         refresh();
     }
@@ -172,21 +172,20 @@ class MagicDustEditor::Body : public juce::Component
         screen_.refresh();
     }
 
+    void mouseDown(const juce::MouseEvent& event) override
+    {
+        if (event.eventComponent != &about_ && !about_.isParentOf(event.eventComponent))
+        {
+            about_.dismiss();
+        }
+    }
+
     void paint(juce::Graphics& g) override
     {
         md::ui::paintFaceplate(g, getLocalBounds().toFloat());
 
-        const auto group = t::layout::knobGroup.toFloat();
-        g.setColour(juce::Colours::black.withAlpha(0.12F));
-        g.fillRoundedRectangle(group, t::layout::knobGroupRadius);
-        g.setColour(juce::Colours::white.withAlpha(0.12F));
-        g.drawRoundedRectangle(group.reduced(0.5F), t::layout::knobGroupRadius, 1.0F);
-
-        const auto lanes = t::layout::laneGroup.toFloat();
-        g.setColour(juce::Colours::black.withAlpha(0.12F));
-        g.fillRoundedRectangle(lanes, t::layout::laneGroupRadius);
-        g.setColour(juce::Colours::white.withAlpha(0.12F));
-        g.drawRoundedRectangle(lanes.reduced(0.5F), t::layout::laneGroupRadius, 1.0F);
+        paintGroupPanel(g, t::layout::knobGroup, t::layout::knobGroupRadius);
+        paintGroupPanel(g, t::layout::laneGroup, t::layout::laneGroupRadius);
         paintLaneLegends(g);
 
         md::ui::paintWordmark(g);
@@ -234,6 +233,16 @@ class MagicDustEditor::Body : public juce::Component
     static int laneColumnX(std::size_t column)
     {
         return t::layout::laneColumnX + (static_cast<int>(column) * t::layout::laneColumnWidth);
+    }
+
+    // A darker panel with a light edge, behind a group of knobs.
+    static void paintGroupPanel(juce::Graphics& g, juce::Rectangle<int> bounds, float radius)
+    {
+        const auto panel = bounds.toFloat();
+        g.setColour(juce::Colours::black.withAlpha(0.12F));
+        g.fillRoundedRectangle(panel, radius);
+        g.setColour(juce::Colours::white.withAlpha(0.12F));
+        g.drawRoundedRectangle(panel.reduced(0.5F), radius, 1.0F);
     }
 
     // The lane names above each column's knobs, in the knobs' own legend style.

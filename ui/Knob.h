@@ -20,6 +20,7 @@ struct KnobLook
     juce::Colour cap;
     float diameter;
     std::optional<double> resetValue;
+    float legendGap = 0.0F; // extra room between the legend and the face
 };
 
 // A rotary control bound to one parameter. It draws its legend, tick scale, body, cap, pointer
@@ -39,10 +40,13 @@ class Knob : public juce::Slider
 
   private:
     [[nodiscard]] double step() const;
+    void anchor(const juce::MouseEvent& e);
 
     KnobLook look_;
     bool stepped_;
-    double valueOnDown_ = 0.0;
+    bool fine_ = false;
+    double anchorProportion_ = 0.0;
+    double anchorUp_ = 0.0;
     float wheelAccumulated_ = 0.0F;
     juce::SliderParameterAttachment attachment_;
 

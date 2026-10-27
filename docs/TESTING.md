@@ -138,7 +138,7 @@ Build first with `cmake --build --preset dev` and rescan your plug-ins as above.
 
 ### Dragging an idea out
 
-1. Drag a chord bubble onto a MIDI track.
+1. Drag a chord cell onto a MIDI track.
    You get that one chord.
 2. Drag a lane onto a MIDI track.
    You get that lane.
@@ -160,8 +160,8 @@ The AU and the VST3 are separate and cannot see each other, so load both the mai
    A new sender starts on chords, the first lane nobody sends, so the main one's organ goes quiet at once.
 3. Click the lane you want to send: chords, bass or melody.
    The main one's built-in sound for any lane being sent is silent while it is sent.
-   The LED above the key shows your pick, and the status line says "sending bass from magic dust" (or the lane you picked).
-   If it says "no magic dust found", load Magic Dust on another track first.
+   The LED above the key shows your pick, and the status window says "SENDING BASS FROM MAGIC DUST" (or the lane you picked, in capitals).
+   If it says "NO MAGIC DUST FOUND", load Magic Dust on another track first.
 4. Make a third track and load your own instrument on it.
 5. On that instrument track, set MIDI From to the sender track.
 6. Set the second chooser under it to Magic Dust.

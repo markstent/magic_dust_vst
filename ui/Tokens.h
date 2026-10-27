@@ -7,32 +7,6 @@
 namespace md::tokens
 {
 
-// Colours, named as in the visual spec's colour token table.
-inline const juce::Colour inkQuiet{0xFF5E6068};
-inline const juce::Colour inkValue{0xFF3B3D44};
-inline const juce::Colour inkFaint{0xFF6A6C74};
-inline const juce::Colour screen{0xFF050507};
-inline const juce::Colour bezel{0xFF1B1C20};
-inline const juce::Colour screenInk{0xFFF2F2F5};
-inline const juce::Colour screenQuiet{0xFF8A8C96};
-inline const juce::Colour screenAxis{0xFF15161B};
-inline const juce::Colour screenBar{0xFF1A1B21};
-inline const juce::Colour screenLine{0xFF2A2B32};
-inline const juce::Colour screenSelected{0xFF121318};
-inline const juce::Colour screenPanel{0xFF0D0E12};
-inline const juce::Colour spellCurrent{0xFF1A1B22};
-inline const juce::Colour knurlLight{0xFFCDCED2};
-inline const juce::Colour knurlDark{0xFFA5A7AC};
-inline const juce::Colour knurlEdge{0xFF8E9096};
-inline const juce::Colour cyan{0xFF5FE3F0};
-inline const juce::Colour violet{0xFFA68BFF};
-inline const juce::Colour violetSoft{0xFFC9B8FF};
-inline const juce::Colour violetDeep{0xFF2B1F5C};
-inline const juce::Colour magenta{0xFFFF5CA8};
-inline const juce::Colour gold{0xFFFFD166};
-inline const juce::Colour onColour{0xFF050507};
-inline const juce::Colour focus{0xFF8C6CF5};
-
 // The studio console look: colours taken verbatim from the design.
 namespace console
 {
@@ -59,6 +33,8 @@ inline const juce::Colour walnutC{0xFF35200F};
 inline const juce::Colour knobLight{0xFF4B4B4B};
 inline const juce::Colour knobDark{0xFF141414};
 inline const juce::Colour readoutGlowColour = juce::Colour(0xFFFFBE5A).withAlpha(0.6F);
+inline const juce::Colour displayGlowColour = juce::Colour(0xFFAA6E1E).withAlpha(0.45F);
+inline const juce::Colour knobCap{0xFF8A8F96};
 inline const juce::Colour tagline{0xFFDFE3E8};
 } // namespace console
 
@@ -161,7 +137,7 @@ inline constexpr float knobGroupRadius = 4.0F;
 inline constexpr int knobWidth = 118;
 inline constexpr float knobDiameter = 56.0F;
 inline constexpr std::array<int, 2> knobColumnX{809, 927};
-inline constexpr std::array<int, 2> knobFaceY{116, 262};
+inline constexpr std::array<int, 2> knobFaceY{144, 290};
 
 // The bottom band: the lane group, its three columns and the knobs in them.
 inline const juce::Rectangle<int> laneGroup{54, 420, 372, 146};
@@ -172,14 +148,14 @@ inline constexpr int laneLegendCentreY = 456;
 inline constexpr float laneLegendSize = 10.0F;
 inline constexpr float laneLegendSpacing = 0.12F; // em
 inline constexpr int levelKnobOffsetX = 62; // the level knob's centre from its column's left edge
-inline constexpr int bandKnobCentreY = 508;
+inline constexpr int bandKnobCentreY = 508; // the level knobs and the volume knob
 inline constexpr int levelKnobWidth = 48;
 inline constexpr int levelKnobHeight = 70;
 inline constexpr float levelKnobDiameter = 34.0F;
 inline constexpr int volumeKnobCentreX = 950;
-inline constexpr int volumeKnobCentreY = 472;
 inline constexpr int volumeKnobWidth = 96;
-inline constexpr int volumeKnobHeight = 94;
+inline constexpr int volumeKnobHeight = 101;
+inline constexpr float volumeLegendGap = 7.0F; // extra, so its legend sits on the lane legends
 inline constexpr float volumeKnobDiameter = 52.0F;
 
 // The keys: play and stop, then the sprinkle key. The Phase 5 slots (pin 538, reroll 586, mute
@@ -215,7 +191,8 @@ inline constexpr int senderKeyHeight = 24;
 inline constexpr int senderMainKeyX = 322;
 inline constexpr int senderMainKeyWidth = 120;
 inline const juce::Rectangle<int> senderStatus{50, 176, 420, 28};
-inline constexpr float senderStatusSize = 11.0F;
+inline constexpr float senderStatusSize = 10.0F;
+inline constexpr float senderStatusInset = 10.0F; // the text from the bezel's outer edge
 
 // The about panel: the display's inner rect, and its lines, centred, in order.
 inline const juce::Rectangle<int> aboutPanel{57, 89, 666, 300};

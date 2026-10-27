@@ -11,7 +11,8 @@ namespace md::ui
 {
 
 // The about panel: cream, over the display, with the name, version, owner, licence and a link to
-// the source. Escape or a click closes it and calls onClose; so does focus moving elsewhere.
+// the source. Escape or a click anywhere closes it and calls onClose; so does focus moving
+// elsewhere.
 class AboutPanel : public juce::Component
 {
   public:
@@ -19,6 +20,8 @@ class AboutPanel : public juce::Component
 
     // Shows the panel and takes the keyboard focus.
     void open();
+    // Hides the panel and calls onClose; does nothing when it is already hidden.
+    void dismiss();
     // The panel's lines in order, the link last.
     [[nodiscard]] static juce::StringArray lines();
 
@@ -32,8 +35,6 @@ class AboutPanel : public juce::Component
     void setOnClose(std::function<void()> onClose) { onClose_ = std::move(onClose); }
 
   private:
-    void dismiss();
-
     std::function<void()> onClose_;
     juce::HyperlinkButton link_;
 

@@ -85,6 +85,10 @@ juce::StringArray AboutPanel::lines() { return {kName, version(), kOwner, kLicen
 
 void AboutPanel::dismiss()
 {
+    if (!isVisible())
+    {
+        return;
+    }
     setVisible(false);
     if (onClose_)
     {
@@ -96,8 +100,8 @@ void AboutPanel::paint(juce::Graphics& g)
 {
     // The same cream as the display, whose bezel this covers the inside of.
     paintCreamWindow(g, getLocalBounds().toFloat().expanded(t::layout::displayBorder),
-                     t::layout::displayBorder, t::layout::displayRadius,
-                     juce::Colour(0xFFAA6E1E).withAlpha(0.45F), t::layout::displayGlow);
+                     t::layout::displayBorder, t::layout::displayRadius, c::displayGlowColour,
+                     t::layout::displayGlow);
 
     const auto heights = lineHeights();
     const std::array<juce::Font, 4> fonts{nameFont(), versionFont(), ownerFont(), smallFont()};

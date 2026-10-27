@@ -92,27 +92,36 @@ juce::Rectangle<int> Knob::faceBounds() const
 {
     const auto margin = look_.stepWords.isEmpty() ? kContinuousMargin : kSteppedMargin;
     const auto size = static_cast<int>(look_.diameter);
-    return {(getWidth() - size) / 2, static_cast<int>(kLegendHeight + margin), size, size};
+    return {(getWidth() - size) / 2, static_cast<int>(kLegendHeight + margin + look_.legendGap),
+            size, size};
 }
 
 void Knob::mouseDown(const juce::MouseEvent& e)
 {
-    valueOnDown_ = getValue();
+    anchor(e);
     juce::Slider::mouseDown(e);
 }
 
-// Shift-drag is 4 times finer than a plain drag.
+// The drag measures from here: the value and pointer height now, and whether it is fine.
+void Knob::anchor(const juce::MouseEvent& e)
+{
+    fine_ = e.mods.isShiftDown();
+    anchorProportion_ = valueToProportionOfLength(getValue());
+    anchorUp_ = -static_cast<double>(e.getDistanceFromDragStartY());
+}
+
+// Shift-drag is 4 times finer than a plain drag. Pressing or releasing shift mid-drag starts the
+// measuring afresh, so the value never jumps.
 void Knob::mouseDrag(const juce::MouseEvent& e)
 {
-    if (!e.mods.isShiftDown())
+    if (e.mods.isShiftDown() != fine_)
     {
-        juce::Slider::mouseDrag(e);
-        return;
+        anchor(e);
     }
-    const auto up = static_cast<double>(e.getDistanceFromDragStartY()) * -1.0;
-    const auto range = getMaximum() - getMinimum();
-    const auto pixels = static_cast<double>(getMouseDragSensitivity()) * kShiftFactor;
-    setValue(juce::jlimit(getMinimum(), getMaximum(), valueOnDown_ + (up / pixels * range)),
+    const auto up = -static_cast<double>(e.getDistanceFromDragStartY()) - anchorUp_;
+    const auto pixels =
+        static_cast<double>(getMouseDragSensitivity()) * (fine_ ? kShiftFactor : 1.0);
+    setValue(proportionOfLengthToValue(juce::jlimit(0.0, 1.0, anchorProportion_ + (up / pixels))),
              juce::sendNotificationSync);
 }
 
