@@ -658,6 +658,39 @@ TEST_CASE("changing an octave mid-note releases the note at the pitch it was sen
     CHECK(sounding(played).empty());
 }
 
+TEST_CASE("an octave change and the same note's own note-off in one block send one off")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    processor.prepareToPlay(kRate, kBlock);
+    constexpr std::uint8_t kBass = 1;
+    constexpr int kNote = 40;
+    // One block is about 20 ticks, so the off at tick 30 falls in the second block.
+    const auto event = [](int tick, bool on)
+    {
+        return md::PlayEvent{.tick = tick,
+                             .channel = kBass,
+                             .note = kNote,
+                             .velocity = static_cast<std::uint8_t>(on ? 90 : 0),
+                             .on = on};
+    };
+    Link::instance().publish(
+        &processor,
+        std::make_shared<const md::PlaybackPattern>(md::PlaybackPattern{
+            .events = {event(0, true), event(30, false)}, .lengthTicks = md::kTicksPerBar}));
+    FakeHead head;
+    processor.setPlayHead(&head);
+
+    const Run first = runBlocks(processor, head, 1);
+    CHECK(first.events == std::vector<Ev>{{kBass, kNote, true}});
+    setParam(processor, "bassOctave", 1);
+    const Run both = runBlocks(processor, head, 1);
+    CHECK(both.events == std::vector<Ev>{{kBass, kNote, false}});
+    const Run rest = runBlocks(processor, head, 5);
+    CHECK(rest.events.empty());
+    Link::instance().remove(&processor);
+}
+
 TEST_CASE("muting a shifted lane releases its notes at the pitch they were sent at")
 {
     const juce::ScopedJuceInitialiser_GUI juceInit;
