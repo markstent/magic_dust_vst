@@ -12,7 +12,8 @@ enum class Face : std::uint8_t
     groteskMedium,
     groteskBold,
     monoRegular,
-    monoBold
+    monoBold,
+    serifBold
 };
 
 // size is the CSS font size in px.

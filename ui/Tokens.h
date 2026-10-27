@@ -49,6 +49,33 @@ inline const juce::Colour onColour{0xFF050507};
 inline const juce::Colour sprinkleInk{0xFF12101F};
 inline const juce::Colour focus{0xFF8C6CF5};
 
+// The studio console look: colours taken verbatim from the design.
+namespace console
+{
+inline const juce::Colour faceTop{0xFF6F7A86};
+inline const juce::Colour faceBottom{0xFF5D6773};
+inline const juce::Colour legend{0xFFF3F1EA};
+inline const juce::Colour displayCentre{0xFFFBF0CF};
+inline const juce::Colour displayEdge{0xFFE5CF98};
+inline const juce::Colour bezel{0xFF26292D};
+inline const juce::Colour ink{0xFF2A2418};
+inline const juce::Colour capChords{0xFF7B6BD6};
+inline const juce::Colour capBass{0xFFD6527C};
+inline const juce::Colour capMelody{0xFF3FB6C4};
+inline const juce::Colour ledOn{0xFFFFCF4A};
+inline const juce::Colour ledOff{0xFF4E4A3C};
+inline const juce::Colour sprinkleTop{0xFFD84A3A};
+inline const juce::Colour sprinkleBottom{0xFFA8301F};
+inline const juce::Colour keyTop{0xFFF0ECE0};
+inline const juce::Colour keyBottom{0xFFC9C2AD};
+inline const juce::Colour keyShadow{0xFF2C2F33};
+inline const juce::Colour walnutA{0xFF3D2516};
+inline const juce::Colour walnutB{0xFF4B2E1B};
+inline const juce::Colour walnutC{0xFF35200F};
+inline const juce::Colour knobLight{0xFF4B4B4B};
+inline const juce::Colour knobDark{0xFF141414};
+} // namespace console
+
 // Body material.
 inline constexpr float bodyRadius = 28.0F;
 inline constexpr float bodyBorder = 1.0F;

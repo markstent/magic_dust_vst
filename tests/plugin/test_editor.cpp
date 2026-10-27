@@ -20,7 +20,9 @@
 #include "ui/AuraPad.h"
 #include "ui/ChordBubble.h"
 #include "ui/Drag.h"
+#include "ui/Fonts.h"
 #include "ui/KeyButton.h"
+#include "ui/Knob.h"
 #include "ui/LaneView.h"
 #include "ui/ScreenComponent.h"
 #include "ui/SenderEditor.h"
@@ -93,11 +95,11 @@ struct Fixture
 };
 
 juce::MouseEvent mouseAt(juce::Component& c, juce::Point<float> position, juce::Point<float> down,
-                         bool dragged)
+                         bool dragged, juce::ModifierKeys mods = {})
 {
     return {juce::Desktop::getInstance().getMainMouseSource(),
             position,
-            juce::ModifierKeys(),
+            mods,
             1.0F,
             juce::MouseInputSource::defaultOrientation,
             juce::MouseInputSource::defaultRotation,
@@ -816,4 +818,124 @@ TEST_CASE("render the sender editor", "[.render]")
     };
     write("sender-100.png", 1.0F);
     write("sender-200.png", 2.0F);
+}
+
+namespace
+{
+
+struct KnobFixture
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    MagicDustProcessor processor{md::loadBundledBank(), kRandomSeed};
+
+    std::unique_ptr<md::ui::Knob> make(const char* id, std::optional<double> reset = std::nullopt)
+    {
+        auto knob = std::make_unique<md::ui::Knob>(processor.params, id,
+                                                   md::ui::KnobLook{.legend = "TEST",
+                                                                    .rangeWords = {},
+                                                                    .stepWords = {},
+                                                                    .cap = juce::Colours::grey,
+                                                                    .diameter = 56.0F,
+                                                                    .resetValue = reset});
+        knob->setBounds(0, 0, 120, 140);
+        return knob;
+    }
+
+    float raw(const char* id) const { return processor.params.getRawParameterValue(id)->load(); }
+
+    void set(const char* id, float normalised) const
+    {
+        processor.params.getParameter(id)->setValueNotifyingHost(normalised);
+    }
+
+    // Presses at the knob's centre and drags up by dy px, then releases.
+    static void dragUp(md::ui::Knob& knob, float dy, juce::ModifierKeys mods = {})
+    {
+        const auto down = knob.faceBounds().getCentre().toFloat();
+        knob.mouseDown(mouseAt(knob, down, down, false, mods));
+        knob.mouseDrag(mouseAt(knob, down.translated(0.0F, -dy), down, true, mods));
+        knob.mouseUp(mouseAt(knob, down.translated(0.0F, -dy), down, true, mods));
+    }
+};
+
+} // namespace
+
+TEST_CASE("Knob follows its parameter", "[knob]")
+{
+    KnobFixture f;
+    auto knob = f.make("mood");
+    f.set("mood", 0.75F);
+    CHECK(knob->getValue() == Approx(75).margin(0.5));
+}
+
+TEST_CASE("Knob writes its parameter", "[knob]")
+{
+    KnobFixture f;
+    auto knob = f.make("mood");
+    knob->setValue(20, juce::sendNotificationSync);
+    CHECK(f.raw("mood") == Approx(20));
+}
+
+TEST_CASE("Stepped knob steps once per 16 px", "[knob]")
+{
+    KnobFixture f;
+    auto knob = f.make("groove");
+    KnobFixture::dragUp(*knob, 16.0F);
+    CHECK(f.raw("groove") == Approx(1));
+    KnobFixture::dragUp(*knob, 32.0F);
+    CHECK(f.raw("groove") == Approx(3));
+    KnobFixture::dragUp(*knob, 100.0F);
+    CHECK(f.raw("groove") == Approx(3));
+}
+
+TEST_CASE("Continuous knob covers its range in 160 px", "[knob]")
+{
+    KnobFixture f;
+    auto knob = f.make("mood");
+    knob->setValue(0, juce::sendNotificationSync);
+    KnobFixture::dragUp(*knob, 80.0F);
+    CHECK(knob->getValue() == Approx(50).margin(1));
+    knob->setValue(0, juce::sendNotificationSync);
+    KnobFixture::dragUp(*knob, 80.0F, juce::ModifierKeys(juce::ModifierKeys::shiftModifier));
+    CHECK(knob->getValue() == Approx(12.5).margin(1));
+}
+
+TEST_CASE("Arrow keys step a knob", "[knob]")
+{
+    KnobFixture f;
+    auto knob = f.make("flavour");
+    CHECK(f.raw("flavour") == Approx(1));
+    knob->keyPressed(juce::KeyPress(juce::KeyPress::upKey));
+    CHECK(f.raw("flavour") == Approx(2));
+    knob->keyPressed(juce::KeyPress(juce::KeyPress::downKey));
+    knob->keyPressed(juce::KeyPress(juce::KeyPress::downKey));
+    CHECK(f.raw("flavour") == Approx(0));
+}
+
+TEST_CASE("Double-click resets", "[knob]")
+{
+    KnobFixture f;
+    auto knob = f.make("chordsLevel", 1.0);
+    knob->setValue(0.3, juce::sendNotificationSync);
+    const auto at = knob->faceBounds().getCentre().toFloat();
+    knob->mouseDoubleClick(mouseAt(*knob, at, at, false));
+    CHECK(knob->getValue() == Approx(1.0));
+}
+
+TEST_CASE("Knob title and value text", "[knob]")
+{
+    KnobFixture f;
+    auto mood = f.make("mood");
+    CHECK(mood->getTitle() == "test");
+    CHECK(mood->getTextFromValue(mood->getValue()) == "30");
+    auto groove = f.make("groove");
+    CHECK(groove->getTextFromValue(groove->getValue()) == "straight");
+    auto chords = f.make("chordsLevel");
+    CHECK(chords->getTextFromValue(chords->getValue()) == "100%");
+}
+
+TEST_CASE("Serif face loads", "[knob]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    CHECK(md::ui::font(md::ui::Face::serifBold, 20.0F).getTypefaceName() == "Libre Baskerville");
 }
