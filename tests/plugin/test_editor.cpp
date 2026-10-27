@@ -295,9 +295,21 @@ TEST_CASE("the real notes map the same way and stay inside the roll", "[editor]"
 TEST_CASE("the keys sit where the layout table puts them", "[editor]")
 {
     Fixture f;
-    CHECK(f.boundsOf("playKey") == Rect{450, 464, 36, 24});
-    CHECK(f.boundsOf("stopKey") == Rect{498, 464, 36, 24});
-    CHECK(f.boundsOf("sprinkleKey") == Rect{818, 454, 84, 44});
+    CHECK(f.boundsOf("playKey") == Rect{560, 492, 48, 32});
+    CHECK(f.boundsOf("stopKey") == Rect{620, 492, 48, 32});
+    CHECK(f.boundsOf("sprinkleKey") == Rect{692, 484, 96, 48});
+}
+
+TEST_CASE("the transport panel sits level with the lane group and holds the key cluster",
+          "[editor]")
+{
+    namespace layout = md::tokens::layout;
+    CHECK(layout::transportGroup.getY() == layout::laneGroup.getY());
+    CHECK(layout::transportGroup.getHeight() == layout::laneGroup.getHeight());
+    const auto cluster = layout::playKey.getUnion(layout::sprinkleKey);
+    CHECK(layout::transportGroup.contains(cluster));
+    CHECK(cluster.getCentreX() == layout::transportGroup.getCentreX());
+    CHECK(layout::sprinkleKey.getCentreY() == layout::bandKnobCentreY);
 }
 
 TEST_CASE("the level and volume knobs' faces sit where the layout table puts them", "[editor]")

@@ -160,11 +160,13 @@ inline constexpr int volumeKnobHeight = 101;
 inline constexpr float volumeLegendGap = 7.0F; // extra, so its legend sits on the lane legends
 inline constexpr float volumeKnobDiameter = 52.0F;
 
-// The keys: play and stop, then the sprinkle key. The Phase 5 slots (pin 538, reroll 586, swap 682,
-// keep 722 and bottle it 770, all at y 464) are left empty. The mute keys sit in the lane columns.
-inline const juce::Rectangle<int> playKey{450, 464, 36, 24};
-inline const juce::Rectangle<int> stopKey{498, 464, 36, 24};
-inline const juce::Rectangle<int> sprinkleKey{818, 454, 84, 44};
+// The transport panel level with the lane group, and the play, stop and sprinkle keys as one
+// cluster centred in it (x 560 to 788, on y 508). Phase 5 adds its keys inside the panel.
+// The mute keys sit in the lane columns.
+inline const juce::Rectangle<int> transportGroup{450, 420, 448, 146};
+inline const juce::Rectangle<int> playKey{560, 492, 48, 32};
+inline const juce::Rectangle<int> stopKey{620, 492, 48, 32};
+inline const juce::Rectangle<int> sprinkleKey{692, 484, 96, 48};
 inline constexpr int muteKeyWidth = 36;
 inline constexpr int muteKeyHeight = 24;
 inline constexpr float keyRadius = 3.0F;

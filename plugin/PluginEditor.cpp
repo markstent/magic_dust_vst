@@ -207,6 +207,7 @@ class MagicDustEditor::Body : public juce::Component
 
         paintGroupPanel(g, t::layout::knobGroup, t::layout::knobGroupRadius);
         paintGroupPanel(g, t::layout::laneGroup, t::layout::laneGroupRadius);
+        paintGroupPanel(g, t::layout::transportGroup, t::layout::laneGroupRadius);
         paintLaneLegends(g);
 
         md::ui::paintWordmark(g);

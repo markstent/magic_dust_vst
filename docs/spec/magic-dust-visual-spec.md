@@ -64,7 +64,7 @@ The look is the studio console in `visual/studio-console-mockup.html`; the numbe
 | Lane rows | 656 x 64 px at x = 62, y = 154, 222 and 290. The label column starts at x = 66 and is 96 px wide. The piano roll is 548 x 56 px at x = 166, 4 px below the row's top. |
 | Bottom line | 648 x 20 px at (66, 360). |
 | Knobs | Diameter 56 px. Column centres at x = 809 and 927. Faces at y = 144 to 200 (mood, energy) and y = 290 to 346 (groove, flavour), which centres the block of legends, ticks and words in the group box. |
-| Keys | Play at (450, 464) and stop at (498, 464), 36 x 24 px. Sprinkle at (818, 454), 84 x 44 px. Each lane column also has a mute key at (column x + 72, 496), 36 x 24 px. |
+| Keys | Play at (560, 492) and stop at (620, 492), 48 x 32 px, in a transport panel at (450, 420, 448, 146). Sprinkle at (692, 484), 96 x 48 px. Each lane column also has a mute key at (column x + 72, 496), 36 x 24 px. |
 | Spells panel | 340 px wide, 14 px from the display's left inner edge and 40 px below its top inner edge. |
 | Toast | Centred horizontally on the display, 96 px above its bottom inner edge. |
 
@@ -226,16 +226,19 @@ The numbers match the order of the console's parts, left to right and top to bot
 - A knob centred at (950, 508), 52 px across, like the lane level knobs, with the legend "VOLUME" centred on y 456 like the lane legends, and the end words "MIN" and "MAX".
 - Bound to `volume`; double-click resets to 80%.
 
-### 12. Keys
+### 12. Transport panel and keys
 
-- A key is 36 x 24 px, with its top at y 464.
+- A panel at (450, 420, 448, 146), drawn like the lane group, so it sits level with it.
+- Play, stop and sprinkle are one cluster, centred in the panel (centre x 674) and on y 508.
+  The cluster runs from x 560 to 788.
+- Play and stop are 48 x 32 px, 12 px apart: play at (560, 492) and stop at (620, 492).
 - Face: the `key-top` to `key-bottom` gradient with a 3 px radius, and a 2 px `key-shadow` below.
 - A pressed key moves down 1 px and its shadow drops to 1 px.
 - The LED is 6 px, centred over the key with 6 px between them.
   Amber (`led-on`) when lit, `led-off` when not.
 - The legend sits 8 px below the key, in capitals, Space Grotesk 500 9.5 px with 0.2 em spacing.
-- Play is at x 450 and its LED is lit while the preview plays.
-- Stop is at x 498 and has no LED.
+- Play's LED is lit while the preview plays.
+- Stop has no LED.
 - Neither key has an icon, because none reads cleanly at this size.
 - Space does what play does when the preview is stopped, and what stop does when it plays.
 - While the daw's transport plays, Magic Dust follows it and a plugin cannot drive the daw's transport.
@@ -243,24 +246,17 @@ The numbers match the order of the console's parts, left to right and top to bot
 
 ### 13. Sprinkle
 
-- At (818, 454, 84, 44), with a 5 px radius.
+- At (692, 484, 96, 48), 24 px right of stop, centred on y 508, with a 5 px radius.
 - Face: the `sprinkle-top` to `sprinkle-bottom` gradient, and a 3 px `key-shadow` below.
 - "SPRINKLE" in white inside it, Space Grotesk 700 10 px with 0.18 em spacing.
 - It has no LED.
 - Writes a new idea, keeping everything pinned, and adds it to the spells list (8 most recent).
 
-### 14. Phase 5 key slots
+### 14. Phase 5 keys
 
-These keys are not built yet, and their slots stay plain faceplate.
-They use the key material, with the top at y 464.
-
-| Key | x |
-| --- | --- |
-| PIN | 538 |
-| REROLL | 586 |
-| SWAP | 682 |
-| KEEP | 722 |
-| BOTTLE IT | 770 |
+These keys are not built yet.
+Phase 5 adds pin, reroll, swap, keep and bottle it inside the transport panel and re-lays it out.
+They use the key material.
 
 - Pin, reroll and swap act on the current selection (a chord cell or a lane), as in the table below.
 - Keep adds or removes the idea from favourites, with the toast "kept in favourites" or "removed from favourites".
