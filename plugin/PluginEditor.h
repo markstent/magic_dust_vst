@@ -21,9 +21,13 @@ class MagicDustEditor : public juce::AudioProcessorEditor, private juce::Timer
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+    // Space toggles the preview, whichever control has the focus.
+    bool keyPressed(const juce::KeyPress& key) override;
 
     // Swaps the main view and the sender view when the instance's mode has changed.
     void sync();
+    // The 30 Hz timer's work, public so tests can run it.
+    void refresh();
 
   private:
     class Body;

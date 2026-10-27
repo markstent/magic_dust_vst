@@ -346,7 +346,9 @@ TEST_CASE("the mute keys toggle their lane's parameter and light their LEDs", "[
         click(key, {18.0F, 12.0F});
         CHECK(param(f, ids.at(i)) == 0.0F);
         CHECK_FALSE(key.isLit());
-        REQUIRE(key.keyPressed(juce::KeyPress(juce::KeyPress::spaceKey)));
+        CHECK_FALSE(key.keyPressed(juce::KeyPress(juce::KeyPress::spaceKey)));
+        CHECK(param(f, ids.at(i)) == 0.0F);
+        REQUIRE(key.keyPressed(juce::KeyPress(juce::KeyPress::returnKey)));
         CHECK(param(f, ids.at(i)) == 1.0F);
         REQUIRE(key.keyPressed(juce::KeyPress(juce::KeyPress::returnKey)));
         CHECK(param(f, ids.at(i)) == 0.0F);
@@ -541,7 +543,7 @@ TEST_CASE("tab visits the wordmark, header, cells, lanes, knobs, levels, keys, t
     CHECK(order == expected);
 }
 
-TEST_CASE("space and enter each activate a key, cell and lane once", "[editor]")
+TEST_CASE("enter activates a key, cell and lane once, and space does not", "[editor]")
 {
     Fixture f;
     f.idea(4);
@@ -550,30 +552,122 @@ TEST_CASE("space and enter each activate a key, cell and lane once", "[editor]")
     const auto fires = [](juce::Component& c, const juce::KeyPress& key, int& count)
     {
         count = 0;
-        REQUIRE(c.keyPressed(key));
+        c.keyPressed(key);
         return count;
     };
 
     int count = 0;
     auto& key = f.find<md::ui::KeyButton>("stopKey");
     key.onClick = [&] { ++count; };
-    CHECK(fires(key, space, count) == 1);
+    CHECK(fires(key, space, count) == 0);
     CHECK(fires(key, enter, count) == 1);
 
     auto& cell = f.find<md::ui::ChordCell>("cell0");
     cell.onClick = [&] { ++count; };
-    CHECK(fires(cell, space, count) == 1);
+    CHECK(fires(cell, space, count) == 0);
     CHECK(fires(cell, enter, count) == 1);
 
     auto& screen = f.find<md::ui::ScreenComponent>("screen");
     auto& lane = f.find<md::ui::LaneView>("lane1");
-    for (const auto& pressed : {space, enter})
+    screen.setSelection({});
+    CHECK_FALSE(lane.keyPressed(space));
+    CHECK(screen.selection().kind == md::ui::Selection::Kind::none);
+    REQUIRE(lane.keyPressed(enter));
+    CHECK(screen.selection().kind == md::ui::Selection::Kind::lane);
+    CHECK(screen.selection().index == 1);
+}
+
+namespace
+{
+
+struct FakeHead : juce::AudioPlayHead
+{
+    bool playing = true;
+
+    [[nodiscard]] juce::Optional<PositionInfo> getPosition() const override
     {
-        screen.setSelection({});
-        REQUIRE(lane.keyPressed(pressed));
-        CHECK(screen.selection().kind == md::ui::Selection::Kind::lane);
-        CHECK(screen.selection().index == 1);
+        PositionInfo info;
+        info.setBpm(120.0);
+        info.setIsPlaying(playing);
+        info.setPpqPosition(0.0);
+        return info;
     }
+};
+
+// Offers the key to the component and then each parent, as the host's key press does.
+bool press(juce::Component& focused, const juce::KeyPress& key)
+{
+    for (auto* c = &focused; c != nullptr; c = c->getParentComponent())
+    {
+        if (c->keyPressed(key))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void block(MagicDustProcessor& p)
+{
+    juce::AudioBuffer<float> buffer(2, 512);
+    juce::MidiBuffer midi;
+    p.processBlock(buffer, midi);
+}
+
+constexpr auto kFollow = "FOLLOWING YOUR DAW - USE ITS TRANSPORT";
+
+} // namespace
+
+TEST_CASE("space on the editor or any focused control toggles the preview", "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    f.processor.prepareToPlay(48000.0, 512);
+    const auto space = juce::KeyPress(juce::KeyPress::spaceKey);
+    REQUIRE(f.editor->getWantsKeyboardFocus());
+    for (const char* id : {"moodKnob", "stopKey", "cell0", "lane1", "mute0"})
+    {
+        CAPTURE(id);
+        REQUIRE(press(f.find(id), space));
+        block(f.processor);
+        CHECK(f.processor.previewPlaying());
+        REQUIRE(press(f.find(id), space));
+        block(f.processor);
+        CHECK_FALSE(f.processor.previewPlaying());
+    }
+    REQUIRE(f.editor->keyPressed(space));
+    block(f.processor);
+    CHECK(f.processor.previewPlaying());
+    CHECK_FALSE(f.editor->keyPressed(juce::KeyPress('a')));
+}
+
+TEST_CASE("while the daw plays, stop and space leave it alone and show the follow message",
+          "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    f.processor.prepareToPlay(48000.0, 512);
+    FakeHead head;
+    f.processor.setPlayHead(&head);
+    block(f.processor);
+    auto& editor = dynamic_cast<MagicDustEditor&>(*f.editor);
+    auto& bottom = f.find<md::ui::Readout>("bottomLine");
+
+    click(f.find("stopKey"), {18.0F, 12.0F});
+    CHECK(bottom.getText() == kFollow);
+    f.processor.tick(juce::Time::getMillisecondCounter() + 1000);
+    editor.refresh();
+    CHECK(bottom.getText() == kFollow);
+    f.processor.tick(juce::Time::getMillisecondCounter() + 2500);
+    editor.refresh();
+    CHECK(bottom.getText().startsWith("BAR"));
+
+    REQUIRE(editor.keyPressed(juce::KeyPress(juce::KeyPress::spaceKey)));
+    CHECK(bottom.getText() == kFollow);
+    head.playing = false;
+    block(f.processor);
+    block(f.processor);
+    CHECK_FALSE(f.processor.previewPlaying()); // the stop key never started the internal preview
 }
 
 TEST_CASE("a drag is never also a click, and a lost mouse-up does not break the next click",

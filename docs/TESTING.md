@@ -119,6 +119,11 @@ Build first with `cmake --build --preset dev` and rescan your plug-ins as above.
    Press your daw's own play instead and Magic Dust follows it.
 3. Press the sprinkle key for a new idea.
    Every press gives a different one.
+4. Click an empty part of the plugin window, then press the spacebar.
+   The preview starts, and the spacebar stops it again.
+5. Start your daw's own transport and press stop in Magic Dust, then the spacebar.
+   The bottom line shows "FOLLOWING YOUR DAW - USE ITS TRANSPORT" for 2 seconds and your daw keeps playing.
+   Stop only stops Magic Dust's own preview, so stop the transport in your daw (in Live, its own stop key).
 
 ### Turning the knobs
 

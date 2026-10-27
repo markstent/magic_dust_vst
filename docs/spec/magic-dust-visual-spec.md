@@ -215,7 +215,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 - Each column has a MUTE key at x = column x + 72, 36 x 24 px, vertically centred on y 508, in the cream key material (3 px radius, 2 px shadow).
 - An amber LED 6 px across sits centred 6 px above the key and is lit while the lane is muted.
 - The legend "MUTE" is below the key, in the key legend style.
-- Click, or Space or Enter while focused, toggles `chordsMute`, `bassMute` or `melodyMute`.
+- Click, or Enter while focused, toggles `chordsMute`, `bassMute` or `melodyMute`.
 - Accessible titles are "chords mute", "bass mute" and "melody mute".
 - A muted lane plays nothing: no built-in sound and no MIDI out.
   A sender follows the main instance, so it goes quiet too.
@@ -237,6 +237,9 @@ The numbers match the order of the console's parts, left to right and top to bot
 - Play is at x 450 and its LED is lit while the preview plays.
 - Stop is at x 498 and has no LED.
 - Neither key has an icon, because none reads cleanly at this size.
+- Space does what play does when the preview is stopped, and what stop does when it plays.
+- While the daw's transport plays, Magic Dust follows it and a plugin cannot drive the daw's transport.
+  Play, stop and Space then leave the daw alone and replace the bottom line with "FOLLOWING YOUR DAW - USE ITS TRANSPORT" for 2 seconds, after which the readout returns.
 
 ### 13. Sprinkle
 
@@ -289,7 +292,7 @@ Rerolling or swapping a pinned item changes nothing and shows "unpin it first" (
 
 ### About panel
 
-- Opened by clicking the wordmark or pressing Space or Enter on it.
+- Opened by clicking the wordmark or pressing Enter on it.
   It is a child of the main view, over the display's inner rect (57, 89, 666, 300), in the display's cream.
 - Centred lines, in `ink`, 12 px apart:
   - "MAGIC DUST" in the serif face, 26 px,
@@ -334,7 +337,9 @@ A "motion" setting turns every animation off, and the plugin also turns them off
 - Focus ring: 2 px `ink` on cream surfaces, 2 px `legend` on the metal faceplate.
 - Every control has an accessible title through `juce::AccessibilityHandler`, for example "chord 1, Am9, home", "mood", "chords level", "play the preview" and "about magic dust".
   Knobs also report their value.
-- Arrow keys step a knob; the wordmark, keys and cells answer Space and Enter.
+- Arrow keys step a knob; the wordmark, keys, cells and lanes answer Enter.
+- Space plays and stops the preview whichever control has the focus, and a click anywhere in the editor gives it the keyboard focus so Space works straight away.
+  The editor does not take the focus when it opens.
 - Text contrast is at least 4.5:1 against its background.
 - Colour never carries meaning alone: lanes, knobs and LEDs always sit next to a text label.
 

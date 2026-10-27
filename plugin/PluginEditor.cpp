@@ -30,6 +30,7 @@ namespace
 constexpr float kWordmarkRingRadius = 3.0F;
 constexpr int kContinuousKnobHeight = 100;
 constexpr int kSteppedKnobHeight = 112;
+constexpr const char* kFollowMessage = "FOLLOWING YOUR DAW - USE ITS TRANSPORT";
 
 constexpr std::array<md::LaneId, 3> kLanes{md::LaneId::chords, md::LaneId::bass,
                                            md::LaneId::melody};
@@ -178,6 +179,20 @@ class MagicDustEditor::Body : public juce::Component
         screen_.refresh();
     }
 
+    void togglePreview()
+    {
+        setFileError(std::nullopt);
+        if (processor_.previewPlaying())
+        {
+            processor_.stop();
+        }
+        else
+        {
+            processor_.play();
+        }
+        updateError();
+    }
+
     void mouseDown(const juce::MouseEvent& event) override
     {
         if (event.eventComponent != &about_ && !about_.isParentOf(event.eventComponent))
@@ -291,6 +306,7 @@ class MagicDustEditor::Body : public juce::Component
         {
             setFileError(std::nullopt);
             action();
+            updateError(); // a key pressed while the daw plays raises the follow notice
         };
         addAndMakeVisible(key);
     }
@@ -303,10 +319,14 @@ class MagicDustEditor::Body : public juce::Component
 
     void updateError()
     {
-        const auto error = fileError_ ? fileError_ : processor_.lastError();
+        std::optional<std::string> error = fileError_ ? fileError_ : processor_.lastError();
+        if (processor_.followNotice())
+        {
+            error = kFollowMessage;
+        }
         if (error != error_)
         {
-            error_ = error;
+            error_ = std::move(error);
             screen_.setError(error_);
         }
     }
@@ -335,6 +355,7 @@ MagicDustEditor::MagicDustEditor(MagicDustProcessor& owner)
     : AudioProcessorEditor(owner), processor_(owner)
 {
     setResizable(true, false);
+    setWantsKeyboardFocus(true); // a click on any non-focusable part lands here
     showView();
     startTimerHz(30);
 }
@@ -401,6 +422,16 @@ void MagicDustEditor::paint(juce::Graphics& g) { g.fillAll(t::console::faceBotto
 
 void MagicDustEditor::resized() { updateScale(); }
 
+bool MagicDustEditor::keyPressed(const juce::KeyPress& key)
+{
+    if (key != juce::KeyPress::spaceKey || body_ == nullptr)
+    {
+        return false;
+    }
+    body_->togglePreview();
+    return true;
+}
+
 // The view is laid out at its logical size; the editor scales it as a whole.
 void MagicDustEditor::updateScale()
 {
@@ -417,7 +448,9 @@ void MagicDustEditor::updateScale()
     }
 }
 
-void MagicDustEditor::timerCallback()
+void MagicDustEditor::timerCallback() { refresh(); }
+
+void MagicDustEditor::refresh()
 {
     sync();
     if (sender_ != nullptr)

@@ -17,6 +17,7 @@ namespace
 
 constexpr int schemaVersion = 1;
 constexpr juce::int64 kQuietMs = 150;
+constexpr juce::int64 kFollowNoticeMs = 2000;
 constexpr int kAuditionVelocity = 90;
 constexpr std::size_t kMaxAuditionNotes = 7;
 // A host position this far from where the last block ended is a locate or a loop.
@@ -303,8 +304,22 @@ void MagicDustProcessor::auditionChord(std::size_t slot)
 
 void MagicDustProcessor::timerCallback() { tick(juce::Time::getMillisecondCounter()); }
 
+void MagicDustProcessor::transportKey(Key key)
+{
+    if (hostPlaying_.load())
+    {
+        followUntilMs_ = juce::Time::getMillisecondCounter() + kFollowNoticeMs;
+        return;
+    }
+    keyCommand_.store(key);
+}
+
 void MagicDustProcessor::tick(juce::int64 nowMs)
 {
+    if (followUntilMs_ != 0 && nowMs >= followUntilMs_)
+    {
+        followUntilMs_ = 0;
+    }
     Link::instance().retire();
     if (!bank_ || mode_.load() != InstanceMode::main)
     {
@@ -494,6 +509,7 @@ void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
     internal_.advance(numSamples, t.bpm, sampleRate_);
     expectedPpq_ = t.ppq + md::ppqForSamples(numSamples, t.bpm, sampleRate_);
     previewPlaying_.store(t.source != Source::none);
+    hostPlaying_.store(t.source == Source::host);
     previewPpq_.store(t.ppq);
 }
 

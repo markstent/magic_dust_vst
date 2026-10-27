@@ -809,3 +809,42 @@ TEST_CASE("a replaced pattern outlives retire for a second and is then freed")
     CHECK(watch.expired());
     link.remove(&owner);
 }
+
+TEST_CASE("hostPlaying follows the playhead", "[processor]")
+{
+    MagicDustProcessor processor;
+    processor.prepareToPlay(kRate, kBlock);
+    FakeHead head;
+    processor.setPlayHead(&head);
+    juce::AudioBuffer<float> buffer(2, kBlock);
+    juce::MidiBuffer midi;
+    CHECK_FALSE(processor.hostPlaying());
+    processor.processBlock(buffer, midi);
+    CHECK(processor.hostPlaying());
+    head.playing = false;
+    processor.processBlock(buffer, midi);
+    CHECK_FALSE(processor.hostPlaying());
+}
+
+TEST_CASE("play and stop raise the follow notice, not the preview, while the host plays",
+          "[processor]")
+{
+    MagicDustProcessor processor;
+    processor.prepareToPlay(kRate, kBlock);
+    FakeHead head;
+    processor.setPlayHead(&head);
+    juce::AudioBuffer<float> buffer(2, kBlock);
+    juce::MidiBuffer midi;
+    processor.processBlock(buffer, midi);
+    CHECK_FALSE(processor.followNotice());
+    processor.play();
+    CHECK(processor.followNotice());
+    processor.tick(juce::Time::getMillisecondCounter() + 2500);
+    CHECK_FALSE(processor.followNotice());
+    head.playing = false;
+    processor.processBlock(buffer, midi);
+    processor.play();
+    CHECK_FALSE(processor.followNotice());
+    processor.processBlock(buffer, midi);
+    CHECK(processor.previewPlaying());
+}

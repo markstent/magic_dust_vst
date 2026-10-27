@@ -7,11 +7,8 @@
 namespace md::ui
 {
 
-// Space and Enter activate whatever has the focus.
-inline bool isActivateKey(const juce::KeyPress& key)
-{
-    return key == juce::KeyPress::returnKey || key == juce::KeyPress::spaceKey;
-}
+// Enter activates whatever has the focus; Space is the editor's play and stop.
+inline bool isActivateKey(const juce::KeyPress& key) { return key == juce::KeyPress::returnKey; }
 
 // The 2 px focus outline, drawn just inside the bounds: in the colour given.
 inline void drawFocusRing(juce::Graphics& g, juce::Rectangle<float> bounds, float radius,

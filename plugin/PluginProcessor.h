@@ -63,8 +63,12 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     void sprinkle();
     void setStyle(md::Style style);
     void setKeyRoot(int keyRoot);
-    void play() { keyCommand_.store(Key::play); }
-    void stop() { keyCommand_.store(Key::stop); }
+    // While the host plays, these leave the preview alone and raise the follow notice instead.
+    void play() { transportKey(Key::play); }
+    void stop() { transportKey(Key::stop); }
+    [[nodiscard]] bool hostPlaying() const { return hostPlaying_.load(); }
+    // True for 2 s after a transport key was pressed while the host was playing.
+    [[nodiscard]] bool followNotice() const { return followUntilMs_ != 0; }
     [[nodiscard]] bool previewPlaying() const { return previewPlaying_.load(); }
     [[nodiscard]] double previewPpq() const { return previewPpq_.load(); }
     [[nodiscard]] std::optional<double> hostBpm() const;
@@ -109,6 +113,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     };
 
     void timerCallback() override;
+    void transportKey(Key key);
     [[nodiscard]] md::Settings currentSettings() const;
     bool regenerate(std::uint32_t seed, const md::LaneSeeds& laneSeeds);
     bool regenerate() { return regenerate(seed_, laneSeeds_); }
@@ -156,6 +161,8 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     std::atomic<std::uint64_t> auditionRequest_{0};
     std::atomic<bool> releasePending_{false};
     std::atomic<bool> previewPlaying_{false};
+    std::atomic<bool> hostPlaying_{false};
+    juce::int64 followUntilMs_ = 0; // message thread only; 0 when there is no notice
     std::atomic<double> previewPpq_{0.0};
     std::atomic<double> hostBpm_{0.0};
     md::AuditionSynth organ_{md::kOrgan};
