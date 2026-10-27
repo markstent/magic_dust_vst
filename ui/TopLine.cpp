@@ -36,6 +36,23 @@ int widthOf(const juce::String& text)
 
 } // namespace
 
+juce::String keyText(const md::Key& key)
+{
+    const auto root = juce::String(std::string(md::rootName(key.root))).toLowerCase();
+    switch (key.mode)
+    {
+    case md::Mode::aeolian:
+        return root + " min";
+    case md::Mode::ionian:
+        return root + " maj";
+    case md::Mode::phrygian:
+    case md::Mode::dorian:
+    case md::Mode::mixolydian:
+        break;
+    }
+    return root + " " + juce::String(std::string(md::modeName(key.mode)));
+}
+
 MenuText::MenuText(const juce::String& id) : juce::Button(id)
 {
     setComponentID(id);
@@ -76,7 +93,7 @@ void TopLine::refresh()
     spell_ = "spell " + (idea != nullptr ? juce::String(idea->seed) : juce::String(kUnknown));
     tempo_ =
         (bpm ? juce::String(static_cast<int>(std::lround(*bpm))) : juce::String(kUnknown)) + " bpm";
-    key_.setText(idea != nullptr ? juce::String(md::keyName(idea->key)) : juce::String(kUnknown));
+    key_.setText(idea != nullptr ? keyText(idea->key) : juce::String(kUnknown));
     style_.setText(idea != nullptr ? styleText(idea->settings.style) : juce::String(kUnknown));
     layoutRight();
     repaint();

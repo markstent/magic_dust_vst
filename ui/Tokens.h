@@ -102,7 +102,8 @@ inline constexpr int rollX = 344;
 inline constexpr int rollPadY = 3;
 inline constexpr int rollWidth = 414;
 inline constexpr int rollHeight = 56;
-inline constexpr int noteHeight = 4;
+// Note height as a fraction of the roll height, per lane (chords, bass, melody).
+inline constexpr std::array<float, 3> noteHeightFraction{0.11F, 0.18F, 0.14F};
 inline constexpr int noteMinWidth = 2;
 inline constexpr float noteRadius = 3.0F;
 inline constexpr int playheadWidth = 2;

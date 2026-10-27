@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 
 #include "md/ranges.hpp"
 #include "ui/Fonts.h"
@@ -59,7 +60,9 @@ std::vector<juce::Rectangle<float>> PianoRoll::noteRects() const
 {
     const auto look = lookOf(lane_);
     const auto width = static_cast<float>(getWidth());
-    const auto travel = static_cast<float>(getHeight() - t::layout::noteHeight);
+    const auto noteHeight = static_cast<float>(getHeight()) *
+                            t::layout::noteHeightFraction.at(static_cast<std::size_t>(lane_));
+    const auto travel = static_cast<float>(getHeight()) - noteHeight;
     const auto ticks = static_cast<float>(bars_ * md::kTicksPerBar);
 
     std::vector<juce::Rectangle<float>> rects;
@@ -70,8 +73,7 @@ std::vector<juce::Rectangle<float>> PianoRoll::noteRects() const
         const auto fromTop =
             static_cast<float>(look.high - pitch) / static_cast<float>(look.high - look.low);
         rects.emplace_back(static_cast<float>(note.start) / ticks * width, fromTop * travel,
-                           static_cast<float>(note.length) / ticks * width,
-                           static_cast<float>(t::layout::noteHeight));
+                           static_cast<float>(note.length) / ticks * width, noteHeight);
     }
     return rects;
 }
@@ -97,8 +99,10 @@ void PianoRoll::paint(juce::Graphics& g)
         const auto left = std::round(r.getX());
         const auto right =
             std::max(std::round(r.getRight()), left + static_cast<float>(t::layout::noteMinWidth));
-        g.fillRoundedRectangle(left, std::round(r.getY()), right - left, r.getHeight(),
-                               t::layout::noteRadius);
+        const auto noteWidth = right - left;
+        g.fillRoundedRectangle(
+            left, r.getY(), noteWidth, r.getHeight(),
+            std::min({t::layout::noteRadius, noteWidth / 2.0F, r.getHeight() / 2.0F}));
     }
 
     if (playhead_)

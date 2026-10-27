@@ -2,12 +2,17 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include "md/types.hpp"
+
 class MagicDustProcessor;
 
 #include "ui/Boilerplate.h"
 
 namespace md::ui
 {
+
+// "a min" for aeolian, "a maj" for ionian, else the mode name ("a dorian").
+juce::String keyText(const md::Key& key);
 
 // Quiet text that opens a menu when clicked.
 class MenuText : public juce::Button

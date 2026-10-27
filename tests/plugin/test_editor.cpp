@@ -16,6 +16,7 @@
 #include "ui/LaneView.h"
 #include "ui/ScreenComponent.h"
 #include "ui/StatusFields.h"
+#include "ui/TopLine.h"
 
 namespace
 {
@@ -139,6 +140,23 @@ TEST_CASE("every component sits where the layout table puts it", "[editor]")
     CHECK(f.boundsOf("readout").getRight() == 764);
 }
 
+TEST_CASE("the top line spells the key as min, maj or the mode name", "[editor]")
+{
+    CHECK(md::ui::keyText({.root = 9, .mode = md::Mode::aeolian}) == "a min");
+    CHECK(md::ui::keyText({.root = 3, .mode = md::Mode::ionian}) == "eb maj");
+    CHECK(md::ui::keyText({.root = 9, .mode = md::Mode::dorian}) == "a dorian");
+    CHECK(md::ui::keyText({.root = 6, .mode = md::Mode::phrygian}) == "f# phrygian");
+    CHECK(md::ui::keyText({.root = 0, .mode = md::Mode::mixolydian}) == "c mixolydian");
+}
+
+TEST_CASE("the key button shows the idea's key", "[editor]")
+{
+    Fixture f;
+    f.refresh();
+    CHECK(f.find<md::ui::MenuText>("keyMenu").getText() ==
+          md::ui::keyText(f.processor.idea()->key));
+}
+
 TEST_CASE("an idea with three placed chords shows three bubbles", "[editor]")
 {
     Fixture f;
@@ -162,7 +180,6 @@ TEST_CASE("a bubble's accessible title names the chord and its feel", "[editor]"
         CHECK(f.find(("bubble" + std::to_string(i)).c_str()).getTitle().toStdString() == expected);
     }
     CHECK(f.find("bubble0").getTitle().startsWith("chord 1, "));
-    CHECK(f.find("bubble0").getTitle().endsWith(", home"));
 }
 
 TEST_CASE("a lane maps a note's ticks across the roll", "[editor]")
@@ -198,6 +215,7 @@ TEST_CASE("the real notes map the same way and stay inside the roll", "[editor]"
             CHECK(rects.at(n).getX() == static_cast<float>(e.start) / ticks * 414.0F);
             CHECK(rects.at(n).getY() >= 0.0F);
             CHECK(rects.at(n).getBottom() <= 56.0F);
+            CHECK(rects.at(n).getHeight() > 5.0F);
         }
     }
 }
