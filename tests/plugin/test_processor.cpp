@@ -333,7 +333,7 @@ TEST_CASE("an audition request plays the chord on the built-in sound only")
     CHECK(runBlocks(processor, head, 1).energy == 0.0);
 }
 
-TEST_CASE("suspending and re-preparing releases held notes")
+TEST_CASE("suspending and re-preparing releases held notes while the host keeps playing")
 {
     const juce::ScopedJuceInitialiser_GUI juceInit;
     MagicDustProcessor processor;
@@ -345,18 +345,51 @@ TEST_CASE("suspending and re-preparing releases held notes")
     const auto held = sounding(runBlocks(processor, head, 40).events);
     REQUIRE_FALSE(held.empty());
 
+    // The host position and pattern are unchanged, so only the suspend can trigger the release.
     processor.releaseResources();
     processor.prepareToPlay(kRate, kBlock);
-    head.playing = false;
     const Run next = runBlocks(processor, head, 1);
     std::set<std::pair<int, int>> released;
+    std::size_t offs = 0;
     for (const Ev& e : next.events)
     {
-        CHECK_FALSE(e.on);
-        released.insert({e.channel, e.note});
+        if (!e.on)
+        {
+            released.insert({e.channel, e.note});
+            ++offs;
+        }
     }
     CHECK(released == held);
-    CHECK(next.events.size() == held.size());
+    CHECK(offs == held.size());
+}
+
+TEST_CASE("a locate leaves no orphan note-offs")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    setSeed(processor, 48213);
+    processor.prepareToPlay(kRate, kBlock);
+    FakeHead head;
+    processor.setPlayHead(&head);
+
+    std::vector<Ev> events = runBlocks(processor, head, 40).events;
+    REQUIRE_FALSE(sounding(events).empty());
+    head.ppq += 1.0;
+    const std::vector<Ev> after = runBlocks(processor, head, 200).events;
+    events.insert(events.end(), after.begin(), after.end());
+
+    std::set<std::pair<int, int>> held;
+    for (const Ev& e : events)
+    {
+        if (e.on)
+        {
+            held.insert({e.channel, e.note});
+        }
+        else
+        {
+            CHECK(held.erase({e.channel, e.note}) == 1);
+        }
+    }
 }
 
 TEST_CASE("flavour regenerates after a quiet spell and groove at once")
@@ -516,6 +549,7 @@ TEST_CASE("a state whose idea cannot be written keeps the saved settings matchin
     juce::XmlElement state("MagicDust");
     state.setAttribute("style", static_cast<int>(md::Style::mkDub));
     state.setAttribute("keyRoot", 2);
+    state.setAttribute("bars", 4);
     juce::MemoryBlock block;
     juce::AudioProcessor::copyXmlToBinary(state, block);
     processor.setStateInformation(block.getData(), static_cast<int>(block.getSize()));
@@ -526,6 +560,7 @@ TEST_CASE("a state whose idea cannot be written keeps the saved settings matchin
         juce::AudioProcessor::getXmlFromBinary(saved.getData(), static_cast<int>(saved.getSize()));
     CHECK(xml->getIntAttribute("style") == static_cast<int>(processor.idea()->settings.style));
     CHECK(xml->getIntAttribute("keyRoot") == processor.idea()->settings.keyRoot);
+    CHECK(xml->getIntAttribute("bars") == processor.idea()->settings.bars);
 }
 
 TEST_CASE("link publishes per owner and removes")
