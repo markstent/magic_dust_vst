@@ -432,6 +432,10 @@ Keeping `engine`, `bank` and `midiexport` free of JUCE means all the music logic
 ### Parameters and saved state
 
 - **Host parameters** (automatable): aura mood, aura energy, groove, flavour, and preview volume.
+  Three more set the level of each lane's built-in sound: chords level, bass level and melody level.
+  Each runs from 0 to 1 and starts at 1.
+  A built-in voice plays at the preview volume times its lane level.
+  The levels never change the MIDI out.
 - **Live response.**
   Groove changes apply instantly (swing only).
   Aura and flavour changes regenerate unpinned parts with the same seed after a 150 ms pause in movement, so the owner hears the change without losing the idea.

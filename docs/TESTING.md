@@ -129,6 +129,13 @@ Build first with `cmake --build --preset dev` and rescan your plug-ins as above.
 3. Click the groove field to step through the grooves, or scroll over it.
 4. After each change, sprinkle again and listen to whether the idea matches what you set.
 
+### Balancing the lanes
+
+1. Press play.
+2. Drag the small slider under each lane's name (chords, bass, melody) and hear that lane's built-in sound get quieter and louder.
+3. Double-click a slider to put it back to full.
+4. Check the MIDI you drag out does not change with the levels.
+
 ### Dragging an idea out
 
 1. Drag a chord bubble onto a MIDI track.

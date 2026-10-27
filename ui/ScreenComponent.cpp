@@ -50,8 +50,9 @@ juce::String selectedText(Selection selection)
 ScreenComponent::ScreenComponent(MagicDustProcessor& processor)
     : processor_(processor), topLine_(processor),
       bubbles_{ChordBubble(0), ChordBubble(1), ChordBubble(2), ChordBubble(3)},
-      lanes_{LaneView(md::LaneId::chords), LaneView(md::LaneId::bass),
-             LaneView(md::LaneId::melody)},
+      lanes_{LaneView(md::LaneId::chords, processor.params),
+             LaneView(md::LaneId::bass, processor.params),
+             LaneView(md::LaneId::melody, processor.params)},
       auraPad_(processor.params), fields_(processor.params)
 {
     setComponentID("screen");
@@ -78,6 +79,7 @@ ScreenComponent::ScreenComponent(MagicDustProcessor& processor)
         auto& lane = lanes_.at(i);
         lane.setComponentID("lane" + juce::String(i));
         lane.roll().setComponentID("roll" + juce::String(i));
+        lane.levelSlider().setComponentID("level" + juce::String(i));
         lane.setExplicitFocusOrder(++order);
         lane.setOnClick(
             [this, i]

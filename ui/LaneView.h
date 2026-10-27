@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "md/types.hpp"
@@ -47,11 +48,12 @@ class PianoRoll : public juce::Component
 class LaneView : public juce::Component
 {
   public:
-    explicit LaneView(md::LaneId lane);
+    LaneView(md::LaneId lane, juce::AudioProcessorValueTreeState& params);
 
     // playhead is the fraction of the idea played, when playing.
     void set(const md::Lane& lane, int bars, std::optional<float> playhead, bool selected);
     [[nodiscard]] PianoRoll& roll() { return roll_; }
+    [[nodiscard]] juce::Slider& levelSlider() { return level_; }
     void paint(juce::Graphics& g) override;
     void resized() override;
     void mouseDown(const juce::MouseEvent& e) override;
@@ -69,6 +71,8 @@ class LaneView : public juce::Component
   private:
     md::LaneId lane_;
     PianoRoll roll_;
+    juce::Slider level_{juce::Slider::LinearHorizontal, juce::Slider::NoTextBox};
+    juce::SliderParameterAttachment levelAttachment_;
     bool selected_ = false;
     bool dragging_ = false;
     std::function<void()> onClick_;

@@ -203,7 +203,8 @@ TEST_CASE("a bubble's accessible title names the chord and its feel", "[editor]"
 TEST_CASE("a lane maps a note's ticks across the roll", "[editor]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
-    md::ui::LaneView lane(md::LaneId::chords);
+    MagicDustProcessor processor{md::loadBundledBank(), kRandomSeed};
+    md::ui::LaneView lane(md::LaneId::chords, processor.params);
     lane.setBounds(272, 198, 492, 62);
     md::Lane data{.id = md::LaneId::chords,
                   .pattern = "organ stabs",
@@ -421,8 +422,9 @@ TEST_CASE("tab visits top line, bubbles, lanes, aura pad, fields, then keys", "[
         current = traverser.getNextComponent(current);
     }
     const std::vector<std::string> expected{
-        "keyMenu", "styleMenu", "bubble0", "bubble1", "bubble2", "bubble3", "lane0",      "lane1",
-        "lane2",   "auraPad",   "groove",  "flavour", "playKey", "stopKey", "sprinkleKey"};
+        "keyMenu", "styleMenu", "bubble0", "bubble1", "bubble2", "bubble3",
+        "lane0",   "level0",    "lane1",   "level1",  "lane2",   "level2",
+        "auraPad", "groove",    "flavour", "playKey", "stopKey", "sprinkleKey"};
     CHECK(order == expected);
 }
 
@@ -541,12 +543,55 @@ TEST_CASE("every control has an accessible title", "[editor]")
     CHECK(f.find("lane0").getTitle().startsWith("chords lane, "));
     CHECK(f.find("lane1").getTitle().startsWith("bass lane, "));
     CHECK(f.find("lane2").getTitle().startsWith("melody lane, "));
+    CHECK(f.find("level0").getTitle() == "chords level");
+    CHECK(f.find("level1").getTitle() == "bass level");
+    CHECK(f.find("level2").getTitle() == "melody level");
     CHECK(f.find("auraPad").getTitle().startsWith("aura pad, mood "));
     CHECK(f.find("groove").getTitle().startsWith("groove, "));
     CHECK(f.find("flavour").getTitle().startsWith("flavour, "));
     CHECK(f.find("playKey").getTitle() == "play the preview");
     CHECK(f.find("stopKey").getTitle() == "stop the preview");
     CHECK(f.find("sprinkleKey").getTitle() == "sprinkle a new idea");
+}
+
+TEST_CASE("each lane has a level slider attached to its parameter", "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    const std::array<const char*, 3> ids{"chordsLevel", "bassLevel", "melodyLevel"};
+    for (std::size_t i = 0; i < ids.size(); ++i)
+    {
+        auto& slider = f.find<juce::Slider>(("level" + std::to_string(i)).c_str());
+        CHECK(slider.getValue() == Approx(1.0).margin(kTolerance));
+        auto* parameter = f.processor.params.getParameter(ids.at(i));
+        parameter->setValueNotifyingHost(0.4F);
+        CHECK(slider.getValue() == Approx(0.4).margin(kTolerance));
+        CHECK(slider.getTextFromValue(0.8) == "80%");
+        slider.setValue(0.2, juce::sendNotificationSync);
+        CHECK(param(f, ids.at(i)) == Approx(0.2F).margin(kTolerance));
+        slider.mouseDoubleClick(mouseAt(slider, {10.0F, 6.0F}, {10.0F, 6.0F}, false));
+        CHECK(param(f, ids.at(i)) == Approx(1.0F).margin(kTolerance));
+    }
+}
+
+TEST_CASE("a level slider sits under the label, ends before the roll and does not select the lane",
+          "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    namespace lay = md::tokens::layout;
+    auto& lane = f.find("lane1");
+    auto& slider = f.find("level1");
+    CHECK(slider.getBounds() == Rect(lay::laneLabelPad, lay::laneHeight - 12 - 6,
+                                     lay::rollX - lay::laneX - lay::laneLabelPad - 6, 12));
+    CHECK(slider.getParentComponent() == &lane);
+
+    // A press on the slider goes to the slider, never to the lane.
+    auto& screen = f.find<md::ui::ScreenComponent>("screen");
+    const auto centre = slider.getLocalBounds().getCentre().toFloat();
+    auto* const hit = lane.getComponentAt(lane.getLocalPoint(&slider, centre.toInt()));
+    CHECK(hit == &slider);
+    CHECK(screen.selection().kind == md::ui::Selection::Kind::none);
 }
 
 TEST_CASE("opening and closing the editor leaks nothing", "[editor]")
@@ -719,6 +764,11 @@ TEST_CASE("render the editor", "[.render]")
         return;
     }
     Fixture f;
+    for (const auto& [id, level] : {std::pair{"chordsLevel", 1.0F}, std::pair{"bassLevel", 0.5F},
+                                    std::pair{"melodyLevel", 0.2F}})
+    {
+        f.processor.params.getParameter(id)->setValueNotifyingHost(level);
+    }
     f.refresh();
     const juce::File out(dir);
     out.createDirectory();

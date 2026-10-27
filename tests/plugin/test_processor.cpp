@@ -1,3 +1,4 @@
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <chrono>
@@ -243,6 +244,124 @@ TEST_CASE("a playing host drives midi and sound")
         channels.insert(e.channel);
     }
     CHECK(channels == std::set<int>{0, 1, 2});
+}
+
+namespace
+{
+
+void setLevel(MagicDustProcessor& p, const char* id, float value)
+{
+    auto* parameter = p.params.getParameter(id);
+    parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+}
+
+// The energy of a playing host over just under 2 seconds, with the given levels set.
+double playedEnergy(const char* id, float level, float volume = 0.8F)
+{
+    MagicDustProcessor processor;
+    setSeed(processor, 48213);
+    setLevel(processor, "volume", volume);
+    setLevel(processor, id, level);
+    processor.prepareToPlay(kRate, kBlock);
+    FakeHead head;
+    processor.setPlayHead(&head);
+    return runBlocks(processor, head, 187).energy;
+}
+
+double auditionEnergy(const char* id, float level, float volume)
+{
+    MagicDustProcessor processor;
+    setSeed(processor, 48213);
+    setLevel(processor, "volume", volume);
+    setLevel(processor, id, level);
+    processor.prepareToPlay(kRate, kBlock);
+    FakeHead head;
+    head.playing = false;
+    processor.setPlayHead(&head);
+    processor.auditionChord(0);
+    return runBlocks(processor, head, 4).energy;
+}
+
+} // namespace
+
+TEST_CASE("a lane level of 0 silences only that lane's built-in sound")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    const double all = playedEnergy("bassLevel", 1.0F);
+    const double noBass = playedEnergy("bassLevel", 0.0F);
+    const double noChords = playedEnergy("chordsLevel", 0.0F);
+    const double noMelody = playedEnergy("melodyLevel", 0.0F);
+    CHECK(noBass > 0.0);
+    CHECK(noBass < all);
+    CHECK(noChords > 0.0);
+    CHECK(noChords < all);
+    CHECK(noMelody > 0.0);
+    CHECK(noMelody < all);
+    CHECK(auditionEnergy("chordsLevel", 0.0F, 0.8F) == 0.0);
+    CHECK(auditionEnergy("bassLevel", 0.0F, 0.8F) > 0.0);
+}
+
+TEST_CASE("a lane level leaves the midi out unchanged")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    auto events = [](float level)
+    {
+        MagicDustProcessor processor;
+        setSeed(processor, 48213);
+        setLevel(processor, "bassLevel", level);
+        processor.prepareToPlay(kRate, kBlock);
+        FakeHead head;
+        processor.setPlayHead(&head);
+        return runBlocks(processor, head, 187).events;
+    };
+    CHECK(events(0.0F) == events(1.0F));
+}
+
+TEST_CASE("a voice's level is the volume times its lane level")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    const double a = auditionEnergy("chordsLevel", 0.5F, 1.0F);
+    const double b = auditionEnergy("chordsLevel", 1.0F, 0.5F);
+    CHECK(a > 0.0);
+    CHECK(a == Catch::Approx(b).epsilon(0.001));
+}
+
+TEST_CASE("lane levels round trip, and a state without them loads 1.0")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    setLevel(processor, "chordsLevel", 0.25F);
+    setLevel(processor, "bassLevel", 0.5F);
+    setLevel(processor, "melodyLevel", 0.75F);
+    juce::MemoryBlock state;
+    processor.getStateInformation(state);
+    MagicDustProcessor fresh;
+    fresh.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+    const auto level = [](MagicDustProcessor& p, const char* id)
+    { return p.params.getRawParameterValue(id)->load(); };
+    CHECK(level(fresh, "chordsLevel") == Catch::Approx(0.25F));
+    CHECK(level(fresh, "bassLevel") == Catch::Approx(0.5F));
+    CHECK(level(fresh, "melodyLevel") == Catch::Approx(0.75F));
+
+    // A state saved before the levels existed: parameters present, levels absent.
+    auto saved =
+        juce::AudioProcessor::getXmlFromBinary(state.getData(), static_cast<int>(state.getSize()));
+    REQUIRE(saved != nullptr);
+    auto* params = saved->getChildByName(fresh.params.state.getType());
+    REQUIRE(params != nullptr);
+    for (const char* id : {"chordsLevel", "bassLevel", "melodyLevel"})
+    {
+        auto* child = params->getChildByAttribute("id", id);
+        REQUIRE(child != nullptr);
+        params->removeChildElement(child, true);
+    }
+    juce::MemoryBlock old;
+    juce::AudioProcessor::copyXmlToBinary(*saved, old);
+    setLevel(fresh, "bassLevel", 0.1F);
+    fresh.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+    CHECK(level(fresh, "chordsLevel") == Catch::Approx(1.0F));
+    CHECK(level(fresh, "bassLevel") == Catch::Approx(1.0F));
+    CHECK(level(fresh, "melodyLevel") == Catch::Approx(1.0F));
 }
 
 TEST_CASE("stopping the host releases every sounding note")

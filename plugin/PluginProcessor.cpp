@@ -40,6 +40,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout makeLayout()
         ParameterID{"flavour", 1}, "flavour", juce::StringArray{"simple", "soulful", "jazzy"}, 1));
     layout.add(std::make_unique<juce::AudioParameterFloat>(ParameterID{"volume", 1}, "volume", 0.0F,
                                                            1.0F, 0.8F));
+    for (const char* id : {"chordsLevel", "bassLevel", "melodyLevel"})
+    {
+        layout.add(std::make_unique<juce::AudioParameterFloat>(
+            ParameterID{id, 1}, juce::String(id).replace("Level", " level"), 0.0F, 1.0F, 1.0F));
+    }
     return layout;
 }
 
@@ -116,7 +121,10 @@ MagicDustProcessor::MagicDustProcessor(std::optional<md::Bank> bank,
     : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       params(*this, nullptr, "params", makeLayout()),
       random_(randomSeed ? juce::Random(*randomSeed) : juce::Random()), bank_(std::move(bank)),
-      volume_(params.getRawParameterValue("volume"))
+      volume_(params.getRawParameterValue("volume")),
+      chordsLevel_(params.getRawParameterValue("chordsLevel")),
+      bassLevel_(params.getRawParameterValue("bassLevel")),
+      melodyLevel_(params.getRawParameterValue("melodyLevel"))
 {
     Link& link = Link::instance();
     const bool sender = link.oldestMain() != nullptr;
@@ -437,9 +445,9 @@ void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
     const int numSamples = buffer.getNumSamples();
 
     const float volume = volume_->load();
-    organ_.setLevel(volume);
-    subBass_.setLevel(volume);
-    softLead_.setLevel(volume);
+    organ_.setLevel(volume * chordsLevel_->load());
+    subBass_.setLevel(volume * bassLevel_->load());
+    softLead_.setLevel(volume * melodyLevel_->load());
 
     bool release = releasePending_.exchange(false);
     const Key key = keyCommand_.exchange(Key::none);

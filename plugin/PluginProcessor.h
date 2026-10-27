@@ -127,6 +127,9 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     juce::Random random_;
     std::optional<md::Bank> bank_;
     const std::atomic<float>* volume_;
+    const std::atomic<float>* chordsLevel_;
+    const std::atomic<float>* bassLevel_;
+    const std::atomic<float>* melodyLevel_;
     std::atomic<InstanceMode> mode_{InstanceMode::main};
     std::atomic<md::LaneId> senderLane_{md::LaneId::chords};
     std::optional<md::Idea> idea_;

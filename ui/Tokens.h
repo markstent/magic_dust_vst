@@ -113,6 +113,12 @@ inline constexpr int laneHeight = 62;
 inline constexpr std::array<int, 3> laneY{198, 264, 330};
 inline constexpr float laneRadius = 8.0F;
 inline constexpr int laneLabelPad = 6;
+// The level slider under the lane label: its hit area, its gap to the roll, and how far its
+// track's centre sits above the row's bottom edge.
+inline constexpr int laneLevelHeight = 12;
+inline constexpr int laneLevelRightGap = 6;
+inline constexpr int laneLevelCentreAboveBottom = 12;
+inline constexpr float laneLevelTrackHeight = 3.0F;
 inline constexpr int rollX = 344;
 inline constexpr int rollPadY = 3;
 inline constexpr int rollWidth = 414;

@@ -103,9 +103,21 @@ void PianoRoll::paint(juce::Graphics& g)
     }
 }
 
-LaneView::LaneView(md::LaneId lane) : lane_(lane), roll_(lane)
+LaneView::LaneView(md::LaneId lane, juce::AudioProcessorValueTreeState& params)
+    : lane_(lane), roll_(lane),
+      levelAttachment_(*params.getParameter(juce::String(laneLook(lane).label) + "Level"), level_)
 {
+    const auto look = laneLook(lane);
     addAndMakeVisible(roll_);
+    level_.setTitle(juce::String(look.label) + " level");
+    level_.setColour(juce::Slider::backgroundColourId, t::screenLine);
+    level_.setColour(juce::Slider::trackColourId, look.colour);
+    level_.setDoubleClickReturnValue(true, 1.0);
+    level_.setWantsKeyboardFocus(true);
+    level_.textFromValueFunction = [](double v)
+    { return juce::String(juce::roundToInt(v * 100.0)) + "%"; };
+    level_.valueFromTextFunction = [](const juce::String& s) { return s.getDoubleValue() / 100.0; };
+    addAndMakeVisible(level_);
     setWantsKeyboardFocus(true);
 }
 
@@ -122,6 +134,12 @@ void LaneView::set(const md::Lane& lane, int bars, std::optional<float> playhead
 
 void LaneView::resized()
 {
+    level_.setBounds(t::layout::laneLabelPad,
+                     getHeight() - t::layout::laneLevelCentreAboveBottom -
+                         (t::layout::laneLevelHeight / 2),
+                     t::layout::rollX - t::layout::laneX - t::layout::laneLabelPad -
+                         t::layout::laneLevelRightGap,
+                     t::layout::laneLevelHeight);
     roll_.setBounds(t::layout::rollX - t::layout::laneX, t::layout::rollPadY, t::layout::rollWidth,
                     t::layout::rollHeight);
 }

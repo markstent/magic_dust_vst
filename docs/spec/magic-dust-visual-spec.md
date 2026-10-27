@@ -216,6 +216,12 @@ The numbers match `visual/magic-dust-ui-annotated.png`.
 - Notes are rounded rectangles (3 px radius) in the lane colour.
   Horizontal position and width come from the note's start and length across the 8 bars.
   Vertical position comes from pitch, with the highest pitch at the top: chords span MIDI 48 to 79, bass 28 to 48, and melody 60 to 84.
+- Level slider: each row has a small slider for that lane's built-in sound, under the label.
+  It is 12 px tall and starts at x = 6 px in the row, as wide as the label column minus that 6 px start and a 6 px gap before the roll.
+  Its track is 3 px tall and fully rounded, with its centre 12 px above the row's bottom edge.
+  The track is `screen-line`, filled from the left to the value in the lane colour, with no thumb.
+  Double-click resets it to full, and it shows the usual focus ring when focused.
+  Its accessible title is "chords level", "bass level" or "melody level", and its value reads as a percent.
 - Selected: the row background becomes `screen-selected` and the label turns `screen-ink`.
 - Muted: the label drops to 45% opacity and the piano roll to 30%.
 - Click: select the lane.
