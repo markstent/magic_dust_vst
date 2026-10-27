@@ -115,25 +115,25 @@ Build first with `cmake --build --preset dev` and rescan your plug-ins as above.
 ### Loading Magic Dust and sprinkling
 
 1. Make a MIDI track and drag Magic Dust onto it.
-2. Press play (the key under the screen) to hear the idea.
+2. Press the play key under the screen to hear the idea.
    Press your daw's own play instead and Magic Dust follows it.
-3. Press sprinkle for a new idea.
+3. Press the sprinkle key for a new idea.
    Every press gives a different one.
 
-### Turning flavour, aura and groove
+### Turning the knobs
 
-1. Click the flavour field to step through simple, soulful and jazzy.
+1. Drag the flavour knob up and down to step through simple, soulful and jazzy.
    Soulful is the chords as written, simple is plainer and jazzy is richer.
-2. Drag on the aura pad.
-   Left to right is mood, bottom to top is energy.
-3. Click the groove field to step through the grooves, or scroll over it.
+2. Drag the mood knob and the energy knob.
+   Mood runs from dark to bright and energy from low to high.
+3. Drag the groove knob to step through the grooves, or scroll over it.
 4. After each change, sprinkle again and listen to whether the idea matches what you set.
 
 ### Balancing the lanes
 
 1. Press play.
-2. Drag the small slider under each lane's name (chords, bass, melody) and hear that lane's built-in sound get quieter and louder.
-3. Double-click a slider to put it back to full.
+2. Drag the level knob under each lane's name (chords, bass, melody) in the bottom band and hear that lane's built-in sound get quieter and louder.
+3. Double-click a level knob to put it back to full.
 4. Check the MIDI you drag out does not change with the levels.
 
 ### Dragging an idea out
@@ -156,11 +156,11 @@ The AU and the VST3 are separate and cannot see each other, so load both the mai
 1. Load Magic Dust (VST3) on a MIDI track.
    This is the main one, with the full screen.
 2. Make a second MIDI track and load Magic Dust (VST3) on it too.
-   It opens as "magic dust sender".
+   It opens as the sender view, with "MAGIC DUST SENDER" at the top.
    A new sender starts on chords, the first lane nobody sends, so the main one's organ goes quiet at once.
 3. Click the lane you want to send: chords, bass or melody.
    The main one's built-in sound for any lane being sent is silent while it is sent.
-   The light on the key shows your pick, and the status line says "sending bass from magic dust" (or the lane you picked).
+   The LED above the key shows your pick, and the status line says "sending bass from magic dust" (or the lane you picked).
    If it says "no magic dust found", load Magic Dust on another track first.
 4. Make a third track and load your own instrument on it.
 5. On that instrument track, set MIDI From to the sender track.

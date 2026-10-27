@@ -132,7 +132,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 ### 1. Wordmark
 
 - "MAGIC DUST" in the serif face, with the tagline "HOUSE MUSIC IDEA ENGINE" after it.
-- Not interactive yet (the about panel comes later).
+- A button that opens the about panel (see "About panel"), with the title "about magic dust".
 
 ### 2. Speaker grille
 
@@ -273,15 +273,30 @@ Rerolling or swapping a pinned item changes nothing and shows "unpin it first" (
 ### Sender screen
 
 - Shown by any Magic Dust instance that sends one lane to another track (see `docs/DECISIONS.md`).
-  It is 520 x 240 px, on the body material, and scales and resizes like the main window.
-- Title "magic dust sender" at 27, 27: the wordmark style (Space Grotesk 700, 27 px, letter spacing -0.5 px, `ink`).
-- Keycaps "chords", "bass" and "melody" at y 100, 82 px wide, 12 px apart, starting at x 27.
-  Each has an LED in its lane colour (chords `violet`, bass `magenta`, melody `cyan`), lit on the lane being sent.
+  It is 520 x 240 px and scales and resizes like the main window.
+- The faceplate fills the whole window: walnut cheeks at (0, 0, 26, 240) and (494, 0, 26, 240), and screws 8 px in from each corner of the face.
+- "MAGIC DUST" in the serif face, 20 px, at x 50 and centred on y 34, with the tagline "SENDER" (14 px) 14 px after it.
+- Keys in the console key material, 72 x 24 px at x 50, 134 and 218, with their top at y 104.
+  Their legends "CHORDS", "BASS" and "MELODY" sit below at y 136.
+  Each has an LED above it in its lane cap colour (chords `cap-chords`, bass `cap-bass`, melody `cap-melody`), lit on the lane being sent.
   Clicking a key selects that lane.
-- A fourth keycap "full magic dust", 120 px wide, 24 px to the right of the third, at x 321.
+- A fourth key, "FULL MAGIC DUST", 120 x 24 px at x 322, with its legend below and no LED.
   Clicking it turns the instance into a full Magic Dust and the window becomes the main window.
-- All four keys use the keycap material; the label is Space Mono 10 px, `ink`, centred.
-- Status text at 27, 200, Space Mono 11 px, `ink-status`: "sending bass from magic dust" (the chosen lane), or "no magic dust found - load magic dust on another track first" when there is no main instance to follow.
+- The status window at (50, 176, 420, 28) uses the readout window material, with Space Mono 11 px `ink` text that ends in an ellipsis if it is too long: "sending bass from magic dust" (the chosen lane), or "no magic dust found - load magic dust on another track first" when there is no main instance to follow.
+
+### About panel
+
+- Opened by clicking the wordmark or pressing Space or Enter on it.
+  It is a child of the main view, over the display's inner rect (57, 89, 666, 300), in the display's cream.
+- Centred lines, in `ink`, 12 px apart:
+  - "MAGIC DUST" in the serif face, 26 px,
+  - "version " and the plugin's version, Space Mono 12 px,
+  - "Mark Stent Digital", Space Grotesk 500, 13 px,
+  - "open source under AGPLv3", Space Mono 11 px,
+  - the link "github.com/markstent/magic_dust_vst", underlined, Space Mono 11 px, which opens `https://github.com/markstent/magic_dust_vst`.
+- The panel takes the keyboard focus when it opens.
+  Escape, a click on the panel (except on the link) or a click or focus move anywhere else in the editor closes it, and Escape or a click on the panel gives focus back to the wordmark.
+- Its title is "about magic dust, version X.Y.Z, mark stent digital".
 
 ### Spells panel
 
@@ -303,23 +318,24 @@ Rerolling or swapping a pinned item changes nothing and shows "unpin it first" (
 | --- | --- | --- | --- |
 | Notes | A lane is regenerated | Each note fades in while scaling 0.1, then 1.3, then 1. Each note's delay is its horizontal position in percent times 3.2 ms, capped at 320 ms, so the dust sweeps left to right. | 420 ms, cubic-bezier(0.2, 0.8, 0.2, 1) |
 | Chord name | A chord changes | Fades in while scaling 0.5, then 1.12, then 1 | 380 ms, ease-out |
-| Encoder pointer | The value changes | Rotates to the new angle | 120 ms, ease-out |
-| Key | Pressed | Moves down 3 px; the base shadow shrinks | 80 ms, ease-out |
+| Knob pointer | The value changes | Rotates to the new angle | 120 ms, ease-out |
+| Key | Pressed | Moves down 1 px; the base shadow shrinks | 80 ms, ease-out |
 | LED | Turns on or off | Colour and glow fade | 120 ms |
 | Bubble | Pinned or playing state changes | Fill and ring fade | 120 ms, ease-out |
-| Speaker grille | Preview playing | Brightness 100%, 108%, 100% once per beat | One beat, ease-in-out, repeating |
 
 Pinned parts never animate when other parts regenerate.
 A "motion" setting turns every animation off, and the plugin also turns them off when macOS "Reduce motion" is on.
 
 ## Accessibility
 
-- Every interactive element is keyboard-focusable in reading order: top line, bubbles, lanes, aura pad, status fields, encoders, then keys from left to right.
-- Focus ring: 2 px `focus`, 3 px outside the element on the body; 2 px `gold` on the screen.
-- Every control has an accessible title through `juce::AccessibilityHandler`, for example "Chord 1, Am9, home, pinned", "bass encoder, rolling offbeat, pinned" and "Pin the selected chord or lane".
-  Encoders also report their value.
+- Every interactive element is keyboard-focusable in this order: the wordmark, the style and key windows, the chord cells, the lanes, the mood, energy, groove and flavour knobs, the three level knobs, play, stop, sprinkle, then the volume knob.
+  The sender view's order is its three lane keys, then "full magic dust".
+- Focus ring: 2 px `ink` on cream surfaces, 2 px `legend` on the metal faceplate.
+- Every control has an accessible title through `juce::AccessibilityHandler`, for example "chord 1, Am9, home", "mood", "chords level", "play the preview" and "about magic dust".
+  Knobs also report their value.
+- Arrow keys step a knob; the wordmark, keys and cells answer Space and Enter.
 - Text contrast is at least 4.5:1 against its background.
-- Colour never carries meaning alone: lanes, encoders and LEDs always sit next to a text label.
+- Colour never carries meaning alone: lanes, knobs and LEDs always sit next to a text label.
 
 ## JUCE component map
 
@@ -335,6 +351,8 @@ A "motion" setting turns every animation off, and the plugin also turns them off
 | `md-spells` | `SpellsPanel` | Child of the screen, not a separate window |
 | `md-toast` | `Toast` | Child of the screen; hidden by a timer |
 | `md-encoder` | `Encoder` (x4) | Subclass of `juce::Slider` in `RotaryVerticalDrag` mode with custom drawing; a click without drag is the push |
-| `md-key` | `KeyButton` | Custom `juce::Button` with an optional LED |
+| `md-key` | `KeyButton` | Custom `juce::Button` with an optional LED; the sender view uses it for its lane keys and the full key |
+| `md-wordmark` | `WordmarkButton` | A `juce::Button` over the wordmark; draws only its focus ring |
+| `md-about` | `AboutPanel` | Child of the main view over the display; holds a `juce::HyperlinkButton` |
 | `md-key--gold` | `SprinkleKey` | |
 | `md-key--drag` | `BottleKey` | Starts an external drag of the multi-track MIDI file |

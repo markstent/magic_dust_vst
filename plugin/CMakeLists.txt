@@ -54,9 +54,11 @@ add_library(md_plugin_core STATIC PluginProcessor.cpp PluginEditor.cpp Playback.
   ${CMAKE_SOURCE_DIR}/ui/Fonts.cpp ${CMAKE_SOURCE_DIR}/ui/ChordCell.cpp ${CMAKE_SOURCE_DIR}/ui/LaneView.cpp
   ${CMAKE_SOURCE_DIR}/ui/Faceplate.cpp ${CMAKE_SOURCE_DIR}/ui/Readout.cpp ${CMAKE_SOURCE_DIR}/ui/TopLine.cpp ${CMAKE_SOURCE_DIR}/ui/ScreenComponent.cpp
   ${CMAKE_SOURCE_DIR}/ui/KeyButton.cpp ${CMAKE_SOURCE_DIR}/ui/SprinkleKey.cpp
-  ${CMAKE_SOURCE_DIR}/ui/BodyMaterial.cpp ${CMAKE_SOURCE_DIR}/ui/SenderEditor.cpp
+  ${CMAKE_SOURCE_DIR}/ui/AboutPanel.cpp ${CMAKE_SOURCE_DIR}/ui/SenderEditor.cpp
   ${CMAKE_SOURCE_DIR}/ui/Knob.cpp)
 target_include_directories(md_plugin_core PUBLIC ${CMAKE_SOURCE_DIR})
+# The about panel shows the version juce_add_plugin takes from project(VERSION).
+target_compile_definitions(md_plugin_core PUBLIC JucePlugin_VersionString="${PROJECT_VERSION}")
 target_link_libraries(md_plugin_core
   PUBLIC md_juce_headers md_engine md_bank md_midiexport
   PRIVATE MdFonts juce::juce_recommended_warning_flags)

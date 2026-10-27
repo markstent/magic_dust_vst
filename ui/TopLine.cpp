@@ -82,7 +82,7 @@ void ReadoutWindow::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*
 {
     const auto bounds = getLocalBounds().toFloat();
     paintCreamWindow(g, bounds, t::layout::readoutBorder, t::layout::readoutRadius,
-                     juce::Colour(0xFFFFBE5A).withAlpha(0.6F), t::layout::readoutGlow);
+                     t::console::readoutGlowColour, t::layout::readoutGlow);
     g.setFont(font(Face::monoBold, t::layout::readoutTextSize));
     g.setColour(t::console::ink);
     g.drawText(text_.toUpperCase(),

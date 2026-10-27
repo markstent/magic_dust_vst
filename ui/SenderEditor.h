@@ -12,18 +12,6 @@ class MagicDustProcessor;
 namespace md::ui
 {
 
-// A keycap with just its label, centred.
-class LabelKey : public KeyButton
-{
-  public:
-    LabelKey(const juce::String& label, std::optional<juce::Colour> led);
-
-  protected:
-    void paintContent(juce::Graphics& g, juce::Rectangle<float> face) const override;
-
-    MD_COMPONENT_BOILERPLATE(LabelKey)
-};
-
 // What a sender instance shows, at its logical 520 x 240 size: pick the lane it sends, or become
 // a full Magic Dust.
 class SenderBody : public juce::Component
@@ -33,12 +21,14 @@ class SenderBody : public juce::Component
 
     void refresh();
     [[nodiscard]] const juce::String& status() const { return status_; }
+    // The status as drawn: cut short with an ellipsis to fit its window.
+    [[nodiscard]] juce::String drawnStatus() const;
     void paint(juce::Graphics& g) override;
 
   private:
     MagicDustProcessor& processor_;
-    std::array<LabelKey, 3> laneKeys_;
-    LabelKey mainKey_;
+    std::array<KeyButton, 3> laneKeys_;
+    KeyButton mainKey_;
     juce::String status_;
 
     MD_COMPONENT_BOILERPLATE(SenderBody)

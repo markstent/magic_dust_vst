@@ -8,16 +8,9 @@ namespace md::tokens
 {
 
 // Colours, named as in the visual spec's colour token table.
-inline const juce::Colour body{0xFFDCDDE0};
-inline const juce::Colour bodyEdge{0xFFB4B6BB};
-inline const juce::Colour grille{0xFFCFD0D4};
-inline const juce::Colour grilleEdge{0xFFBFC1C6};
-inline const juce::Colour grilleDot{0xFF85878E};
-inline const juce::Colour ink{0xFF24252B};
 inline const juce::Colour inkQuiet{0xFF5E6068};
 inline const juce::Colour inkValue{0xFF3B3D44};
 inline const juce::Colour inkFaint{0xFF6A6C74};
-inline const juce::Colour inkStatus{0xFF4A4C54};
 inline const juce::Colour screen{0xFF050507};
 inline const juce::Colour bezel{0xFF1B1C20};
 inline const juce::Colour screenInk{0xFFF2F2F5};
@@ -65,26 +58,12 @@ inline const juce::Colour walnutB{0xFF4B2E1B};
 inline const juce::Colour walnutC{0xFF35200F};
 inline const juce::Colour knobLight{0xFF4B4B4B};
 inline const juce::Colour knobDark{0xFF141414};
+inline const juce::Colour readoutGlowColour = juce::Colour(0xFFFFBE5A).withAlpha(0.6F);
+inline const juce::Colour tagline{0xFFDFE3E8};
 } // namespace console
-
-// Body material.
-inline constexpr float bodyRadius = 28.0F;
-inline constexpr float bodyBorder = 1.0F;
-inline constexpr float brushWhiteAlpha = 0.09F;
-inline constexpr float brushBlackAlpha = 0.025F;
-inline constexpr int brushPeriod = 3;
-inline constexpr float highlightAlpha = 0.75F;
-
-// Screen material.
-inline constexpr float screenRadius = 20.0F;
-inline constexpr float bezelWidth = 7.0F;
 
 // Type sizes in px.
 inline constexpr float topLineSize = 13.0F; // popup menu text
-inline constexpr float statusLineSize = 11.0F;
-inline constexpr float keyLabelSize = 10.0F; // text inside the sender keys
-inline constexpr float wordmarkSize = 27.0F;
-inline constexpr float wordmarkSpacing = -0.5F; // px between letters
 
 // Motion, in ms.
 inline constexpr double keyPressMs = 80.0;
@@ -184,7 +163,6 @@ inline constexpr float knobDiameter = 56.0F;
 inline constexpr std::array<int, 2> knobColumnX{809, 927};
 inline constexpr std::array<int, 2> knobFaceY{116, 262};
 
-inline constexpr int keySize = 82; // the sender screen's keys
 // The bottom band: the lane group, its three columns and the knobs in them.
 inline const juce::Rectangle<int> laneGroup{54, 420, 372, 146};
 inline constexpr float laneGroupRadius = 4.0F;
@@ -225,13 +203,27 @@ inline constexpr int keyRepaintMargin = 24; // above and below a key, for its LE
 // The sender screen (visual spec, "Sender screen").
 inline constexpr int senderWidth = 520;
 inline constexpr int senderHeight = 240;
-inline constexpr int senderKeyX = 27;
-inline constexpr int senderKeyY = 100;
-inline constexpr int senderKeyPitch = 94; // a key's width plus the 12 px gap
-inline constexpr int senderMainKeyX = 321;
+inline constexpr int senderTitleX = 50;
+inline constexpr int senderTitleCentreY = 34;
+inline constexpr float senderTitleSize = 20.0F;
+inline constexpr float senderTaglineSize = 14.0F;
+inline constexpr int senderTaglineGap = 14;
+inline constexpr std::array<int, 3> senderKeyX{50, 134, 218};
+inline constexpr int senderKeyY = 104;
+inline constexpr int senderKeyWidth = 72;
+inline constexpr int senderKeyHeight = 24;
+inline constexpr int senderMainKeyX = 322;
 inline constexpr int senderMainKeyWidth = 120;
-inline const juce::Rectangle<int> senderTitle{27, 27, 466, 29};
-inline const juce::Rectangle<int> senderStatus{27, 200, 466, 16};
+inline const juce::Rectangle<int> senderStatus{50, 176, 420, 28};
+inline constexpr float senderStatusSize = 11.0F;
+
+// The about panel: the display's inner rect, and its lines, centred, in order.
+inline const juce::Rectangle<int> aboutPanel{57, 89, 666, 300};
+inline constexpr int aboutLineGap = 12;
+inline constexpr float aboutTitleSize = 26.0F;
+inline constexpr float aboutVersionSize = 12.0F;
+inline constexpr float aboutOwnerSize = 13.0F;
+inline constexpr float aboutSmallSize = 11.0F;
 inline constexpr float focusRingOffset = 3.0F;
 inline constexpr float focusRingStroke = 2.0F; // the screen's focus outline, drawn just inside
 } // namespace layout

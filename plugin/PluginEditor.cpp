@@ -8,7 +8,10 @@
 
 #include "PluginProcessor.h"
 #include "plugin/DragFiles.h"
+#include "ui/AboutPanel.h"
+#include "ui/Boilerplate.h"
 #include "ui/Faceplate.h"
+#include "ui/Focus.h"
 #include "ui/Fonts.h"
 #include "ui/KeyButton.h"
 #include "ui/Knob.h"
@@ -26,6 +29,7 @@ namespace
 // The knobs' cap colour: the console's neutral grey.
 const juce::Colour kKnobCap{0xFF8A8F96};
 
+constexpr float kWordmarkRingRadius = 3.0F;
 constexpr int kContinuousKnobHeight = 100;
 constexpr int kSteppedKnobHeight = 112;
 
@@ -63,6 +67,29 @@ md::ui::KnobLook volumeLook()
             .resetValue = 0.8};
 }
 
+// The wordmark as a button: it only draws its focus ring, the body paints the lettering.
+class WordmarkButton : public juce::Button
+{
+  public:
+    WordmarkButton() : juce::Button("about magic dust")
+    {
+        setComponentID("wordmark");
+        setTitle("about magic dust");
+        setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    }
+
+    void paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down*/) override
+    {
+        if (hasKeyboardFocus(true))
+        {
+            md::ui::drawFocusRing(g, getLocalBounds().toFloat(), kWordmarkRingRadius,
+                                  t::console::legend);
+        }
+    }
+
+    MD_COMPONENT_BOILERPLATE(WordmarkButton)
+};
+
 } // namespace
 
 // The instrument body, drawn at the logical 1040 x 600 size; the editor scales it as a whole.
@@ -83,18 +110,22 @@ class MagicDustEditor::Body : public juce::Component
           stopKey_("stop", std::nullopt)
     {
         setBounds(0, 0, t::layout::windowWidth, t::layout::windowHeight);
+        wordmark_.setBounds(md::ui::wordmarkBounds());
+        wordmark_.setExplicitFocusOrder(1);
+        wordmark_.onClick = [this] { about_.open(); };
+        addAndMakeVisible(wordmark_);
         topLine_.setBounds(t::layout::header);
-        topLine_.setExplicitFocusOrder(1);
+        topLine_.setExplicitFocusOrder(2);
         addAndMakeVisible(topLine_);
         screen_.setBounds(t::layout::display);
-        screen_.setExplicitFocusOrder(2);
+        screen_.setExplicitFocusOrder(3);
         screen_.setOnStatus([this](std::optional<std::string> status)
                             { setFileError(std::move(status)); });
         addAndMakeVisible(screen_);
-        addKnob(mood_, "moodKnob", 0, 0, 3);
-        addKnob(energy_, "energyKnob", 1, 0, 4);
-        addKnob(groove_, "grooveKnob", 0, 1, 5);
-        addKnob(flavour_, "flavourKnob", 1, 1, 6);
+        addKnob(mood_, "moodKnob", 0, 0, 4);
+        addKnob(energy_, "energyKnob", 1, 0, 5);
+        addKnob(groove_, "grooveKnob", 0, 1, 6);
+        addKnob(flavour_, "flavourKnob", 1, 1, 7);
 
         addLevelKnobs();
 
@@ -102,30 +133,33 @@ class MagicDustEditor::Body : public juce::Component
                {.id = "playKey",
                 .title = "play the preview",
                 .bounds = t::layout::playKey,
-                .focusOrder = 10},
+                .focusOrder = 11},
                [this] { processor_.play(); });
         addKey(stopKey_,
                {.id = "stopKey",
                 .title = "stop the preview",
                 .bounds = t::layout::stopKey,
-                .focusOrder = 11},
+                .focusOrder = 12},
                [this] { processor_.stop(); });
         addKey(sprinkleKey_,
                {.id = "sprinkleKey",
                 .title = "sprinkle a new idea",
                 .bounds = t::layout::sprinkleKey,
-                .focusOrder = 12},
+                .focusOrder = 13},
                [this]
                {
                    processor_.sprinkle();
                    screen_.refresh();
                });
         volume_.setComponentID("volumeKnob");
-        volume_.setExplicitFocusOrder(13);
+        volume_.setExplicitFocusOrder(14);
         volume_.setBounds(t::layout::volumeKnobCentreX - (t::layout::volumeKnobWidth / 2),
                           t::layout::volumeKnobCentreY - volume_.faceBounds().getCentreY(),
                           t::layout::volumeKnobWidth, t::layout::volumeKnobHeight);
         addAndMakeVisible(volume_);
+        about_.setBounds(t::layout::aboutPanel);
+        about_.setOnClose([this] { wordmark_.grabKeyboardFocus(); });
+        addChildComponent(about_);
         md::cleanDragFolder();
         refresh();
     }
@@ -188,7 +222,7 @@ class MagicDustEditor::Body : public juce::Component
             auto& knob = levels_.at(i);
             knob.setComponentID("level" + juce::String(i));
             knob.setTitle(juce::String(md::ui::laneLook(kLanes.at(i)).label) + " level");
-            knob.setExplicitFocusOrder(7 + static_cast<int>(i));
+            knob.setExplicitFocusOrder(8 + static_cast<int>(i));
             knob.setSize(t::layout::levelKnobWidth, t::layout::levelKnobHeight);
             knob.setTopLeftPosition(laneColumnX(i) + t::layout::levelKnobOffsetX -
                                         (t::layout::levelKnobWidth / 2),
@@ -251,6 +285,8 @@ class MagicDustEditor::Body : public juce::Component
     }
 
     MagicDustProcessor& processor_;
+    WordmarkButton wordmark_;
+    md::ui::AboutPanel about_;
     md::ui::TopLine topLine_;
     md::ui::ScreenComponent screen_;
     md::ui::Knob mood_;
@@ -332,7 +368,7 @@ void MagicDustEditor::sync()
     }
 }
 
-void MagicDustEditor::paint(juce::Graphics& g) { g.fillAll(t::body); }
+void MagicDustEditor::paint(juce::Graphics& g) { g.fillAll(t::console::faceBottom); }
 
 void MagicDustEditor::resized() { updateScale(); }
 

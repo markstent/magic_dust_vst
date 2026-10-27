@@ -115,22 +115,34 @@ int taglineRight()
     return taglineLeft() + juce::GlyphArrangement::getStringWidthInt(taglineFont(), kTagline);
 }
 
+namespace
+{
+
+juce::Rectangle<int> headerLine()
+{
+    return {0, t::layout::headerCentreY - (kLineHeight / 2), 0, kLineHeight};
+}
+
+} // namespace
+
+juce::Rectangle<int> wordmarkBounds()
+{
+    return headerLine()
+        .withX(t::layout::wordmarkX)
+        .withWidth(juce::GlyphArrangement::getStringWidthInt(wordmarkFont(), kWordmark) +
+                   kTextSlack);
+}
+
 void paintWordmark(juce::Graphics& g)
 {
-    const juce::Rectangle<int> line(0, t::layout::headerCentreY - (kLineHeight / 2), 0,
-                                    kLineHeight);
-    const auto title = wordmarkFont();
-    g.setFont(title);
+    const auto line = headerLine();
+    g.setFont(wordmarkFont());
     g.setColour(c::legend);
-    g.drawText(
-        kWordmark,
-        line.withX(t::layout::wordmarkX)
-            .withWidth(juce::GlyphArrangement::getStringWidthInt(title, kWordmark) + kTextSlack),
-        juce::Justification::centredLeft, false);
+    g.drawText(kWordmark, wordmarkBounds(), juce::Justification::centredLeft, false);
 
     const auto tagline = taglineFont();
     g.setFont(tagline);
-    g.setColour(juce::Colour(0xFFDFE3E8));
+    g.setColour(c::tagline);
     g.drawText(
         kTagline,
         line.withX(taglineLeft())

@@ -18,6 +18,7 @@
 #include "md/theory.hpp"
 #include "plugin/PluginEditor.h"
 #include "plugin/PluginProcessor.h"
+#include "ui/AboutPanel.h"
 #include "ui/ChordCell.h"
 #include "ui/Drag.h"
 #include "ui/Faceplate.h"
@@ -461,7 +462,8 @@ TEST_CASE("moving 4 px is a click and moving 5 px is a drag", "[editor]")
     CHECK(screen.selection().kind == md::ui::Selection::Kind::none);
 }
 
-TEST_CASE("tab visits the header, cells, lanes, knobs, levels, keys, then volume", "[editor]")
+TEST_CASE("tab visits the wordmark, header, cells, lanes, knobs, levels, keys, then volume",
+          "[editor]")
 {
     Fixture f;
     f.idea(4);
@@ -474,9 +476,9 @@ TEST_CASE("tab visits the header, cells, lanes, knobs, levels, keys, then volume
         current = traverser.getNextComponent(current);
     }
     const std::vector<std::string> expected{
-        "styleMenu", "keyMenu", "cell0",    "cell1",      "cell2",       "cell3",       "lane0",
-        "lane1",     "lane2",   "moodKnob", "energyKnob", "grooveKnob",  "flavourKnob", "level0",
-        "level1",    "level2",  "playKey",  "stopKey",    "sprinkleKey", "volumeKnob"};
+        "wordmark", "styleMenu", "keyMenu", "cell0",    "cell1",      "cell2",       "cell3",
+        "lane0",    "lane1",     "lane2",   "moodKnob", "energyKnob", "grooveKnob",  "flavourKnob",
+        "level0",   "level1",    "level2",  "playKey",  "stopKey",    "sprinkleKey", "volumeKnob"};
     CHECK(order == expected);
 }
 
@@ -599,6 +601,9 @@ TEST_CASE("every control has an accessible title", "[editor]")
     CHECK(f.find("styleMenu").getTitle().startsWith("style, "));
     CHECK(f.find("keyMenu").getTitle() == "key, a min");
     CHECK(f.find("tempoReadout").getTitle() == "tempo, 124.0");
+    CHECK(f.find("wordmark").getTitle() == "about magic dust");
+    CHECK(f.find("aboutPanel").getTitle() == juce::String("about magic dust, version ") +
+                                                 JucePlugin_VersionString + ", mark stent digital");
     CHECK(f.find("playKey").getTitle() == "play the preview");
     CHECK(f.find("stopKey").getTitle() == "stop the preview");
     CHECK(f.find("sprinkleKey").getTitle() == "sprinkle a new idea");
@@ -716,6 +721,52 @@ TEST_CASE("at 0.8x every child stays inside the editor", "[editor]")
     CHECK_FALSE(outside(outside, *f.editor));
 }
 
+TEST_CASE("wordmark opens about", "[editor][about]")
+{
+    Fixture f;
+    auto& panel = f.find<md::ui::AboutPanel>("aboutPanel");
+    CHECK_FALSE(panel.isVisible());
+    CHECK(f.boundsOf("aboutPanel") == Rect{57, 89, 666, 300});
+    click(f.find("wordmark"), {10.0F, 10.0F});
+    CHECK(panel.isVisible());
+    const auto text = md::ui::AboutPanel::lines().joinIntoString("\n");
+    CHECK(text.contains(JucePlugin_VersionString));
+    CHECK(text.contains("Mark Stent Digital"));
+}
+
+TEST_CASE("escape closes the about panel and focus goes to the wordmark", "[editor][about]")
+{
+    Fixture f;
+    auto& panel = f.find<md::ui::AboutPanel>("aboutPanel");
+    auto* wordmark = &f.find("wordmark");
+    int closed = 0;
+    panel.setOnClose([&closed] { ++closed; });
+    panel.open();
+    CHECK_FALSE(panel.keyPressed(juce::KeyPress(juce::KeyPress::returnKey)));
+    CHECK(panel.isVisible());
+    CHECK(panel.keyPressed(juce::KeyPress(juce::KeyPress::escapeKey)));
+    CHECK_FALSE(panel.isVisible());
+    CHECK(closed == 1);
+    CHECK(wordmark->isVisible());
+}
+
+TEST_CASE("a click on the about panel closes it", "[editor][about]")
+{
+    Fixture f;
+    auto& panel = f.find<md::ui::AboutPanel>("aboutPanel");
+    panel.open();
+    click(panel, {5.0F, 5.0F});
+    CHECK_FALSE(panel.isVisible());
+}
+
+TEST_CASE("the about link opens the project page", "[editor][about]")
+{
+    Fixture f;
+    auto& link = f.find<juce::HyperlinkButton>("aboutLink");
+    CHECK(link.getURL() == juce::URL("https://github.com/markstent/magic_dust_vst"));
+    CHECK(link.getButtonText() == "github.com/markstent/magic_dust_vst");
+}
+
 TEST_CASE("opening and closing the editor leaks nothing", "[editor]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -740,9 +791,9 @@ struct SenderFixture
 
     SenderFixture() { REQUIRE(processor.mode() == InstanceMode::sender); }
 
-    md::ui::LabelKey& key(const char* id) const
+    md::ui::KeyButton& key(const char* id) const
     {
-        auto* found = dynamic_cast<md::ui::LabelKey*>(Fixture::search(*editor, id));
+        auto* found = dynamic_cast<md::ui::KeyButton*>(Fixture::search(*editor, id));
         REQUIRE(found != nullptr);
         return *found;
     }
@@ -771,22 +822,44 @@ TEST_CASE("a sender opens the sender screen at 520 x 240", "[editor][sender]")
         auto& c = f.key(id);
         return f.editor->getLocalArea(&c, c.getLocalBounds());
     };
-    CHECK(bounds("senderKey-chords") == Rect{27, 100, 82, 82});
-    CHECK(bounds("senderKey-bass") == Rect{121, 100, 82, 82});
-    CHECK(bounds("senderKey-melody") == Rect{215, 100, 82, 82});
-    CHECK(bounds("senderMainKey") == Rect{321, 100, 120, 82});
+    CHECK(bounds("senderKey-chords") == Rect{50, 104, 72, 24});
+    CHECK(bounds("senderKey-bass") == Rect{134, 104, 72, 24});
+    CHECK(bounds("senderKey-melody") == Rect{218, 104, 72, 24});
+    CHECK(bounds("senderMainKey") == Rect{322, 104, 120, 24});
 }
 
 TEST_CASE("clicking a lane key picks the lane and lights only its LED", "[editor][sender]")
 {
     SenderFixture f;
     f.key("senderKey-melody").setAnimated(false);
-    click(f.key("senderKey-melody"), {40.0F, 40.0F});
+    click(f.key("senderKey-melody"), {30.0F, 12.0F});
     CHECK(f.processor.senderLane() == md::LaneId::melody);
     CHECK(f.key("senderKey-melody").isLit());
     CHECK_FALSE(f.key("senderKey-chords").isLit());
     CHECK_FALSE(f.key("senderKey-bass").isLit());
     CHECK(f.body().status() == "sending melody from magic dust");
+}
+
+TEST_CASE("the longest sender status fits inside its window whole", "[editor][sender]")
+{
+    SenderFixture f;
+    f.main = nullptr;
+    f.body().refresh();
+    const auto drawn = f.body().drawnStatus();
+    CHECK(drawn == f.body().status());
+    const auto status = md::ui::font(md::ui::Face::monoRegular, 11.0F);
+    CHECK(juce::GlyphArrangement::getStringWidth(status, drawn) <= 420.0F - 8.0F);
+}
+
+TEST_CASE("the sender lane keys carry their lane colours and the main key no LED",
+          "[editor][sender]")
+{
+    SenderFixture f;
+    f.key("senderKey-chords").setAnimated(false);
+    f.processor.setSenderLane(md::LaneId::chords);
+    f.body().refresh();
+    CHECK(f.key("senderKey-chords").isLit());
+    CHECK_FALSE(f.key("senderMainKey").isLit());
 }
 
 TEST_CASE("the sender status follows whether a main instance exists", "[editor][sender]")
@@ -804,7 +877,7 @@ TEST_CASE("full magic dust turns the instance main and the editor becomes the ma
           "[editor][sender]")
 {
     SenderFixture f;
-    click(f.key("senderMainKey"), {40.0F, 40.0F});
+    click(f.key("senderMainKey"), {40.0F, 12.0F});
     CHECK(f.processor.mode() == InstanceMode::main);
     dynamic_cast<MagicDustEditor&>(*f.editor).sync();
     CHECK(f.editor->getWidth() == 1040);
@@ -909,6 +982,8 @@ TEST_CASE("render the editor", "[.render]")
     write("editor-100.png", 1040, 1.0F);
     write("editor-150.png", 1560, 1.0F);
     write("editor-200.png", 1040, 2.0F);
+    f.find<md::ui::AboutPanel>("aboutPanel").setVisible(true);
+    write("about-100.png", 1040, 1.0F);
 }
 
 // Renders the sender screen to PNGs in $MD_RENDER_DIR; does nothing when the variable is not set.

@@ -13,6 +13,8 @@ void paintFaceplate(juce::Graphics& g, juce::Rectangle<float> bounds);
 // of the readout windows.
 void paintWordmark(juce::Graphics& g);
 int taglineRight();
+// The wordmark's own box, for the button that sits over it.
+juce::Rectangle<int> wordmarkBounds();
 
 // Paints a backlit cream window: a bezel border, the cream gradient and an inner glow.
 void paintCreamWindow(juce::Graphics& g, juce::Rectangle<float> bounds, float border, float radius,
