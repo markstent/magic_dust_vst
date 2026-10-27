@@ -72,9 +72,35 @@ void Link::retire(std::chrono::steady_clock::time_point now)
     std::erase_if(retired_, [cutoff](const Retired& r) { return r.at < cutoff; });
 }
 
+void Link::dropMainLocked(const void* owner)
+{
+    std::erase(mains_, owner);
+    oldest_.store(mains_.empty() ? nullptr : mains_.front());
+}
+
+void Link::registerMain(const void* owner)
+{
+    const std::scoped_lock lock(mutex_);
+    if (std::ranges::find(mains_, owner) == mains_.end())
+    {
+        mains_.push_back(owner);
+        oldest_.store(mains_.front());
+    }
+}
+
+void Link::addSender(md::LaneId lane) { ++senders_.at(static_cast<std::size_t>(lane)); }
+
+void Link::removeSender(md::LaneId lane) { --senders_.at(static_cast<std::size_t>(lane)); }
+
+int Link::sendersFor(md::LaneId lane) const
+{
+    return senders_.at(static_cast<std::size_t>(lane)).load();
+}
+
 void Link::remove(const void* owner)
 {
     const std::scoped_lock lock(mutex_);
+    dropMainLocked(owner);
     if (Slot* slot = find(owner))
     {
         slot->owner.store(nullptr);

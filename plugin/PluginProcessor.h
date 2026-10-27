@@ -14,6 +14,12 @@
 #include "plugin/AuditionSynth.h"
 #include "plugin/Playback.h"
 
+enum class InstanceMode : std::uint8_t
+{
+    main,
+    sender
+};
+
 class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
 {
   public:
@@ -62,6 +68,13 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     [[nodiscard]] double previewPpq() const { return previewPpq_.load(); }
     [[nodiscard]] std::optional<double> hostBpm() const;
     void auditionChord(std::size_t slot);
+    [[nodiscard]] InstanceMode mode() const { return mode_.load(); }
+    [[nodiscard]] md::LaneId senderLane() const { return senderLane_.load(); }
+    void setSenderLane(md::LaneId lane);
+    // Turns a sender into a main instance with an idea of its own.
+    void becomeMain();
+    // True when a main instance exists for a sender to follow.
+    [[nodiscard]] static bool senderLinked();
     // The 30 Hz timer's work, public so tests can run it with fake times.
     void tick(juce::int64 nowMs);
 
@@ -96,14 +109,24 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
 
     Transport readTransport();
     void releaseAllNotes(juce::MidiBuffer& midi);
+    void enterMain();
+    void enterSender(md::LaneId lane);
+    void mainBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi,
+                   const md::PlaybackPattern* pattern, const Transport& t);
+    void senderBlock(juce::MidiBuffer& midi, int numSamples, const md::PlaybackPattern* pattern,
+                     const Transport& t);
+    void muteSentLanes();
     void startAudition(double bpm);
     void endAudition();
     void renderVoices(juce::AudioBuffer<float>& buffer, int start, int num);
+    bool emitMidi(const md::PlayEvent& e, juce::MidiBuffer& midi, int offset);
     void emitEvent(const md::PlayEvent& e, juce::MidiBuffer& midi, int offset);
     md::AuditionSynth& voiceFor(int channel);
 
     std::optional<md::Bank> bank_;
     const std::atomic<float>* volume_;
+    std::atomic<InstanceMode> mode_{InstanceMode::main};
+    std::atomic<md::LaneId> senderLane_{md::LaneId::chords};
     std::optional<md::Idea> idea_;
     std::optional<std::string> lastError_;
     std::uint32_t seed_ = 0;
@@ -130,6 +153,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     md::SoundingNotes sounding_;
     const md::PlaybackPattern* lastPattern_ = nullptr;
     Source lastSource_ = Source::none;
+    std::array<bool, 3> laneSent_{}; // a sender plays the lane, so the built-in sound is muted
     double expectedPpq_ = 0.0;
     double bpm_ = 120.0;
     double sampleRate_ = 48000.0;

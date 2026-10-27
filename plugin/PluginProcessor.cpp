@@ -94,6 +94,19 @@ void addMidi(juce::MidiBuffer& midi, bool on, int channel, int note, int velocit
     midi.addEvent(bytes.data(), 3, offset);
 }
 
+// A new sender takes the first lane nobody sends yet, or bass when all have a sender.
+md::LaneId firstFreeLane(const Link& link)
+{
+    for (const md::LaneId lane : {md::LaneId::chords, md::LaneId::bass, md::LaneId::melody})
+    {
+        if (link.sendersFor(lane) == 0)
+        {
+            return lane;
+        }
+    }
+    return md::LaneId::bass;
+}
+
 } // namespace
 
 MagicDustProcessor::MagicDustProcessor() : MagicDustProcessor(tryLoadBank()) {}
@@ -103,11 +116,21 @@ MagicDustProcessor::MagicDustProcessor(std::optional<md::Bank> bank)
       params(*this, nullptr, "params", makeLayout()), bank_(std::move(bank)),
       volume_(params.getRawParameterValue("volume"))
 {
+    Link& link = Link::instance();
+    const bool sender = link.oldestMain() != nullptr;
+    if (sender)
+    {
+        enterSender(firstFreeLane(link));
+    }
+    else
+    {
+        link.registerMain(this);
+    }
     if (!bank_)
     {
         lastError_ = kBankFailed;
     }
-    else
+    else if (!sender)
     {
         seed_ =
             static_cast<std::uint32_t>(juce::Random::getSystemRandom().nextInt(md::kSeedMax + 1));
@@ -120,8 +143,63 @@ MagicDustProcessor::MagicDustProcessor(std::optional<md::Bank> bank)
 MagicDustProcessor::~MagicDustProcessor()
 {
     stopTimer();
-    Link::instance().remove(this);
+    Link& link = Link::instance();
+    link.remove(this);
+    if (mode_.load() == InstanceMode::sender)
+    {
+        link.removeSender(senderLane_.load());
+    }
 }
+
+void MagicDustProcessor::enterSender(md::LaneId lane)
+{
+    Link& link = Link::instance();
+    if (mode_.load() == InstanceMode::sender)
+    {
+        link.removeSender(senderLane_.load());
+    }
+    else
+    {
+        link.remove(this);
+        idea_.reset();
+    }
+    senderLane_.store(lane);
+    mode_.store(InstanceMode::sender);
+    link.addSender(lane);
+    releasePending_.store(true);
+}
+
+void MagicDustProcessor::enterMain()
+{
+    if (mode_.load() == InstanceMode::main)
+    {
+        return;
+    }
+    Link& link = Link::instance();
+    link.removeSender(senderLane_.load());
+    link.registerMain(this);
+    mode_.store(InstanceMode::main);
+    releasePending_.store(true);
+}
+
+void MagicDustProcessor::setSenderLane(md::LaneId lane)
+{
+    if (mode_.load() == InstanceMode::sender && lane != senderLane_.load())
+    {
+        enterSender(lane);
+    }
+}
+
+void MagicDustProcessor::becomeMain()
+{
+    if (mode_.load() == InstanceMode::sender)
+    {
+        enterMain();
+        sprinkle();
+    }
+}
+
+bool MagicDustProcessor::senderLinked() { return Link::instance().oldestMain() != nullptr; }
 
 md::Settings MagicDustProcessor::currentSettings() const
 {
@@ -213,7 +291,7 @@ void MagicDustProcessor::timerCallback() { tick(juce::Time::getMillisecondCounte
 void MagicDustProcessor::tick(juce::int64 nowMs)
 {
     Link::instance().retire();
-    if (!bank_)
+    if (!bank_ || mode_.load() != InstanceMode::main)
     {
         return;
     }
@@ -314,14 +392,24 @@ void MagicDustProcessor::endAudition()
     auditionPacked_ = 0;
 }
 
-void MagicDustProcessor::emitEvent(const md::PlayEvent& e, juce::MidiBuffer& midi, int offset)
+bool MagicDustProcessor::emitMidi(const md::PlayEvent& e, juce::MidiBuffer& midi, int offset)
 {
     if (!e.on && !sounding_.holds(e))
     {
-        return;
+        return false;
     }
     sounding_.apply(e);
     addMidi(midi, e.on, e.channel, e.note, e.velocity, offset);
+    return true;
+}
+
+void MagicDustProcessor::emitEvent(const md::PlayEvent& e, juce::MidiBuffer& midi, int offset)
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access): guarded
+    if (!emitMidi(e, midi, offset) || (e.channel < laneSent_.size() && laneSent_[e.channel]))
+    {
+        return;
+    }
     md::AuditionSynth& voice = voiceFor(e.channel);
     if (e.on)
     {
@@ -366,7 +454,9 @@ void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
     }
 
     const Transport t = readTransport();
-    const md::PlaybackPattern* pattern = Link::instance().current(this);
+    const bool sender = mode_.load() == InstanceMode::sender;
+    Link& link = Link::instance();
+    const md::PlaybackPattern* pattern = link.current(sender ? link.oldestMain() : this);
     const bool located = t.source == Source::host && lastSource_ == Source::host &&
                          std::abs(t.ppq - expectedPpq_) > kLocateBeats;
     if (release || located || t.source != lastSource_ || pattern != lastPattern_)
@@ -376,6 +466,63 @@ void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
     lastSource_ = t.source;
     lastPattern_ = pattern;
 
+    if (sender)
+    {
+        senderBlock(midi, numSamples, pattern, t);
+    }
+    else
+    {
+        mainBlock(buffer, midi, pattern, t);
+    }
+
+    internal_.advance(numSamples, t.bpm, sampleRate_);
+    expectedPpq_ = t.ppq + md::ppqForSamples(numSamples, t.bpm, sampleRate_);
+    previewPlaying_.store(t.source != Source::none);
+    previewPpq_.store(t.ppq);
+}
+
+// A sender plays only its lane's notes on that lane's channel, with no sound of its own.
+void MagicDustProcessor::senderBlock(juce::MidiBuffer& midi, int numSamples,
+                                     const md::PlaybackPattern* pattern, const Transport& t)
+{
+    // The main instance's internal clock does not drive senders.
+    if (pattern == nullptr || t.source != Source::host)
+    {
+        return;
+    }
+    const auto channel = static_cast<std::uint8_t>(senderLane_.load());
+    md::schedule(*pattern, t.ppq, t.bpm, sampleRate_, numSamples,
+                 [&](const md::ScheduledEvent& e)
+                 {
+                     if (e.event.channel == channel)
+                     {
+                         emitMidi(e.event, midi, e.sampleOffset);
+                     }
+                 });
+}
+
+// The built-in sound of a lane goes quiet while a sender plays that lane.
+void MagicDustProcessor::muteSentLanes()
+{
+    const Link& link = Link::instance();
+    for (int lane = 0; lane < 3; ++lane)
+    {
+        const bool sent = link.sendersFor(static_cast<md::LaneId>(lane)) > 0;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access): lane < 3
+        if (sent && !laneSent_[static_cast<std::size_t>(lane)])
+        {
+            voiceFor(lane).allNotesOff();
+        }
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access): lane < 3
+        laneSent_[static_cast<std::size_t>(lane)] = sent;
+    }
+}
+
+void MagicDustProcessor::mainBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi,
+                                   const md::PlaybackPattern* pattern, const Transport& t)
+{
+    const int numSamples = buffer.getNumSamples();
+    muteSentLanes();
     startAudition(t.bpm);
     // Each scheduled event splits the block, so every note starts on its own sample.
     int rendered = 0;
@@ -402,10 +549,6 @@ void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
     {
         auditionSamplesLeft_ = std::max(0, auditionSamplesLeft_ - numSamples);
     }
-    internal_.advance(numSamples, t.bpm, sampleRate_);
-    expectedPpq_ = t.ppq + md::ppqForSamples(numSamples, t.bpm, sampleRate_);
-    previewPlaying_.store(t.source != Source::none);
-    previewPpq_.store(t.ppq);
 }
 
 juce::AudioProcessorEditor* MagicDustProcessor::createEditor()
@@ -443,15 +586,23 @@ void MagicDustProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     juce::ValueTree state("MagicDust");
     state.setProperty("schemaVersion", schemaVersion, nullptr);
-    state.setProperty("seed", static_cast<int>(seed_), nullptr);
-    state.setProperty("style", static_cast<int>(style_), nullptr);
-    state.setProperty("keyRoot", keyRoot_, nullptr);
-    state.setProperty("bars", bars_, nullptr);
-    state.setProperty("chordsSeed", juce::String(laneSeeds_.chords), nullptr);
-    state.setProperty("bassSeed", juce::String(laneSeeds_.bass), nullptr);
-    state.setProperty("melodySeed", juce::String(laneSeeds_.melody), nullptr);
-    state.setProperty("mode", "main", nullptr);
-    state.addChild(params.copyState(), -1, nullptr);
+    if (mode_.load() == InstanceMode::sender)
+    {
+        state.setProperty("mode", "sender", nullptr);
+        state.setProperty("senderLane", static_cast<int>(senderLane_.load()), nullptr);
+    }
+    else
+    {
+        state.setProperty("mode", "main", nullptr);
+        state.setProperty("seed", static_cast<int>(seed_), nullptr);
+        state.setProperty("style", static_cast<int>(style_), nullptr);
+        state.setProperty("keyRoot", keyRoot_, nullptr);
+        state.setProperty("bars", bars_, nullptr);
+        state.setProperty("chordsSeed", juce::String(laneSeeds_.chords), nullptr);
+        state.setProperty("bassSeed", juce::String(laneSeeds_.bass), nullptr);
+        state.setProperty("melodySeed", juce::String(laneSeeds_.melody), nullptr);
+        state.addChild(params.copyState(), -1, nullptr);
+    }
     if (const auto xml = state.createXml())
     {
         copyXmlToBinary(*xml, destData);
@@ -465,6 +616,13 @@ void MagicDustProcessor::setStateInformation(const void* data, int sizeInBytes)
     {
         return;
     }
+    if (xml->getStringAttribute("mode") == "sender")
+    {
+        enterSender(
+            static_cast<md::LaneId>(std::clamp(xml->getIntAttribute("senderLane", 1), 0, 2)));
+        return;
+    }
+    enterMain();
     if (const auto* child = xml->getChildByName(params.state.getType()))
     {
         params.replaceState(juce::ValueTree::fromXml(*child));

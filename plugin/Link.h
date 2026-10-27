@@ -23,7 +23,15 @@ class Link
     [[nodiscard]] const md::PlaybackPattern* current(const void* owner) const;
     // now is a parameter so tests need not wait out the second.
     void retire(std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now());
+    // Also drops the owner's main registration.
     void remove(const void* owner);
+
+    // The earliest still-registered main instance; the next oldest takes over when it goes.
+    void registerMain(const void* owner);
+    [[nodiscard]] const void* oldestMain() const { return oldest_.load(); }
+    void addSender(md::LaneId lane);
+    void removeSender(md::LaneId lane);
+    [[nodiscard]] int sendersFor(md::LaneId lane) const;
 
   private:
     struct Slot
@@ -40,8 +48,12 @@ class Link
 
     Slot* find(const void* owner);
     void retireLocked(std::shared_ptr<const md::PlaybackPattern> pattern);
+    void dropMainLocked(const void* owner);
 
     std::mutex mutex_;
     std::array<Slot, kCapacity> slots_;
     std::vector<Retired> retired_;
+    std::vector<const void*> mains_; // registration order
+    std::atomic<const void*> oldest_{nullptr};
+    std::array<std::atomic<int>, 3> senders_{};
 };
