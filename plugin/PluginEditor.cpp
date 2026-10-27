@@ -144,6 +144,10 @@ MagicDustEditor::~MagicDustEditor()
     {
         body_->setLookAndFeel(nullptr);
     }
+    if (sender_ != nullptr)
+    {
+        sender_->setLookAndFeel(nullptr);
+    }
 }
 
 // Builds the view for the instance's mode, and sizes and limits the window to suit it.
@@ -154,11 +158,16 @@ void MagicDustEditor::showView()
     {
         body_->setLookAndFeel(nullptr);
     }
+    if (sender_ != nullptr)
+    {
+        sender_->setLookAndFeel(nullptr);
+    }
     body_.reset();
     sender_.reset();
     if (sender)
     {
         sender_ = std::make_unique<md::ui::SenderBody>(processor_);
+        sender_->setLookAndFeel(&lookAndFeel_);
         addAndMakeVisible(*sender_);
     }
     else
@@ -176,7 +185,7 @@ void MagicDustEditor::showView()
                     static_cast<int>(static_cast<float>(height) * t::layout::maxScale));
     getConstrainer()->setFixedAspectRatio(static_cast<double>(width) / height);
     setSize(width, height);
-    updateScale();
+    updateScale(); // setSize does not call resized() when the size is unchanged
 }
 
 void MagicDustEditor::sync()

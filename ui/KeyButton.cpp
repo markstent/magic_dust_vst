@@ -43,6 +43,11 @@ KeyButton::KeyButton(const juce::String& label, const char* iconPath, float icon
     iconSize_ = iconSize;
 }
 
+KeyButton::KeyButton(const juce::String& label, std::optional<juce::Colour> led)
+    : KeyButton(label, keycap, led)
+{
+}
+
 KeyButton::KeyButton(const juce::String& label, const KeyMaterial& material,
                      std::optional<juce::Colour> led)
     : juce::Button(label), material_(material), label_(label), led_(led)

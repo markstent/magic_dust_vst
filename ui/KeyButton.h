@@ -28,6 +28,9 @@ class KeyButton : public juce::Button, private juce::Timer
     KeyButton(const juce::String& label, const char* iconPath, float iconSize,
               std::optional<juce::Colour> led);
 
+    // A key with only its label, drawn by a subclass.
+    KeyButton(const juce::String& label, std::optional<juce::Colour> led);
+
     void setLit(bool lit);
     [[nodiscard]] bool isLit() const { return lit_; }
     // Off, the key and its LED jump instead of animating.

@@ -658,6 +658,69 @@ TEST_CASE("full magic dust turns the instance main and the editor becomes the ma
     CHECK(Fixture::search(*f.editor, "senderMainKey") == nullptr);
 }
 
+// The editor's window size, resize limits and aspect ratio for a view of this logical size.
+void checkWindow(juce::AudioProcessorEditor& editor, int width, int height)
+{
+    const auto* limits = editor.getConstrainer();
+    CHECK(editor.getWidth() == width);
+    CHECK(editor.getHeight() == height);
+    CHECK(limits->getMinimumWidth() == static_cast<int>(static_cast<float>(width) * 0.8F));
+    CHECK(limits->getMinimumHeight() == static_cast<int>(static_cast<float>(height) * 0.8F));
+    CHECK(limits->getMaximumWidth() == static_cast<int>(static_cast<float>(width) * 1.5F));
+    CHECK(limits->getMaximumHeight() == static_cast<int>(static_cast<float>(height) * 1.5F));
+    CHECK(limits->getFixedAspectRatio() == Approx(static_cast<double>(width) / height));
+}
+
+juce::MemoryBlock stateOf(MagicDustProcessor& p)
+{
+    juce::MemoryBlock state;
+    p.getStateInformation(state);
+    return state;
+}
+
+TEST_CASE("the editor swaps views, size and limits as the mode changes", "[editor][sender]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    MagicDustProcessor main;
+    const auto senderState = [&]
+    {
+        MagicDustProcessor other;
+        REQUIRE(other.mode() == InstanceMode::sender);
+        return stateOf(other);
+    }();
+    std::unique_ptr<juce::AudioProcessorEditor> editor{main.createEditor()};
+    auto& mine = dynamic_cast<MagicDustEditor&>(*editor);
+    checkWindow(*editor, 1040, 740);
+
+    main.setStateInformation(senderState.getData(), static_cast<int>(senderState.getSize()));
+    REQUIRE(main.mode() == InstanceMode::sender);
+    mine.sync();
+    checkWindow(*editor, 520, 240);
+    CHECK(Fixture::search(*editor, "senderMainKey") != nullptr);
+
+    main.becomeMain();
+    mine.sync();
+    checkWindow(*editor, 1040, 740);
+    CHECK(Fixture::search(*editor, "playKey") != nullptr);
+}
+
+TEST_CASE("a processor already in sender mode opens straight in the sender view",
+          "[editor][sender]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    MagicDustProcessor main;
+    MagicDustProcessor other;
+    REQUIRE(other.mode() == InstanceMode::sender);
+    const auto state = stateOf(other);
+    MagicDustProcessor restored;
+    restored.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+    REQUIRE(restored.mode() == InstanceMode::sender);
+    std::unique_ptr<juce::AudioProcessorEditor> editor{restored.createEditor()};
+    checkWindow(*editor, 520, 240);
+    CHECK(Fixture::search(*editor, "senderMainKey") != nullptr);
+    CHECK(Fixture::search(*editor, "playKey") == nullptr);
+}
+
 // Renders the editor to PNGs in $MD_RENDER_DIR for the side-by-side review; does nothing when
 // the variable is not set.
 TEST_CASE("render the editor", "[.render]")

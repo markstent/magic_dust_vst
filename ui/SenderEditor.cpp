@@ -26,7 +26,7 @@ std::size_t laneIndex(md::LaneId lane) { return static_cast<std::size_t>(lane); 
 } // namespace
 
 LabelKey::LabelKey(const juce::String& label, std::optional<juce::Colour> led)
-    : KeyButton(label, "", 0.0F, led)
+    : KeyButton(label, led)
 {
 }
 

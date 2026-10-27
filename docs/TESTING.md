@@ -109,7 +109,7 @@ Other daws need the same rescan before they show Magic Dust.
 
 ## Phase 2 in your daw
 
-These steps are for Ableton Live 12.
+The sending steps below are for Ableton Live 12; the rest works the same in any daw.
 Build first with `cmake --build --preset dev` and rescan your plug-ins as above.
 
 ### Loading Magic Dust and sprinkling
@@ -135,7 +135,7 @@ Build first with `cmake --build --preset dev` and rescan your plug-ins as above.
    You get that one chord.
 2. Drag a lane onto a MIDI track.
    You get that lane.
-3. Drag from the files `md-cli` wrote (see "Hearing ideas from md-cli") the file without a lane name, for example `uk-funky-1.mid`, onto an empty area of your daw.
+3. From the files `md-cli` wrote (see "Hearing ideas from md-cli"), drag the one without a lane name, for example `uk-funky-1.mid`, onto an empty area of your daw.
    This file holds chords, bass and melody together.
 4. Write down whether your daw split it into three tracks, kept it as one track, or refused it.
    This answers the open question about "bottle it".
