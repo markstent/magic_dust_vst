@@ -16,12 +16,10 @@ namespace
 
 constexpr int kFrameHz = 60;
 
-const KeyMaterial keycap{.top = t::keyTop,
-                         .bottom = t::keyBottom,
-                         .edge = t::keyEdge,
-                         .base = t::keyBase,
-                         .shadowBlur = t::layout::keycapShadowBlur,
-                         .shadowAlpha = t::layout::keycapShadowAlpha};
+const KeyMaterial keycap{.top = t::console::keyTop,
+                         .bottom = t::console::keyBottom,
+                         .radius = t::layout::keyRadius,
+                         .shadowDrop = t::layout::keyShadowDrop};
 
 float easeOut(float x) { return 1.0F - ((1.0F - x) * (1.0F - x)); }
 
@@ -31,17 +29,7 @@ float approach(float value, float target, float step)
     return std::clamp(target, value - step, value + step);
 }
 
-float lerp(float from, float to, float amount) { return from + ((to - from) * amount); }
-
 } // namespace
-
-KeyButton::KeyButton(const juce::String& label, const char* iconPath, float iconSize,
-                     std::optional<juce::Colour> led)
-    : KeyButton(label, keycap, led)
-{
-    icon_ = juce::Drawable::parseSVGPath(iconPath);
-    iconSize_ = iconSize;
-}
 
 KeyButton::KeyButton(const juce::String& label, std::optional<juce::Colour> led)
     : KeyButton(label, keycap, led)
@@ -52,7 +40,7 @@ KeyButton::KeyButton(const juce::String& label, const KeyMaterial& material,
                      std::optional<juce::Colour> led)
     : juce::Button(label), material_(material), label_(label), led_(led)
 {
-    // The base and soft shadow are drawn below the key's bounds.
+    // The shadow, legend and LED are drawn outside the key's bounds.
     setPaintingIsUnclipped(true);
 }
 
@@ -113,8 +101,7 @@ void KeyButton::retarget()
     stopTimer();
     press_ = isDown() ? 1.0F : 0.0F;
     ledLevel_ = lit_ ? 1.0F : 0.0F;
-    repaint(getLocalBounds().expanded(
-        0, static_cast<int>(t::layout::keyShadowDrop + material_.shadowBlur)));
+    repaint(getLocalBounds().expanded(0, t::layout::keyRepaintMargin));
 }
 
 void KeyButton::timerCallback()
@@ -131,44 +118,45 @@ void KeyButton::timerCallback()
     {
         stopTimer();
     }
-    repaint(getLocalBounds().expanded(
-        0, static_cast<int>(t::layout::keyShadowDrop + material_.shadowBlur)));
+    repaint(getLocalBounds().expanded(0, t::layout::keyRepaintMargin));
 }
 
 void KeyButton::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down*/)
 {
     const auto pressed = easeOut(press_);
-    const auto face =
-        getLocalBounds().toFloat().translated(0.0F, t::layout::keyPressDrop * pressed);
-    const auto radius = t::layout::keyRadius;
+    const auto rest = getLocalBounds().toFloat();
+    const auto face = rest.translated(0.0F, t::layout::keyPressDrop * pressed);
+    const auto radius = material_.radius;
 
-    // The base and shadow sit below the moved face, so the base stays where it was.
-    const auto baseDrop = lerp(t::layout::keyBaseDrop, t::layout::keyBasePressedDrop, pressed);
-    g.setColour(material_.base);
-    g.fillRoundedRectangle(face.translated(0.0F, baseDrop), radius);
-
-    juce::Path shape;
-    shape.addRoundedRectangle(face, radius);
-    const auto shadowDrop =
-        lerp(t::layout::keyShadowDrop, t::layout::keyShadowPressedDrop, pressed);
-    const auto shadowBlur = lerp(material_.shadowBlur, t::layout::keyShadowPressedBlur, pressed);
-    const auto shadowAlpha = lerp(material_.shadowAlpha, t::layout::keyShadowPressedAlpha, pressed);
-    juce::DropShadow(juce::Colours::black.withAlpha(shadowAlpha), static_cast<int>(shadowBlur),
-                     {0, static_cast<int>(shadowDrop)})
-        .drawForPath(g, shape);
+    // The shadow's lower edge stays put while the face drops onto it.
+    g.setColour(t::console::keyShadow);
+    g.fillRoundedRectangle(
+        face.translated(0.0F, material_.shadowDrop - (t::layout::keyPressDrop * pressed)), radius);
 
     g.setGradientFill(juce::ColourGradient::vertical(material_.top, face.getY(), material_.bottom,
                                                      face.getBottom()));
     g.fillRoundedRectangle(face, radius);
-    g.setColour(material_.edge);
-    g.drawRoundedRectangle(face.reduced(0.5F), radius - 0.5F, 1.0F);
 
     paintContent(g, face);
+
+    if (legendBelow_)
+    {
+        const auto legend = font(Face::groteskMedium, t::layout::legendSize)
+                                .withExtraKerningFactor(t::layout::legendSpacing);
+        g.setColour(t::console::legend);
+        g.setFont(legend);
+        g.drawText(label_.toUpperCase(),
+                   juce::Rectangle<float>(rest.getX() - t::layout::keyLegendOverhang,
+                                          rest.getBottom() + t::layout::keyLegendGap,
+                                          rest.getWidth() + (2.0F * t::layout::keyLegendOverhang),
+                                          static_cast<float>(t::layout::legendHeight)),
+                   juce::Justification::centred, false);
+    }
 
     if (hasKeyboardFocus(true))
     {
         const auto stroke = t::layout::focusRingStroke;
-        g.setColour(t::focus);
+        g.setColour(t::console::legend);
         g.drawRoundedRectangle(face.expanded(t::layout::focusRingOffset + (stroke / 2.0F)),
                                radius + t::layout::focusRingOffset, stroke);
     }
@@ -176,8 +164,9 @@ void KeyButton::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down
     if (led_)
     {
         const auto size = t::layout::ledSize;
-        const auto spot = juce::Rectangle<float>(face.getRight() - t::layout::ledInset - size,
-                                                 face.getY() + t::layout::ledInset, size, size);
+        const auto spot =
+            juce::Rectangle<float>(rest.getCentreX() - (size / 2.0F),
+                                   rest.getY() - t::layout::keyLedGap - size, size, size);
         if (ledLevel_ > 0.0F)
         {
             juce::Path dot;
@@ -186,27 +175,11 @@ void KeyButton::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down
                              {0, 0})
                 .drawForPath(g, dot);
         }
-        g.setColour(t::ledOff.interpolatedWith(*led_, ledLevel_));
+        g.setColour(t::console::ledOff.interpolatedWith(*led_, ledLevel_));
         g.fillEllipse(spot);
     }
 }
 
-void KeyButton::paintContent(juce::Graphics& g, juce::Rectangle<float> face) const
-{
-    const auto labelFont = font(Face::monoRegular, t::keyLabelSize);
-    const auto labelHeight = labelFont.getHeight();
-    const auto top =
-        face.getY() +
-        ((face.getHeight() - (iconSize_ + t::layout::keyLabelGap + labelHeight)) / 2.0F);
-
-    g.setColour(t::ink);
-    g.fillPath(icon_, juce::AffineTransform::scale(iconSize_ / t::layout::keyIconGrid)
-                          .translated(face.getCentreX() - (iconSize_ / 2.0F), top));
-    g.setFont(labelFont);
-    g.drawText(label_,
-               juce::Rectangle<float>(face.getX(), top + iconSize_ + t::layout::keyLabelGap,
-                                      face.getWidth(), labelHeight),
-               juce::Justification::centred, false);
-}
+void KeyButton::paintContent(juce::Graphics& /*g*/, juce::Rectangle<float> /*face*/) const {}
 
 } // namespace md::ui

@@ -50,9 +50,7 @@ juce::String selectedText(Selection selection)
 
 ScreenComponent::ScreenComponent(MagicDustProcessor& processor)
     : processor_(processor), cells_{ChordCell(0), ChordCell(1), ChordCell(2), ChordCell(3)},
-      lanes_{LaneView(md::LaneId::chords, processor.params),
-             LaneView(md::LaneId::bass, processor.params),
-             LaneView(md::LaneId::melody, processor.params)}
+      lanes_{LaneView(md::LaneId::chords), LaneView(md::LaneId::bass), LaneView(md::LaneId::melody)}
 {
     setComponentID("screen");
     // Tab order: the chord cells, then the lanes.
@@ -76,7 +74,6 @@ ScreenComponent::ScreenComponent(MagicDustProcessor& processor)
         auto& lane = lanes_.at(i);
         lane.setComponentID("lane" + juce::String(i));
         lane.roll().setComponentID("roll" + juce::String(i));
-        lane.levelSlider().setComponentID("level" + juce::String(i));
         lane.setExplicitFocusOrder(++order);
         lane.setOnClick(
             [this, i]

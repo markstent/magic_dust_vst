@@ -27,6 +27,7 @@
 #include "ui/Readout.h"
 #include "ui/ScreenComponent.h"
 #include "ui/SenderEditor.h"
+#include "ui/Tokens.h"
 #include "ui/TopLine.h"
 
 namespace
@@ -253,7 +254,7 @@ TEST_CASE("a lane maps a note's ticks across the roll", "[editor]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     MagicDustProcessor processor{md::loadBundledBank(), kRandomSeed};
-    md::ui::LaneView lane(md::LaneId::chords, processor.params);
+    md::ui::LaneView lane(md::LaneId::chords);
     lane.setBounds(62, 154, 656, 64);
     md::Lane data{.id = md::LaneId::chords,
                   .pattern = "organ stabs",
@@ -295,6 +296,64 @@ TEST_CASE("the keys sit where the layout table puts them", "[editor]")
     CHECK(f.boundsOf("playKey") == Rect{450, 464, 36, 24});
     CHECK(f.boundsOf("stopKey") == Rect{498, 464, 36, 24});
     CHECK(f.boundsOf("sprinkleKey") == Rect{818, 454, 84, 44});
+}
+
+TEST_CASE("the level and volume knobs' faces sit where the layout table puts them", "[editor]")
+{
+    Fixture f;
+    const auto face = [&f](const char* id)
+    {
+        auto& knob = f.find<md::ui::Knob>(id);
+        return f.editor->getLocalArea(&knob, knob.faceBounds());
+    };
+    for (int i = 0; i < 3; ++i)
+    {
+        const auto id = "level" + std::to_string(i);
+        CHECK(face(id.c_str()) == Rect(54 + (i * 124) + 92 - 17, 488 - 17, 34, 34));
+    }
+    CHECK(face("volumeKnob") == Rect(924, 446, 52, 52));
+}
+
+TEST_CASE("level knobs bind their lanes", "[editor]")
+{
+    Fixture f;
+    const std::array<const char*, 3> ids{"chordsLevel", "bassLevel", "melodyLevel"};
+    for (std::size_t i = 0; i < ids.size(); ++i)
+    {
+        auto& knob = f.find<md::ui::Knob>(("level" + std::to_string(i)).c_str());
+        CHECK(knob.getValue() == Approx(1.0).margin(kTolerance));
+        f.processor.params.getParameter(ids.at(i))->setValueNotifyingHost(0.4F);
+        CHECK(knob.getValue() == Approx(0.4).margin(kTolerance));
+        knob.setValue(0.2, juce::sendNotificationSync);
+        CHECK(param(f, ids.at(i)) == Approx(0.2F).margin(kTolerance));
+        knob.mouseDoubleClick(mouseAt(knob, knob.faceBounds().getCentre().toFloat(),
+                                      knob.faceBounds().getCentre().toFloat(), false));
+        CHECK(param(f, ids.at(i)) == Approx(1.0F).margin(kTolerance));
+    }
+    f.processor.params.getParameter("bassLevel")->setValueNotifyingHost(0.5F);
+    CHECK(f.find<md::ui::Knob>("level1").getValue() == Approx(0.5).margin(kTolerance));
+    CHECK(f.find<md::ui::Knob>("level0").getValue() == Approx(1.0).margin(kTolerance));
+}
+
+TEST_CASE("volume knob binds volume", "[editor]")
+{
+    Fixture f;
+    auto& knob = f.find<md::ui::Knob>("volumeKnob");
+    knob.setValue(0.3, juce::sendNotificationSync);
+    CHECK(param(f, "volume") == Approx(0.3F).margin(kTolerance));
+    const auto centre = knob.faceBounds().getCentre().toFloat();
+    knob.mouseDoubleClick(mouseAt(knob, centre, centre, false));
+    CHECK(param(f, "volume") == Approx(0.8F).margin(kTolerance));
+}
+
+TEST_CASE("the lanes carry no level slider", "[editor]")
+{
+    Fixture f;
+    for (int i = 0; i < 3; ++i)
+    {
+        auto& lane = f.find<md::ui::LaneView>(("lane" + std::to_string(i)).c_str());
+        CHECK(lane.getNumChildComponents() == 1);
+    }
 }
 
 TEST_CASE("clicking play then stop toggles the preview", "[editor]")
@@ -395,7 +454,7 @@ TEST_CASE("moving 4 px is a click and moving 5 px is a drag", "[editor]")
     CHECK(screen.selection().kind == md::ui::Selection::Kind::none);
 }
 
-TEST_CASE("tab visits the header, cells, lanes, knobs, then keys", "[editor]")
+TEST_CASE("tab visits the header, cells, lanes, knobs, levels, keys, then volume", "[editor]")
 {
     Fixture f;
     f.idea(4);
@@ -408,9 +467,9 @@ TEST_CASE("tab visits the header, cells, lanes, knobs, then keys", "[editor]")
         current = traverser.getNextComponent(current);
     }
     const std::vector<std::string> expected{
-        "styleMenu",  "keyMenu",     "cell0",   "cell1",   "cell2",      "cell3",    "lane0",
-        "level0",     "lane1",       "level1",  "lane2",   "level2",     "moodKnob", "energyKnob",
-        "grooveKnob", "flavourKnob", "playKey", "stopKey", "sprinkleKey"};
+        "styleMenu", "keyMenu", "cell0",    "cell1",      "cell2",       "cell3",       "lane0",
+        "lane1",     "lane2",   "moodKnob", "energyKnob", "grooveKnob",  "flavourKnob", "level0",
+        "level1",    "level2",  "playKey",  "stopKey",    "sprinkleKey", "volumeKnob"};
     CHECK(order == expected);
 }
 
@@ -528,6 +587,7 @@ TEST_CASE("every control has an accessible title", "[editor]")
     CHECK(f.find("energyKnob").getTitle() == "energy");
     CHECK(f.find("grooveKnob").getTitle() == "groove");
     CHECK(f.find("flavourKnob").getTitle() == "flavour");
+    CHECK(f.find("volumeKnob").getTitle() == "volume");
     CHECK(f.find("spellReadout").getTitle() == "spell, 0001");
     CHECK(f.find("styleMenu").getTitle().startsWith("style, "));
     CHECK(f.find("keyMenu").getTitle() == "key, a min");
@@ -535,47 +595,6 @@ TEST_CASE("every control has an accessible title", "[editor]")
     CHECK(f.find("playKey").getTitle() == "play the preview");
     CHECK(f.find("stopKey").getTitle() == "stop the preview");
     CHECK(f.find("sprinkleKey").getTitle() == "sprinkle a new idea");
-}
-
-TEST_CASE("each lane has a level slider attached to its parameter", "[editor]")
-{
-    Fixture f;
-    f.idea(4);
-    const std::array<const char*, 3> ids{"chordsLevel", "bassLevel", "melodyLevel"};
-    for (std::size_t i = 0; i < ids.size(); ++i)
-    {
-        auto& slider = f.find<juce::Slider>(("level" + std::to_string(i)).c_str());
-        CHECK(slider.getValue() == Approx(1.0).margin(kTolerance));
-        auto* parameter = f.processor.params.getParameter(ids.at(i));
-        parameter->setValueNotifyingHost(0.4F);
-        CHECK(slider.getValue() == Approx(0.4).margin(kTolerance));
-        CHECK(slider.getTextFromValue(0.8) == "80%");
-        slider.setValue(0.2, juce::sendNotificationSync);
-        CHECK(param(f, ids.at(i)) == Approx(0.2F).margin(kTolerance));
-        slider.mouseDoubleClick(mouseAt(slider, {10.0F, 6.0F}, {10.0F, 6.0F}, false));
-        CHECK(param(f, ids.at(i)) == Approx(1.0F).margin(kTolerance));
-    }
-}
-
-TEST_CASE("a level slider sits under the label, inside its column, and does not select the lane",
-          "[editor]")
-{
-    Fixture f;
-    f.idea(4);
-    namespace lay = md::tokens::layout;
-    auto& lane = f.find<md::ui::LaneView>("lane1");
-    auto& slider = f.find("level1");
-    CHECK(slider.getParentComponent() == &lane);
-    CHECK(slider.getRight() <= lane.labelBounds().getRight());
-    CHECK(slider.getRight() < lay::rollX - lay::laneX);
-    CHECK(slider.getY() >= lane.labelBounds().getBottom());
-
-    // A press on the slider goes to the slider, never to the lane.
-    auto& screen = f.find<md::ui::ScreenComponent>("screen");
-    const auto centre = slider.getLocalBounds().getCentre().toFloat();
-    auto* const hit = lane.getComponentAt(lane.getLocalPoint(&slider, centre.toInt()));
-    CHECK(hit == &slider);
-    CHECK(screen.selection().kind == md::ui::Selection::Kind::none);
 }
 
 TEST_CASE("the bottom line shows an error, then the readout", "[editor]")
@@ -620,16 +639,16 @@ TEST_CASE("a long pattern name ellipsizes inside the label column", "[editor]")
 {
     juce::ScopedJuceInitialiser_GUI gui;
     MagicDustProcessor processor{md::loadBundledBank(), kRandomSeed};
-    md::ui::LaneView lane(md::LaneId::chords, processor.params);
+    md::ui::LaneView lane(md::LaneId::chords);
     lane.setBounds(0, 0, 656, 64);
     md::Lane data{.id = md::LaneId::chords, .pattern = std::string(60, 'w'), .events = {}};
     lane.set(data, 8, std::nullopt, false);
     const auto drawn = lane.drawnPattern();
     CHECK(drawn.endsWith("..."));
     CHECK(drawn.length() < 60);
-    CHECK(juce::GlyphArrangement::getStringWidth(md::ui::font(md::ui::Face::monoRegular, 10.0F),
-                                                 drawn) <=
-          static_cast<float>(lane.labelBounds().getWidth()));
+    CHECK(juce::GlyphArrangement::getStringWidth(
+              md::ui::font(md::ui::Face::monoRegular, md::tokens::layout::lanePatternSize),
+              drawn) <= static_cast<float>(lane.labelBounds().getWidth()));
     CHECK(lane.labelBounds().getWidth() <= 96);
 
     // Nothing is drawn between the label column and the roll.
@@ -652,14 +671,16 @@ TEST_CASE("a long error ellipsizes inside the bottom line", "[editor]")
     bottom.setError(std::string(200, 'w'));
     const auto drawn = bottom.drawnText();
     CHECK(drawn.endsWith("..."));
-    CHECK(juce::GlyphArrangement::getStringWidth(md::ui::font(md::ui::Face::monoRegular, 11.0F),
-                                                 drawn) <= static_cast<float>(bottom.getWidth()));
+    CHECK(juce::GlyphArrangement::getStringWidth(
+              md::ui::font(md::ui::Face::monoRegular, md::tokens::layout::bottomLineSize), drawn) <=
+          static_cast<float>(bottom.getWidth()));
     bottom.setError(std::nullopt);
     CHECK_FALSE(bottom.drawnText().endsWith("..."));
 }
 
 TEST_CASE("the tagline ends 16 px clear of the spell window", "[editor]")
 {
+    CHECK(md::ui::taglineRight() > 400);
     CHECK(md::ui::taglineRight() + 16 <= 574);
 }
 

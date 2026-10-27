@@ -28,25 +28,16 @@ inline const juce::Colour screenLine{0xFF2A2B32};
 inline const juce::Colour screenSelected{0xFF121318};
 inline const juce::Colour screenPanel{0xFF0D0E12};
 inline const juce::Colour spellCurrent{0xFF1A1B22};
-inline const juce::Colour keyTop{0xFFF4F5F6};
-inline const juce::Colour keyBottom{0xFFE3E4E7};
-inline const juce::Colour keyEdge{0xFFB4B6BB};
-inline const juce::Colour keyBase{0xFFA9ABB0};
 inline const juce::Colour knurlLight{0xFFCDCED2};
 inline const juce::Colour knurlDark{0xFFA5A7AC};
 inline const juce::Colour knurlEdge{0xFF8E9096};
-inline const juce::Colour ledOff{0xFFC3C5CA};
 inline const juce::Colour cyan{0xFF5FE3F0};
 inline const juce::Colour violet{0xFFA68BFF};
 inline const juce::Colour violetSoft{0xFFC9B8FF};
 inline const juce::Colour violetDeep{0xFF2B1F5C};
 inline const juce::Colour magenta{0xFFFF5CA8};
 inline const juce::Colour gold{0xFFFFD166};
-inline const juce::Colour goldLight{0xFFFFE29A};
-inline const juce::Colour goldEdge{0xFFC9992F};
-inline const juce::Colour goldBase{0xFFB88A2A};
 inline const juce::Colour onColour{0xFF050507};
-inline const juce::Colour sprinkleInk{0xFF12101F};
 inline const juce::Colour focus{0xFF8C6CF5};
 
 // The studio console look: colours taken verbatim from the design.
@@ -91,8 +82,7 @@ inline constexpr float bezelWidth = 7.0F;
 // Type sizes in px.
 inline constexpr float topLineSize = 13.0F; // popup menu text
 inline constexpr float statusLineSize = 11.0F;
-inline constexpr float keyLabelSize = 10.0F;
-inline constexpr float sprinkleTitleSize = 22.0F;
+inline constexpr float keyLabelSize = 10.0F; // text inside the sender keys
 inline constexpr float wordmarkSize = 27.0F;
 inline constexpr float wordmarkSpacing = -0.5F; // px between letters
 
@@ -172,12 +162,6 @@ inline constexpr int laneLabelWidth = 96;
 inline constexpr float laneNameSize = 10.0F;
 inline constexpr float laneNameSpacing = 0.14F; // em
 inline constexpr float lanePatternSize = 10.0F;
-// The level slider under the lane label: its hit area, its gap to the roll, and how far its
-// track's centre sits above the row's bottom edge.
-inline constexpr int laneLevelHeight = 12;
-inline constexpr int laneLevelRightGap = 6;
-inline constexpr int laneLevelCentreAboveBottom = 12;
-inline constexpr float laneLevelTrackHeight = 3.0F;
 inline constexpr int rollX = 166;
 inline constexpr int rollPadY = 4;
 inline constexpr int rollWidth = 548;
@@ -200,43 +184,47 @@ inline constexpr float knobDiameter = 56.0F;
 inline constexpr std::array<int, 2> knobColumnX{809, 927};
 inline constexpr std::array<int, 2> knobFaceY{116, 262};
 
-// The sparkle is drawn on a 24 x 24 grid: a start point, then four cubic curves of three points.
-inline constexpr float sparkleGrid = 24.0F;
-inline constexpr std::array<float, 2> sparkleStart{12.0F, 2.0F};
-inline constexpr std::array<std::array<float, 6>, 4> sparkleCurves{{
-    {12.6F, 7.2F, 16.8F, 11.4F, 22.0F, 12.0F},
-    {16.8F, 12.6F, 12.6F, 16.8F, 12.0F, 22.0F},
-    {11.4F, 16.8F, 7.2F, 12.6F, 2.0F, 12.0F},
-    {7.2F, 11.4F, 11.4F, 7.2F, 12.0F, 2.0F},
-}};
-
 inline constexpr int keySize = 82; // the sender screen's keys
-// The main view's keys, until the key row is restyled.
+// The bottom band: the lane group, its three columns and the knobs in them.
+inline const juce::Rectangle<int> laneGroup{54, 420, 372, 146};
+inline constexpr float laneGroupRadius = 4.0F;
+inline constexpr int laneColumnX = 54;
+inline constexpr int laneColumnWidth = 124;
+inline constexpr int laneLegendCentreY = 436;
+inline constexpr float laneLegendSize = 10.0F;
+inline constexpr float laneLegendSpacing = 0.12F; // em
+inline constexpr int levelKnobOffsetX = 92; // the level knob's centre from its column's left edge
+inline constexpr int bandKnobCentreY = 488;
+inline constexpr int levelKnobWidth = 48;
+inline constexpr int levelKnobHeight = 70;
+inline constexpr float levelKnobDiameter = 34.0F;
+// The Phase 5 pattern knob slot, left empty: centre offset from the column's left edge, and size.
+inline constexpr int patternKnobOffsetX = 38;
+inline constexpr float patternKnobDiameter = 44.0F;
+inline constexpr int volumeKnobCentreX = 950;
+inline constexpr int volumeKnobCentreY = 472;
+inline constexpr int volumeKnobWidth = 96;
+inline constexpr int volumeKnobHeight = 94;
+inline constexpr float volumeKnobDiameter = 52.0F;
+
+// The keys: play and stop, then the sprinkle key. The Phase 5 slots (pin 538, reroll 586, mute
+// 634, swap 682, keep 722 and bottle it 770, all at y 464) are left empty.
 inline const juce::Rectangle<int> playKey{450, 464, 36, 24};
 inline const juce::Rectangle<int> stopKey{498, 464, 36, 24};
 inline const juce::Rectangle<int> sprinkleKey{818, 454, 84, 44};
-inline constexpr float keyRadius = 12.0F;
-inline constexpr float keyPressDrop = 3.0F;
-inline constexpr float keyBaseDrop = 4.0F;        // the solid base below a key at rest
-inline constexpr float keyBasePressedDrop = 1.0F; // and below a pressed key
-inline constexpr float keyShadowDrop = 6.0F;      // the soft shadow's offset at rest
-inline constexpr float keyShadowPressedDrop = 2.0F;
-inline constexpr float keyShadowPressedBlur = 4.0F;
-inline constexpr float keyShadowPressedAlpha = 0.12F;
-inline constexpr float keycapShadowBlur = 10.0F;
-inline constexpr float keycapShadowAlpha = 0.12F;
-inline constexpr float sprinkleShadowBlur = 12.0F;
-inline constexpr float sprinkleShadowAlpha = 0.14F;
-inline constexpr float keyIconSize = 22.0F;
-inline constexpr float stopIconSize = 20.0F;
-inline constexpr float keyIconGrid = 24.0F;
-inline constexpr float keyLabelGap = 6.0F;
-inline constexpr float ledSize = 7.0F;
-inline constexpr float ledInset = 10.0F; // from the key's top and right edges
+inline constexpr float keyRadius = 3.0F;
+inline constexpr float sprinkleRadius = 5.0F;
+inline constexpr float keyPressDrop = 1.0F;
+inline constexpr float keyShadowDrop = 2.0F; // the hard shadow's offset at rest
+inline constexpr float sprinkleShadowDrop = 3.0F;
+inline constexpr float sprinkleTitleSize = 10.0F;
+inline constexpr float sprinkleTitleSpacing = 0.18F; // em
+inline constexpr float ledSize = 6.0F;
+inline constexpr float keyLedGap = 6.0F; // from the LED's lower edge to the key's top
 inline constexpr float ledGlow = 6.0F;
-inline constexpr float sprinkleIconSize = 28.0F;
-inline constexpr float sprinkleIconGap = 10.0F;
-inline constexpr float sprinkleLabelGap = 4.0F;
+inline constexpr float keyLegendGap = 8.0F; // from the key's bottom to the legend's top
+inline constexpr float keyLegendOverhang = 16.0F;
+inline constexpr int keyRepaintMargin = 24; // above and below a key, for its LED, shadow and legend
 // The sender screen (visual spec, "Sender screen").
 inline constexpr int senderWidth = 520;
 inline constexpr int senderHeight = 240;

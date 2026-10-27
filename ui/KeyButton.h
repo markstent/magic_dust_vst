@@ -9,28 +9,25 @@
 namespace md::ui
 {
 
-// The colours and soft shadow of a keycap; the gold key has its own.
+// The face gradient, the hard shadow below it and the corner radius; the sprinkle key has its own.
 struct KeyMaterial
 {
     juce::Colour top;
     juce::Colour bottom;
-    juce::Colour edge;
-    juce::Colour base;
-    float shadowBlur;
-    float shadowAlpha;
+    float radius;
+    float shadowDrop;
 };
 
-// A key with a solid base, a soft shadow and an optional LED. Pressing moves it down 3 px.
+// A key with a hard shadow below, a legend under it and an optional LED above. Pressing moves it
+// down 1 px and the shadow shrinks to match.
 class KeyButton : public juce::Button, private juce::Timer
 {
   public:
-    // iconPath is an SVG path on a 24 x 24 grid, filled; iconSize is its size in px.
-    KeyButton(const juce::String& label, const char* iconPath, float iconSize,
-              std::optional<juce::Colour> led);
-
-    // A key with only its label, drawn by a subclass.
+    // The label is drawn in capitals under the key.
     KeyButton(const juce::String& label, std::optional<juce::Colour> led);
 
+    // A subclass that draws its own text inside the key turns the legend below off.
+    void setLegendBelow(bool below) { legendBelow_ = below; }
     void setLit(bool lit);
     [[nodiscard]] bool isLit() const { return lit_; }
     // Off, the key and its LED jump instead of animating.
@@ -43,7 +40,7 @@ class KeyButton : public juce::Button, private juce::Timer
   protected:
     KeyButton(const juce::String& label, const KeyMaterial& material,
               std::optional<juce::Colour> led);
-    // Paints the key's content inside its face.
+    // Paints the key's content inside its face; nothing by default.
     virtual void paintContent(juce::Graphics& g, juce::Rectangle<float> face) const;
 
   private:
@@ -53,9 +50,8 @@ class KeyButton : public juce::Button, private juce::Timer
 
     KeyMaterial material_;
     juce::String label_;
-    juce::Path icon_;
-    float iconSize_ = 0.0F;
     std::optional<juce::Colour> led_;
+    bool legendBelow_ = true;
     bool lit_ = false;
     bool animated_ = true;
     float press_ = 0.0F;

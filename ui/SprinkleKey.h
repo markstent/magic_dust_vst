@@ -6,7 +6,7 @@
 namespace md::ui
 {
 
-// The wide gold key: a sparkle, "sprinkle" and "new idea".
+// The wide red key with "SPRINKLE" in white inside it.
 class SprinkleKey : public KeyButton
 {
   public:

@@ -169,16 +169,12 @@ The numbers match the order of the console's parts, left to right and top to bot
 ### 6. Lanes
 
 - Three rows: chords, bass and melody.
-- Each row has a 96 px label column and a 548 x 56 px piano roll with a 1 px bar line at every bar in `ink` at 18%, and a 1 px `ink` playhead while playing.
+- Each row has a 96 px label column, with the name and pattern centred in it, and a 548 x 56 px piano roll with a 1 px bar line at every bar in `ink` at 18%, and a 1 px `ink` playhead while playing.
 - The label shows the lane name in capitals, with the pattern name below it, ending in an ellipsis if it is too long.
 - Notes are `ink` rectangles with a 1 px radius.
   Horizontal position and width come from the note's start and length across the 8 bars.
   Vertical position comes from pitch, with the highest pitch at the top: chords span MIDI 48 to 79, bass 28 to 48, and melody 60 to 84.
-- Level slider: each row has a small slider for that lane's built-in sound, under the label and inside the label column.
-  Its track is 3 px tall and fully rounded, with its centre 12 px above the row's bottom edge.
-  It is filled from the left to the value in the lane's cap colour, with no thumb.
-  Double-click resets it to full.
-  Its accessible title is "chords level", "bass level" or "melody level", and its value reads as a percent.
+- The lane's level is a knob in the lane group below the display (components 10 to 12), not in the row.
 - Selected: an `ink` band at 8% behind the row.
 - Muted: drawn at 35% (arrives with muting).
 - Click: select the lane.
@@ -201,72 +197,77 @@ The numbers match the order of the console's parts, left to right and top to bot
 - One line along the bottom of the display: "BAR 3 OF 8 - SELECTED: CHORD 2 - NOTHING PINNED", or "STOPPED - ..." when stopped.
 - While there is an error, the line shows the error instead, and the readout returns once it clears.
 
-### 10. Lane encoders
+### 10. Lane group
 
-- One each for chords, bass and melody.
-- Value: the lane's pattern name.
-  The pointer angle is -135 degrees plus (pattern index divided by (pattern count minus 1)) times 270 degrees.
-- Drag up or down: one pattern step per 16 px of movement.
-  The scroll wheel steps one pattern per notch.
-- Click without dragging (the "push"): pin or unpin the lane, and select it.
-- LED next to the name: lit in the lane colour while the lane is pinned.
-- Hint line: "push to pin", or "push to unpin" when pinned.
-- Turning a pinned encoder changes nothing and shows the toast "unpin the bass lane to turn it" (with the lane's name).
-- Keyboard: arrow up and down step the pattern; Enter or Space pins.
+- A panel at (54, 420, 372, 146): `#000000` at 12%, a 1 px inner line of `#FFFFFF` at 12%, and a 4 px radius.
+- Three columns, at x = 54 + i * 124 and 124 px wide, for chords, bass and melody.
+- The legends "CHORDS", "BASS" and "MELODY" are centred in their column on y 436, in Space Grotesk 700 10 px.
+- Each column has a pattern knob slot and a level knob.
 
-| Lane | Patterns, in order |
-| --- | --- |
-| Chords | organ stabs, piano chops, long pads, offbeat stabs |
-| Bass | rolling offbeat, offbeat, octave bounce, garage skip, sustained |
-| Melody | vocal chop, hook, riff, sparse |
+### 11. Pattern knob slots (Phase 5)
 
-### 11. Aura encoder
+- Centre at (column x + 38, 488), 44 px across.
+- Left empty until Phase 5: draw nothing, so the faceplate shows through.
 
-- Value: "mood 30" or "energy 72" (0 to 100), depending on its mode.
-- Drag up or down: 160 px covers the full range.
-  The scroll wheel moves 5 per notch.
-- Click without dragging: switch between mood and energy.
-  The hint reads "push for energy" or "push for mood".
-- Releasing after a drag regenerates unpinned parts.
-- Its LED is always lit `gold`.
+### 12. Lane level knobs
 
-### 12. Status line
+- Centre at (column x + 92, 488), 34 px across, with the legend "LEVEL".
+- The cap is the lane's colour, and the knob is bound to `chordsLevel`, `bassLevel` or `melodyLevel`.
+- Double-click resets to 100%.
+- Accessible titles are "chords level", "bass level" and "melody level".
 
-- "sync" LED: `gold` while the plugin is following Live's transport.
-- "midi" LED: `cyan` while MIDI output is active.
-- A thin rule in `#C3C5CA` fills the middle.
-- The four-colour spectrum strip on the right (22 x 4 px bars, 3 px apart) is decorative.
+### 13. Volume
 
-### 13. Play and stop
+- A knob centred at (950, 472), 52 px across, with the legend "VOLUME" and the end words "MIN" and "MAX".
+- Bound to `volume`; double-click resets to 80%.
 
-- Play starts the preview; its LED is `gold` while playing.
-- Stop ends the preview and returns to bar 1.
-- While Live is playing, the preview follows Live's position instead.
+### 14. Keys
 
-### 14. Sprinkle
+- A key is 36 x 24 px, with its top at y 464.
+- Face: the `key-top` to `key-bottom` gradient with a 3 px radius, and a 2 px `key-shadow` below.
+- A pressed key moves down 1 px and its shadow drops to 1 px.
+- The LED is 6 px, centred over the key with 6 px between them.
+  Amber (`led-on`) when lit, `led-off` when not.
+- The legend sits 8 px below the key, in capitals, Space Grotesk 500 9.5 px with 0.2 em spacing.
+- Play is at x 450 and its LED is lit while the preview plays.
+- Stop is at x 498 and has no LED.
+- Neither key has an icon, because none reads cleanly at this size.
 
+### 15. Sprinkle
+
+- At (818, 454, 84, 44), with a 5 px radius.
+- Face: the `sprinkle-top` to `sprinkle-bottom` gradient, and a 3 px `key-shadow` below.
+- "SPRINKLE" in white inside it, Space Grotesk 700 10 px with 0.18 em spacing.
+- Its LED sits above at y 442 and is not lit.
 - Writes a new idea, keeping everything pinned, and adds it to the spells list (8 most recent).
-- The largest and only gold key.
 
-### 15. Pin, reroll, mute and swap
+### 16. Phase 5 key slots
 
-These act on the current selection (a chord bubble or a lane).
+These keys are not built yet, and their slots stay plain faceplate.
+They use the key material, with the top at y 464.
+
+| Key | x |
+| --- | --- |
+| PIN | 538 |
+| REROLL | 586 |
+| MUTE | 634 |
+| SWAP | 682 |
+| KEEP | 722 |
+| BOTTLE IT | 770 |
+
+- Pin, reroll, mute and swap act on the current selection (a chord cell or a lane), as in the table below.
+- Keep adds or removes the idea from favourites, with the toast "kept in favourites" or "removed from favourites".
+- Bottle it: drag from the key to drop the whole idea into your daw.
+  A plain click shows the toast "drag me into your daw: chords, bass and melody".
 
 | Key | On a chord | On a lane | LED |
 | --- | --- | --- | --- |
-| pin | Pins or unpins the chord | Pins or unpins the lane | `violet` while the selected item is pinned |
+| pin | Pins or unpins the chord | Pins or unpins the lane | lit while the selected item is pinned |
 | reroll | Picks a different chord for that slot; unpinned bass and chord lanes follow | Rewrites the lane with a new seed | None |
-| mute | Toast: "select a lane to mute it" | Mutes or unmutes the lane | `magenta` while the selected lane is muted |
-| swap | Steps to the next ranked alternative; unpinned bass and chord lanes follow | Toast: "select a chord bubble to swap it" | None |
+| mute | Toast: "select a lane to mute it" | Mutes or unmutes the lane | lit while the selected lane is muted |
+| swap | Steps to the next ranked alternative; unpinned bass and chord lanes follow | Toast: "select a chord cell to swap it" | None |
 
 Rerolling or swapping a pinned item changes nothing and shows "unpin it first" (reroll) or "unpin the chord to swap it" (swap).
-
-### 16. Keep and bottle it
-
-- Keep: adds or removes the idea from favourites, with the toast "kept in favourites" or "removed from favourites".
-  Its LED is `gold` while the current idea is kept.
-- Bottle it: drag from this key to drop the whole idea into Ableton.
-  A plain click shows the toast "drag me into ableton: chords, bass and melody".
 
 ### Sender screen
 
