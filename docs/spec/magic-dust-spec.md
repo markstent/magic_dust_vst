@@ -123,7 +123,7 @@ The full definition is in `magic-dust-visual-spec.md`; this section is only an o
     Click to select; drag to export.
   - **Status strip:** the aura pad (mood and energy), groove and flavour fields, and a readout of bar, selection and pins.
 - **Encoders:** chords, bass and melody (turn to change pattern, push to pin), and aura (turn for mood, push to switch to energy).
-- **Keycaps:** play, stop, sprinkle, pin, reroll, mute, swap, keep, and bottle it.
+- **Keycaps:** play, stop, sprinkle, pin, reroll, swap, keep, and bottle it, and a mute key for each lane.
 
 ### Words in the interface
 
@@ -436,6 +436,8 @@ Keeping `engine`, `bank` and `midiexport` free of JUCE means all the music logic
   Each runs from 0 to 1 and starts at 1.
   A built-in voice plays at the preview volume times its lane level.
   The levels never change the MIDI out.
+  Three more mute each lane: chords mute, bass mute and melody mute, off by default.
+  A muted lane plays nothing, neither its built-in sound nor its MIDI out, and a sender follows the main instance's mutes.
 - **Live response.**
   Groove changes apply instantly (swing only).
   Aura and flavour changes regenerate unpinned parts with the same seed after a 150 ms pause in movement, so the owner hears the change without losing the idea.

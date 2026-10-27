@@ -59,12 +59,12 @@ The look is the studio console in `visual/studio-console-mockup.html`; the numbe
 | Screws | 13 px circles at (34, 8), (993, 8), (34, 579) and (993, 579). |
 | Wordmark | Starts at x = 54, centred on y = 44. The tagline starts 18 px after it. |
 | Readout legends | y = 24, 12 px tall, centred over each window. |
-| Spell, style, key and tempo windows | At y = 38, 26 px tall: x = 574 (84 wide), 670 (124), 806 (84) and 902 (84). |
+| Idea, style, key and tempo windows | At y = 38, 26 px tall: x = 574 (84 wide), 670 (124), 806 (84) and 902 (84). |
 | Chord cells | 137 x 48 px at x = 166 + i * 137, y = 98. The cell is drawn inset by 4 px. |
 | Lane rows | 656 x 64 px at x = 62, y = 154, 222 and 290. The label column starts at x = 66 and is 96 px wide. The piano roll is 548 x 56 px at x = 166, 4 px below the row's top. |
 | Bottom line | 648 x 20 px at (66, 360). |
 | Knobs | Diameter 56 px. Column centres at x = 809 and 927. Faces at y = 144 to 200 (mood, energy) and y = 290 to 346 (groove, flavour), which centres the block of legends, ticks and words in the group box. |
-| Keys | Play at (450, 464) and stop at (498, 464), 36 x 24 px. Sprinkle at (818, 454), 84 x 44 px. |
+| Keys | Play at (450, 464) and stop at (498, 464), 36 x 24 px. Sprinkle at (818, 454), 84 x 44 px. Each lane column also has a mute key at (column x + 72, 496), 36 x 24 px. |
 | Spells panel | 340 px wide, 14 px from the display's left inner edge and 40 px below its top inner edge. |
 | Toast | Centred horizontally on the display, 96 px above its bottom inner edge. |
 
@@ -138,8 +138,8 @@ The numbers match the order of the console's parts, left to right and top to bot
 
 ### 2. Header readouts
 
-- Four cream windows, each with a legend above: "SPELL", "STYLE", "KEY" and "TEMPO".
-- Spell shows the idea's seed as four digits, for example "0417".
+- Four cream windows, each with a legend above: "IDEA", "STYLE", "KEY" and "TEMPO".
+- Idea shows the idea's seed as four digits, for example "0417", with the accessible title "idea, 0417".
   It is not clickable yet.
 - Style and key are buttons that open menus.
   Key reads as, for example, "A MIN".
@@ -169,7 +169,7 @@ The numbers match the order of the console's parts, left to right and top to bot
   Vertical position comes from pitch, with the highest pitch at the top: chords span MIDI 48 to 79, bass 28 to 48, and melody 60 to 84.
 - The lane's level is a knob in the lane group below the display (components 8 to 10), not in the row.
 - Selected: an `ink` band at 8% behind the row.
-- Muted: drawn at 35% (arrives with muting).
+- Muted: the whole row is drawn at 35% while the lane's mute key is on.
 - Click: select the lane.
   Drag (more than 4 px of movement): drag the lane into your daw as a MIDI clip.
 
@@ -195,7 +195,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 - A panel at (54, 420, 372, 146): `#000000` at 12%, a 1 px inner line of `#FFFFFF` at 12%, and a 4 px radius.
 - Three columns, at x = 54 + i * 124 and 124 px wide, for chords, bass and melody.
 - The legends "CHORDS", "BASS" and "MELODY" are centred in their column on y 456, in Space Grotesk 700 10 px.
-- Each column has a pattern knob slot and a level knob.
+- Each column has a pattern knob slot, a level knob and a mute key.
 
 ### 9. Pattern knob slots (Phase 5)
 
@@ -204,11 +204,22 @@ The numbers match the order of the console's parts, left to right and top to bot
 
 ### 10. Lane level knobs
 
-- Centre at (column x + 62, 508), 34 px across, with the legend "LEVEL", under the lane legend.
+- Centre at (column x + 42, 508), 34 px across, with the legend "LEVEL", under the lane legend.
 - Phase 5 moves it to column x + 92, beside the pattern knob at column x + 38.
 - The cap is the lane's colour, and the knob is bound to `chordsLevel`, `bassLevel` or `melodyLevel`.
 - Double-click resets to 100%.
 - Accessible titles are "chords level", "bass level" and "melody level".
+
+### 10a. Lane mute keys
+
+- Each column has a MUTE key at x = column x + 72, 36 x 24 px, vertically centred on y 508, in the cream key material (3 px radius, 2 px shadow).
+- An amber LED 6 px across sits centred 6 px above the key and is lit while the lane is muted.
+- The legend "MUTE" is below the key, in the key legend style.
+- Click, or Space or Enter while focused, toggles `chordsMute`, `bassMute` or `melodyMute`.
+- Accessible titles are "chords mute", "bass mute" and "melody mute".
+- A muted lane plays nothing: no built-in sound and no MIDI out.
+  A sender follows the main instance, so it goes quiet too.
+- Each level knob is followed by its mute key in the focus order.
 
 ### 11. Volume
 
@@ -244,12 +255,11 @@ They use the key material, with the top at y 464.
 | --- | --- |
 | PIN | 538 |
 | REROLL | 586 |
-| MUTE | 634 |
 | SWAP | 682 |
 | KEEP | 722 |
 | BOTTLE IT | 770 |
 
-- Pin, reroll, mute and swap act on the current selection (a chord cell or a lane), as in the table below.
+- Pin, reroll and swap act on the current selection (a chord cell or a lane), as in the table below.
 - Keep adds or removes the idea from favourites, with the toast "kept in favourites" or "removed from favourites".
 - Bottle it: drag from the key to drop the whole idea into your daw.
   A plain click shows the toast "drag me into your daw: chords, bass and melody".
@@ -258,7 +268,6 @@ They use the key material, with the top at y 464.
 | --- | --- | --- | --- |
 | pin | Pins or unpins the chord | Pins or unpins the lane | lit while the selected item is pinned |
 | reroll | Picks a different chord for that slot; unpinned bass and chord lanes follow | Rewrites the lane with a new seed | None |
-| mute | Toast: "select a lane to mute it" | Mutes or unmutes the lane | lit while the selected lane is muted |
 | swap | Steps to the next ranked alternative; unpinned bass and chord lanes follow | Toast: "select a chord cell to swap it" | None |
 
 Rerolling or swapping a pinned item changes nothing and shows "unpin it first" (reroll) or "unpin the chord to swap it" (swap).
@@ -320,7 +329,7 @@ A "motion" setting turns every animation off, and the plugin also turns them off
 
 ## Accessibility
 
-- Every interactive element is keyboard-focusable in this order: the wordmark, the style and key windows, the chord cells, the lanes, the mood, energy, groove and flavour knobs, the three level knobs, play, stop, sprinkle, then the volume knob.
+- Every interactive element is keyboard-focusable in this order: the wordmark, the style and key windows, the chord cells, the lanes, the mood, energy, groove and flavour knobs, the three level knobs each followed by its mute key, play, stop, sprinkle, then the volume knob.
   The sender view's order is its three lane keys, then "full magic dust".
 - Focus ring: 2 px `ink` on cream surfaces, 2 px `legend` on the metal faceplate.
 - Every control has an accessible title through `juce::AccessibilityHandler`, for example "chord 1, Am9, home", "mood", "chords level", "play the preview" and "about magic dust".

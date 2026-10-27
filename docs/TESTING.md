@@ -136,6 +136,15 @@ Build first with `cmake --build --preset dev` and rescan your plug-ins as above.
 3. Double-click a level knob to put it back to full.
 4. Check the MIDI you drag out does not change with the levels.
 
+### Muting lanes
+
+1. Press play.
+2. Press the MUTE key under bass, then under melody.
+   Their LEDs light, their rows on the display fade, and the bass and the lead drop out while the chords play on.
+3. Check the MIDI out of those lanes stops too: with a bass sender (see below) loaded on another track and your own instrument on it, the instrument goes quiet.
+4. Press the keys again and hear each lane come back at its next note.
+5. Check the level knobs did not move.
+
 ### Dragging an idea out
 
 1. Drag a chord cell onto a MIDI track.
