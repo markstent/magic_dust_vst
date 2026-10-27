@@ -3,8 +3,15 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
+#include <juce_audio_formats/juce_audio_formats.h>
+
+#include "SeedHelper.h"
+#include "md/bank.hpp"
+#include "md/ranges.hpp"
 #include "plugin/AuditionSynth.h"
+#include "plugin/PluginProcessor.h"
 
 namespace
 {
@@ -78,7 +85,7 @@ double steadyRms(const md::VoiceRecipe& r, float level, int velocity = 127, doub
 
 TEST_CASE("audition voices", "[audition]")
 {
-    for (const md::VoiceRecipe* r : {&md::kOrgan, &md::kSubBass, &md::kSoftLead})
+    for (const md::VoiceRecipe* r : {&md::kOrgan, &md::kSubBass})
     {
         SECTION("silent with no notes")
         {
@@ -207,4 +214,160 @@ TEST_CASE("note off for a note not sounding changes nothing", "[audition]")
     synth.noteOff(70);
     synth.render(buf, 4800, 4800);
     CHECK(rms(buf, 4800, 9600) == Catch::Approx(expectedRms(md::kOrgan)).epsilon(0.02));
+}
+
+namespace
+{
+
+// The rms of a held note over a 10 ms window centred ms after the note on.
+double heldRms(const juce::AudioBuffer<float>& buf, double ms)
+{
+    const int centre = static_cast<int>(kRate * ms / 1000.0);
+    return rms(buf, centre - 240, centre + 240);
+}
+
+juce::AudioBuffer<float> renderHeld(const md::VoiceRecipe& r, int samples)
+{
+    md::AuditionSynth synth(r);
+    synth.prepare(kRate);
+    synth.setLevel(1.0F);
+    juce::AudioBuffer<float> buf(2, samples);
+    buf.clear();
+    synth.noteOn(69, 127);
+    synth.render(buf, 0, samples);
+    return buf;
+}
+
+} // namespace
+
+TEST_CASE("a held pluck falls to 1/e after its decay time and keeps falling", "[audition]")
+{
+    auto buf = renderHeld(md::kPluck, 96000);
+    const double early = heldRms(buf, md::kPluck.attackMs + 5.0);
+    const double late = heldRms(buf, md::kPluck.attackMs + md::kPluck.decayMs + 5.0);
+    CHECK(late / early == Catch::Approx(std::exp(-1.0)).epsilon(0.15));
+    CHECK(heldRms(buf, 600.0) < late);
+    CHECK(heldRms(buf, 1200.0) < heldRms(buf, 600.0));
+}
+
+TEST_CASE("a pluck note off still releases a held note", "[audition]")
+{
+    md::AuditionSynth synth(md::kPluck);
+    synth.prepare(kRate);
+    juce::AudioBuffer<float> buf(2, 4800);
+    buf.clear();
+    synth.noteOn(69, 127);
+    synth.render(buf, 0, 4800);
+    synth.noteOff(69);
+    buf.setSize(2, releaseSamples(md::kPluck) + 64);
+    buf.clear();
+    synth.render(buf, 0, releaseSamples(md::kPluck));
+    buf.clear();
+    synth.render(buf, 0, 64);
+    CHECK(allZero(buf));
+}
+
+TEST_CASE("organ and sub bass do not decay", "[audition]")
+{
+    for (const md::VoiceRecipe* r : {&md::kOrgan, &md::kSubBass})
+    {
+        CHECK(r->decayMs == 0.0F);
+        auto buf = renderHeld(*r, 96000);
+        CHECK(rms(buf, 86000, 96000) == Catch::Approx(expectedRms(*r)).epsilon(0.02));
+    }
+}
+
+TEST_CASE("a fully decayed pluck voice is free for a new note without stealing", "[audition]")
+{
+    md::AuditionSynth synth(md::kPluck);
+    synth.prepare(kRate);
+    synth.setLevel(1.0F);
+    juce::AudioBuffer<float> buf(2, 144000);
+    buf.clear();
+    for (const int note : {57, 61, 64, 69})
+    {
+        synth.noteOn(note, 127);
+    }
+    synth.render(buf, 0, 144000);
+    CHECK(rms(buf, 134000, 144000) == 0.0);
+    buf.clear();
+    for (const int note : {45, 49, 52, 57})
+    {
+        synth.noteOn(note, 127);
+    }
+    synth.render(buf, 0, 4800);
+    const double fresh = rms(buf, 480, 2400);
+    buf.clear();
+    md::AuditionSynth reference(md::kPluck);
+    reference.prepare(kRate);
+    reference.setLevel(1.0F);
+    for (const int note : {45, 49, 52, 57})
+    {
+        reference.noteOn(note, 127);
+    }
+    reference.render(buf, 0, 4800);
+    CHECK(fresh == Catch::Approx(rms(buf, 480, 2400)).epsilon(0.001));
+}
+
+TEST_CASE("pluck keeps a typical melody about as loud as the old soft lead", "[audition]")
+{
+    constexpr double kOldSoftLeadRms = 0.1073; // gain 0.15, triangle partials, held at full level
+    auto buf = renderHeld(md::kPluck, 12000);
+    CHECK(rms(buf, 0, 12000) == Catch::Approx(kOldSoftLeadRms).epsilon(0.3));
+}
+
+// Renders an 8-bar idea's melody through the pluck voice to $MD_PLUCK_WAV; does nothing when the
+// variable is not set.
+TEST_CASE("render the pluck melody", "[.render]")
+{
+    const char* path = std::getenv("MD_PLUCK_WAV");
+    if (path == nullptr)
+    {
+        return;
+    }
+    juce::ScopedJuceInitialiser_GUI gui;
+    MagicDustProcessor processor{md::loadBundledBank(), 7};
+    setSeed(processor, 1);
+    REQUIRE(processor.idea() != nullptr);
+    constexpr double kBpm = 124.0;
+    const double samplesPerTick = kRate * 60.0 / kBpm / md::kTicksPerQuarter;
+    const auto at = [&](int ticks) { return static_cast<int>(ticks * samplesPerTick); };
+    const int total = at(8 * 4 * md::kTicksPerQuarter) + 48000;
+    md::AuditionSynth synth(md::kPluck);
+    synth.prepare(kRate);
+    synth.setLevel(1.0F);
+    juce::AudioBuffer<float> buf(2, total);
+    buf.clear();
+    struct Edge
+    {
+        int sample;
+        int note;
+        int velocity;
+    };
+    std::vector<Edge> edges;
+    for (const auto& e : processor.idea()->lanes.at(2).events)
+    {
+        edges.push_back({.sample = at(e.start), .note = e.pitch, .velocity = e.velocity});
+        edges.push_back({.sample = at(e.start + e.length), .note = e.pitch, .velocity = 0});
+    }
+    std::ranges::stable_sort(edges, {}, &Edge::sample);
+    int done = 0;
+    for (const Edge& edge : edges)
+    {
+        synth.render(buf, done, edge.sample - done);
+        done = edge.sample;
+        synth.noteOn(edge.note, edge.velocity);
+    }
+    synth.render(buf, done, total - done);
+    const juce::File out(path);
+    out.getParentDirectory().createDirectory();
+    out.deleteFile();
+    juce::WavAudioFormat wav;
+    std::unique_ptr<juce::OutputStream> stream = std::make_unique<juce::FileOutputStream>(out);
+    auto writer = wav.createWriterFor(
+        stream,
+        juce::AudioFormatWriterOptions{}.withSampleRate(kRate).withNumChannels(2).withBitsPerSample(
+            16));
+    REQUIRE(writer != nullptr);
+    REQUIRE(writer->writeFromAudioSampleBuffer(buf, 0, total));
 }

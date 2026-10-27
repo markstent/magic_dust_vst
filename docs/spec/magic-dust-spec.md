@@ -415,7 +415,7 @@ flowchart TB
 | `bank` | Load and validate JSON entries into engine types | `engine`, nlohmann/json |
 | `midiexport` | Turn an idea into Standard MIDI File bytes | `engine` |
 | `plugin` | JUCE audio processor: parameters, saved state, host tempo and transport, preview playback | JUCE, all of the above |
-| `synth` | Three audition voices: organ, sub bass, soft lead | JUCE |
+| `synth` | Three audition voices: organ, sub bass, pluck | JUCE |
 | `ui` | Look and feel, tokens, screen, encoders, keycaps, drag sources (see the visual spec's component map) | JUCE, `plugin` |
 | `tools/bank-builder` | Draft bank entries from audio or MIDI the owner owns | Python 3, librosa |
 

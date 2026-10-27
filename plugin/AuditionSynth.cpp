@@ -8,6 +8,9 @@
 namespace md
 {
 
+// A decaying voice below this level frees itself.
+constexpr float kInaudible = 0.0005F;
+
 AuditionSynth::AuditionSynth(const VoiceRecipe& recipe) : recipe_(recipe) {}
 
 void AuditionSynth::prepare(double sampleRate)
@@ -46,6 +49,7 @@ void AuditionSynth::noteOn(int note, int velocity)
     }
     v.active = true;
     v.releasing = false;
+    v.decaying = false;
     v.note = note;
     v.age = ++noteCounter_;
     v.frequency = juce::MidiMessage::getMidiNoteInHertz(note);
@@ -97,6 +101,11 @@ void AuditionSynth::renderVoice(Voice& v, juce::AudioBuffer<float>& buffer, int 
 {
     const float attackStep =
         1.0F / std::max(1.0F, static_cast<float>(sampleRate_ * recipe_.attackMs / 1000.0));
+    const float decayFactor =
+        recipe_.decayMs > 0.0F
+            ? std::exp(-1.0F /
+                       std::max(1.0F, static_cast<float>(sampleRate_ * recipe_.decayMs / 1000.0)))
+            : 1.0F;
     const double step = v.frequency / sampleRate_;
     const int channels = buffer.getNumChannels();
     for (int i = start; i < start + num; ++i)
@@ -110,9 +119,19 @@ void AuditionSynth::renderVoice(Voice& v, juce::AudioBuffer<float>& buffer, int 
                 return;
             }
         }
+        else if (v.decaying)
+        {
+            v.env *= decayFactor;
+            if (v.env < kInaudible)
+            {
+                v.active = false;
+                return;
+            }
+        }
         else
         {
             v.env = std::min(1.0F, v.env + attackStep);
+            v.decaying = v.env >= 1.0F && recipe_.decayMs > 0.0F;
         }
         double sum = 0.0;
         double harmonic = 1.0;

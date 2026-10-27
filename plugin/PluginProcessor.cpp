@@ -331,7 +331,7 @@ void MagicDustProcessor::prepareToPlay(double sampleRate, int /*samplesPerBlock*
     releasePending_.store(true);
     organ_.prepare(sampleRate);
     subBass_.prepare(sampleRate);
-    softLead_.prepare(sampleRate);
+    pluck_.prepare(sampleRate);
 }
 
 void MagicDustProcessor::releaseResources() { releasePending_.store(true); }
@@ -345,7 +345,7 @@ md::AuditionSynth& MagicDustProcessor::voiceFor(int channel)
     case 1:
         return subBass_;
     default:
-        return softLead_;
+        return pluck_;
     }
 }
 
@@ -381,7 +381,7 @@ void MagicDustProcessor::releaseAllNotes(juce::MidiBuffer& midi)
                          { addMidi(midi, false, channel, note, 0, 0); });
     organ_.allNotesOff();
     subBass_.allNotesOff();
-    softLead_.allNotesOff();
+    pluck_.allNotesOff();
 }
 
 void MagicDustProcessor::startAudition(double bpm)
@@ -440,7 +440,7 @@ void MagicDustProcessor::renderVoices(juce::AudioBuffer<float>& buffer, int star
 {
     organ_.render(buffer, start, num);
     subBass_.render(buffer, start, num);
-    softLead_.render(buffer, start, num);
+    pluck_.render(buffer, start, num);
 }
 
 void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
@@ -454,7 +454,7 @@ void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
     const float volume = volume_->load();
     organ_.setLevel(volume * chordsLevel_->load());
     subBass_.setLevel(volume * bassLevel_->load());
-    softLead_.setLevel(volume * melodyLevel_->load());
+    pluck_.setLevel(volume * melodyLevel_->load());
 
     bool release = releasePending_.exchange(false);
     const Key key = keyCommand_.exchange(Key::none);

@@ -160,7 +160,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     std::atomic<double> hostBpm_{0.0};
     md::AuditionSynth organ_{md::kOrgan};
     md::AuditionSynth subBass_{md::kSubBass};
-    md::AuditionSynth softLead_{md::kSoftLead};
+    md::AuditionSynth pluck_{md::kPluck};
     md::InternalClock internal_;
     md::SoundingNotes sounding_;
     const md::PlaybackPattern* lastPattern_ = nullptr;
