@@ -375,7 +375,6 @@ struct ParsedFile
     int ticksPerBeat = 0;
     int tempoMicros = 0;
     int lengthTicks = 0; // the end-of-track tick
-    int firstNote = 0;
     int lastNote = 0;
 };
 
@@ -386,7 +385,6 @@ ParsedFile parseSingleTrack(const Bytes& file)
     constexpr std::size_t kChunkHeader = 8;
     ParsedFile out;
     out.ticksPerBeat = (file.at(12) * 256) + file.at(13);
-    out.firstNote = std::numeric_limits<int>::max();
     std::size_t at = kHeader + kChunkHeader;
     int tick = 0;
     while (at < file.size())
@@ -415,7 +413,6 @@ ParsedFile parseSingleTrack(const Bytes& file)
         }
         else
         {
-            out.firstNote = std::min(out.firstNote, tick);
             out.lastNote = std::max(out.lastNote, tick);
             at += 2;
         }
@@ -448,7 +445,6 @@ TEST_CASE("the three dragged lanes of an idea share length, beat, tempo and a 0 
                 CHECK(file.lengthTicks == 8 * kTicksPerBar);
                 CHECK(file.ticksPerBeat == kTicksPerQuarter);
                 CHECK(file.tempoMicros == 60'000'000 / kTempo);
-                CHECK(file.firstNote >= 0);
                 CHECK(file.lastNote <= file.lengthTicks);
             }
         }

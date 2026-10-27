@@ -882,3 +882,29 @@ TEST_CASE("every lane starts its notes on the shared swing grid at every groove"
         }
     }
 }
+
+TEST_CASE("every lane's notes stay inside the idea, from tick 0 to its length at every groove",
+          "[generate][timing]")
+{
+    constexpr int kGuardSeeds = 12;
+    for (const Groove groove :
+         {Groove::straight, Groove::swing54, Groove::ukShuffle58, Groove::heavy62})
+    {
+        Settings settings = settingsFor(Style::ukFunky, 0);
+        settings.groove = groove;
+        for (int seed = 1; seed <= kGuardSeeds; ++seed)
+        {
+            const Idea idea = generate(bank(), settings, static_cast<std::uint32_t>(seed));
+            for (const Lane& lane : idea.lanes)
+            {
+                for (const NoteEvent& n : lane.events)
+                {
+                    INFO("groove " << static_cast<int>(groove) << " seed " << seed << " lane "
+                                   << static_cast<int>(lane.id) << " start " << n.start);
+                    CHECK(n.start >= 0);
+                    CHECK(n.start + n.length <= ideaLengthTicks(idea));
+                }
+            }
+        }
+    }
+}
