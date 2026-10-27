@@ -1,3 +1,5 @@
+#include "md/bank.hpp"
+#include "md/generate.hpp"
 #include "md/midifile.hpp"
 
 #include "md/ranges.hpp"
@@ -78,6 +80,20 @@ Idea makeIdea()
         makeLane(LaneId::melody, note(69, 480, 240, 80), false),
     };
     return idea;
+}
+
+// Golden case 0, see tests/golden/cases.hpp.
+Settings goldenCase0Settings()
+{
+    Settings settings;
+    settings.style = Style{};
+    settings.keyRoot = 0;
+    settings.mood = 0;
+    settings.energy = 0;
+    settings.groove = Groove{};
+    settings.flavour = Flavour{};
+    settings.bars = 8;
+    return settings;
 }
 } // namespace
 
@@ -261,4 +277,72 @@ TEST_CASE("laneTrack throws when lanes are out of order")
     Idea idea = makeIdea();
     std::swap(idea.lanes.at(1), idea.lanes.at(2));
     CHECK_THROWS_AS(laneTrack(idea, LaneId::bass), std::logic_error);
+}
+
+TEST_CASE("chordSlotTrack holds one chord's notes from tick 0")
+{
+    const Bank bank = loadBundledBank();
+    const Idea idea = generate(bank, goldenCase0Settings(), 1000);
+    const auto& lane = idea.lanes.at(0).events;
+    for (std::size_t slot = 0; slot < idea.progression.size(); ++slot)
+    {
+        const PlacedChord& chord = idea.progression.at(slot);
+        const int begin = chord.startBar * kTicksPerBar;
+        const int end = begin + (chord.bars * kTicksPerBar);
+        std::vector<NoteEvent> expected;
+        for (const NoteEvent& n : lane)
+        {
+            if (n.start >= begin && n.start < end)
+            {
+                expected.push_back(note(n.pitch, n.start - begin,
+                                        std::min(n.start + n.length, end) - n.start, n.velocity));
+            }
+        }
+        const MidiTrack track = chordSlotTrack(idea, slot);
+        CHECK(track.name == "Chord");
+        CHECK(track.channel == 0);
+        CHECK_FALSE(track.notes.empty());
+        CHECK(track.notes == expected);
+        for (const NoteEvent& n : track.notes)
+        {
+            CHECK(n.start >= 0);
+            CHECK(n.start + n.length <= chord.bars * kTicksPerBar);
+        }
+    }
+    CHECK_THROWS_AS(chordSlotTrack(idea, idea.progression.size()), std::out_of_range);
+}
+
+TEST_CASE("chordSlotTrack clips a note that runs past the chord")
+{
+    Idea idea = makeIdea();
+    idea.lanes.at(0).events = {note(57, 3840, 20000, 90)};
+    const MidiTrack track = chordSlotTrack(idea, 0);
+    REQUIRE(track.notes.size() == 1);
+    CHECK(track.notes.at(0) == note(57, 3840, 3840, 90));
+}
+
+TEST_CASE("dragFileName names each drag")
+{
+    Idea idea = makeIdea();
+    const auto chord = [](int degree, Quality q, int startBar)
+    {
+        return PlacedChord{.symbol = {.degree = degree, .quality = q},
+                           .feel = "",
+                           .startBar = startBar,
+                           .bars = 1,
+                           .voicing = {}};
+    };
+    idea.progression = {chord(1, Quality::min9, 0), chord(4, Quality::dom9, 1),
+                        chord(6, Quality::maj7, 2), chord(5, Quality::min9, 3)};
+    CHECK(dragFileName(idea, LaneId::chords, std::nullopt, 124) ==
+          "Chords - Am9 D9 Fmaj7 Em9 - 124bpm.mid");
+    CHECK(dragFileName(idea, LaneId::bass, std::nullopt, 124) ==
+          "Bass - Am9 D9 Fmaj7 Em9 - 124bpm.mid");
+    CHECK(dragFileName(idea, LaneId::melody, std::nullopt, 124) ==
+          "Melody - Am9 D9 Fmaj7 Em9 - 124bpm.mid");
+    CHECK(dragFileName(idea, std::nullopt, 0, 124) == "Chord - Am9 - 124bpm.mid");
+    CHECK(dragFileName(idea, std::nullopt, std::nullopt, 124) ==
+          "Magic Dust - Am9 D9 Fmaj7 Em9 - 124bpm.mid");
+    idea.progression.erase(idea.progression.begin() + 2, idea.progression.end());
+    CHECK(dragFileName(idea, std::nullopt, std::nullopt, 90) == "Magic Dust - Am9 D9 - 90bpm.mid");
 }

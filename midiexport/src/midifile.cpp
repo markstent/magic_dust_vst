@@ -236,6 +236,49 @@ MidiTrack laneTrack(const Idea& idea, LaneId lane)
     return track;
 }
 
+MidiTrack chordSlotTrack(const Idea& idea, std::size_t slot)
+{
+    const PlacedChord& chord = idea.progression.at(slot);
+    const int begin = chord.startBar * kTicksPerBar;
+    const int end = begin + (chord.bars * kTicksPerBar);
+    MidiTrack track{.name = "Chord", .notes = {}, .markers = {}, .channel = 0};
+    for (NoteEvent n : laneTrack(idea, LaneId::chords).notes)
+    {
+        if (n.start >= begin && n.start < end)
+        {
+            n.length = std::min(n.start + n.length, end) - n.start;
+            n.start -= begin;
+            track.notes.push_back(n);
+        }
+    }
+    return track;
+}
+
+std::string dragFileName(const Idea& idea, std::optional<LaneId> lane,
+                         std::optional<std::size_t> slot, int tempoBpm)
+{
+    static constexpr std::array<std::string_view, 3> kLaneNames = {"Chords", "Bass", "Melody"};
+    std::string prefix = "Magic Dust";
+    std::string chords;
+    if (slot)
+    {
+        prefix = "Chord";
+        chords = chordName(idea.key, idea.progression.at(*slot).symbol);
+    }
+    else
+    {
+        if (lane)
+        {
+            prefix = kLaneNames.at(static_cast<std::size_t>(*lane));
+        }
+        for (std::size_t i = 0; i < std::min<std::size_t>(4, idea.progression.size()); ++i)
+        {
+            chords += (i == 0 ? "" : " ") + chordName(idea.key, idea.progression.at(i).symbol);
+        }
+    }
+    return prefix + " - " + chords + " - " + std::to_string(tempoBpm) + "bpm.mid";
+}
+
 std::vector<MidiTrack> ideaTracks(const Idea& idea)
 {
     return {
