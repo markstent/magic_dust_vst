@@ -172,3 +172,16 @@ Top to bottom, in three bands, as in the mockup:
 - Exact pixel positions inside each band, worked out from the mockup and recorded in the rewritten visual spec.
 - The serif face for the wordmark, from OFL fonts.
 - How the knob and key materials are drawn, as long as they match the mockup at 1x and 2x.
+
+## Layout revision: groovebox (owner choice, 2026-10-27)
+
+The owner found the bottom band sparse after the transport panel change and asked for new layouts.
+Shown three (mixer strips, groovebox, compact rack), they picked **B, the groovebox**, as is.
+The mockup is `docs/spec/visual/groovebox-layouts-mockup.html`, option B.
+The console materials, colours and fonts above are unchanged; only the arrangement changes.
+
+- The display runs the full content width under the header.
+- One knob panel sits under the display: mood, energy, groove and flavour, a divider, the three lane level knobs, a divider, then volume.
+- A row of big keys runs along the bottom: three mute keys (chords, bass, melody) under a vertical "MUTE" legend on the left, and PLAY, STOP and a wide SPRINKLE on the right.
+- PLAY and STOP are dark keys with play and stop icons; SPRINKLE is the red key with "NEW IDEA" under it.
+- The gap between the mute keys and the transport keys is where Phase 5's pin, reroll, swap, keep and bottle it will go.
