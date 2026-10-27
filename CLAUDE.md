@@ -6,7 +6,7 @@
 - Must work in any Mac DAW. Main test host: Ableton Live 12. Release testing also covers Logic Pro or GarageBand, Reaper, Bitwig, Cubase, Studio One and FL Studio.
 - Interface and docs say "your daw", never a specific DAW, except in per-DAW setup guides.
 - Each lane plays through its built-in sound or through the user's own instrument, chosen per lane (MIDI out: chords channel 1, bass 2, melody 3).
-- In Live, a lane reaches the user's instrument through the "Magic Dust Lane" companion plugin (one per lane), because Live merges plugin MIDI to one channel. See `docs/DECISIONS.md`.
+- In Live, a lane reaches the user's instrument through another Magic Dust instance in sender mode (one per lane), because Live merges plugin MIDI to one channel. See `docs/DECISIONS.md`.
 - Mac only for v1; keep code portable for a later Windows build.
 - The full product spec is in `docs/spec/` (`magic-dust-spec.md`, `magic-dust-visual-spec.md`, `visual/`). Read the relevant section before working on any part.
 - Departures from the spec go in `docs/DECISIONS.md`.
