@@ -51,6 +51,9 @@ class LaneView : public juce::Component
 
     // playhead is the fraction of the idea played, when playing.
     void set(const md::Lane& lane, int bars, std::optional<float> playhead, bool selected);
+    // A muted lane's row is drawn faint.
+    void setMuted(bool muted);
+    [[nodiscard]] bool muted() const { return getAlpha() < 1.0F; }
     [[nodiscard]] PianoRoll& roll() { return roll_; }
     [[nodiscard]] juce::Rectangle<int> labelBounds() const;
     // The pattern name as drawn: capitals, cut short with an ellipsis if it does not fit.

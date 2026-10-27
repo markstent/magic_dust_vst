@@ -61,11 +61,23 @@ bool KeyButton::keyPressed(const juce::KeyPress& key)
                                         self->setState(juce::Button::buttonNormal);
                                     }
                                 });
-    if (onClick)
+    if (getClickingTogglesState())
+    {
+        setToggleState(!getToggleState(), juce::sendNotificationSync);
+    }
+    else if (onClick)
     {
         onClick();
     }
     return true;
+}
+
+void KeyButton::clicked()
+{
+    if (getClickingTogglesState())
+    {
+        setLit(getToggleState());
+    }
 }
 
 void KeyButton::setLit(bool lit)

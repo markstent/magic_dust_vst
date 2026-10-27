@@ -147,7 +147,9 @@ inline constexpr int laneColumnWidth = 124;
 inline constexpr int laneLegendCentreY = 456;
 inline constexpr float laneLegendSize = 10.0F;
 inline constexpr float laneLegendSpacing = 0.12F; // em
-inline constexpr int levelKnobOffsetX = 62; // the level knob's centre from its column's left edge
+inline constexpr int levelKnobOffsetX = 42; // the level knob's centre from its column's left edge
+inline constexpr int muteKeyOffsetX = 72;   // the mute key's left edge from its column's left edge
+inline constexpr float mutedAlpha = 0.35F;  // a muted lane's display row
 inline constexpr int bandKnobCentreY = 508; // the level knobs and the volume knob
 inline constexpr int levelKnobWidth = 48;
 inline constexpr int levelKnobHeight = 70;
@@ -158,11 +160,13 @@ inline constexpr int volumeKnobHeight = 101;
 inline constexpr float volumeLegendGap = 7.0F; // extra, so its legend sits on the lane legends
 inline constexpr float volumeKnobDiameter = 52.0F;
 
-// The keys: play and stop, then the sprinkle key. The Phase 5 slots (pin 538, reroll 586, mute
-// 634, swap 682, keep 722 and bottle it 770, all at y 464) are left empty.
+// The keys: play and stop, then the sprinkle key. The Phase 5 slots (pin 538, reroll 586, swap 682,
+// keep 722 and bottle it 770, all at y 464) are left empty. The mute keys sit in the lane columns.
 inline const juce::Rectangle<int> playKey{450, 464, 36, 24};
 inline const juce::Rectangle<int> stopKey{498, 464, 36, 24};
 inline const juce::Rectangle<int> sprinkleKey{818, 454, 84, 44};
+inline constexpr int muteKeyWidth = 36;
+inline constexpr int muteKeyHeight = 24;
 inline constexpr float keyRadius = 3.0F;
 inline constexpr float sprinkleRadius = 5.0F;
 inline constexpr float keyPressDrop = 1.0F;

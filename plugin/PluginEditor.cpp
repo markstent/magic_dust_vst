@@ -2,6 +2,7 @@
 
 #include <array>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -32,6 +33,8 @@ constexpr int kSteppedKnobHeight = 112;
 
 constexpr std::array<md::LaneId, 3> kLanes{md::LaneId::chords, md::LaneId::bass,
                                            md::LaneId::melody};
+
+constexpr std::array<const char*, 3> kMuteIds{"chordsMute", "bassMute", "melodyMute"};
 
 md::ui::KnobLook knobLook(const char* legend, juce::StringArray rangeWords,
                           juce::StringArray stepWords)
@@ -105,8 +108,11 @@ class MagicDustEditor::Body : public juce::Component
           levels_{md::ui::Knob(processor.params, "chordsLevel", levelLook(kLanes.at(0))),
                   md::ui::Knob(processor.params, "bassLevel", levelLook(kLanes.at(1))),
                   md::ui::Knob(processor.params, "melodyLevel", levelLook(kLanes.at(2)))},
-          volume_(processor.params, "volume", volumeLook()), playKey_("play", t::console::ledOn),
-          stopKey_("stop", std::nullopt)
+          volume_(processor.params, "volume", volumeLook()),
+          muteKeys_{md::ui::KeyButton("mute", t::console::ledOn),
+                    md::ui::KeyButton("mute", t::console::ledOn),
+                    md::ui::KeyButton("mute", t::console::ledOn)},
+          playKey_("play", t::console::ledOn), stopKey_("stop", std::nullopt)
     {
         setBounds(0, 0, t::layout::windowWidth, t::layout::windowHeight);
         wordmark_.setBounds(md::ui::wordmarkBounds());
@@ -126,32 +132,32 @@ class MagicDustEditor::Body : public juce::Component
         addKnob(groove_, "grooveKnob", 0, 1, 6);
         addKnob(flavour_, "flavourKnob", 1, 1, 7);
 
-        addLevelKnobs();
+        addLaneBandControls();
 
         addKey(playKey_,
                {.id = "playKey",
                 .title = "play the preview",
                 .bounds = t::layout::playKey,
-                .focusOrder = 11},
+                .focusOrder = 14},
                [this] { processor_.play(); });
         addKey(stopKey_,
                {.id = "stopKey",
                 .title = "stop the preview",
                 .bounds = t::layout::stopKey,
-                .focusOrder = 12},
+                .focusOrder = 15},
                [this] { processor_.stop(); });
         addKey(sprinkleKey_,
                {.id = "sprinkleKey",
                 .title = "sprinkle a new idea",
                 .bounds = t::layout::sprinkleKey,
-                .focusOrder = 13},
+                .focusOrder = 16},
                [this]
                {
                    processor_.sprinkle();
                    screen_.refresh();
                });
         volume_.setComponentID("volumeKnob");
-        volume_.setExplicitFocusOrder(14);
+        volume_.setExplicitFocusOrder(17);
         volume_.setBounds(t::layout::volumeKnobCentreX - (t::layout::volumeKnobWidth / 2),
                           t::layout::bandKnobCentreY - volume_.faceBounds().getCentreY(),
                           t::layout::volumeKnobWidth, t::layout::volumeKnobHeight);
@@ -213,20 +219,32 @@ class MagicDustEditor::Body : public juce::Component
         addAndMakeVisible(knob);
     }
 
-    // Places the three level knobs in the lane columns, after the four knobs in the focus order.
-    void addLevelKnobs()
+    // Places each lane column's level knob and mute key, after the four knobs in the focus order.
+    void addLaneBandControls()
     {
         for (std::size_t i = 0; i < levels_.size(); ++i)
         {
             auto& knob = levels_.at(i);
             knob.setComponentID("level" + juce::String(i));
             knob.setTitle(juce::String(md::ui::laneLook(kLanes.at(i)).label) + " level");
-            knob.setExplicitFocusOrder(8 + static_cast<int>(i));
+            knob.setExplicitFocusOrder(8 + (2 * static_cast<int>(i)));
             knob.setSize(t::layout::levelKnobWidth, t::layout::levelKnobHeight);
             knob.setTopLeftPosition(laneColumnX(i) + t::layout::levelKnobOffsetX -
                                         (t::layout::levelKnobWidth / 2),
                                     t::layout::bandKnobCentreY - knob.faceBounds().getCentreY());
             addAndMakeVisible(knob);
+
+            auto& mute = muteKeys_.at(i);
+            mute.setComponentID("mute" + juce::String(i));
+            mute.setTitle(juce::String(md::ui::laneLook(kLanes.at(i)).label) + " mute");
+            mute.setExplicitFocusOrder(9 + (2 * static_cast<int>(i)));
+            mute.setClickingTogglesState(true);
+            mute.setBounds(laneColumnX(i) + t::layout::muteKeyOffsetX,
+                           t::layout::bandKnobCentreY - (t::layout::muteKeyHeight / 2),
+                           t::layout::muteKeyWidth, t::layout::muteKeyHeight);
+            muteAttachments_.at(i) = std::make_unique<juce::ButtonParameterAttachment>(
+                *processor_.params.getParameter(kMuteIds.at(i)), mute);
+            addAndMakeVisible(mute);
         }
     }
 
@@ -304,6 +322,8 @@ class MagicDustEditor::Body : public juce::Component
     md::ui::Knob flavour_;
     std::array<md::ui::Knob, 3> levels_;
     md::ui::Knob volume_;
+    std::array<md::ui::KeyButton, 3> muteKeys_;
+    std::array<std::unique_ptr<juce::ButtonParameterAttachment>, 3> muteAttachments_;
     md::ui::KeyButton playKey_;
     md::ui::KeyButton stopKey_;
     md::ui::SprinkleKey sprinkleKey_;

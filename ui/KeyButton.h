@@ -36,6 +36,8 @@ class KeyButton : public juce::Button, private juce::Timer
     [[nodiscard]] float pressedAmount() const { return press_; }
     void paintButton(juce::Graphics& g, bool highlighted, bool down) override;
     bool keyPressed(const juce::KeyPress& key) override;
+    // A toggling key's LED follows its state, however the state changed.
+    void clicked() override;
 
   protected:
     KeyButton(const juce::String& label, const KeyMaterial& material,

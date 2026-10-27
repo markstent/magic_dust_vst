@@ -95,7 +95,7 @@ void ReadoutWindow::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*
 }
 
 TopLine::TopLine(MagicDustProcessor& processor)
-    : processor_(processor), spell_("spellReadout", "spell", false),
+    : processor_(processor), spell_("spellReadout", "idea", false),
       style_("styleMenu", "style", true), key_("keyMenu", "key", true),
       tempo_("tempoReadout", "tempo", false)
 {
@@ -132,13 +132,12 @@ void TopLine::resized()
 
 void TopLine::paint(juce::Graphics& g)
 {
-    const std::array<const char*, 4> legends{"SPELL", "STYLE", "KEY", "TEMPO"};
     g.setFont(font(Face::groteskMedium, t::layout::legendSize)
                   .withExtraKerningFactor(t::layout::legendSpacing));
     g.setColour(t::console::legend);
-    for (std::size_t i = 0; i < legends.size(); ++i)
+    for (std::size_t i = 0; i < kLegends.size(); ++i)
     {
-        g.drawText(legends.at(i),
+        g.drawText(kLegends.at(i),
                    juce::Rectangle<int>(t::layout::readoutX.at(i), 0, t::layout::readoutWidth.at(i),
                                         t::layout::legendHeight),
                    juce::Justification::centred, false);

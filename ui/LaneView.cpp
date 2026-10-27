@@ -126,6 +126,8 @@ void LaneView::set(const md::Lane& lane, int bars, std::optional<float> playhead
     }
 }
 
+void LaneView::setMuted(bool muted) { setAlpha(muted ? t::layout::mutedAlpha : 1.0F); }
+
 void LaneView::resized()
 {
     roll_.setBounds(t::layout::rollX - t::layout::laneX, t::layout::rollPadY, t::layout::rollWidth,

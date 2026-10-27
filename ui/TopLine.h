@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "md/types.hpp"
@@ -31,12 +33,15 @@ class ReadoutWindow : public juce::Button
     MD_COMPONENT_BOILERPLATE(ReadoutWindow)
 };
 
-// The header: the spell, style, key and tempo windows, each with its legend above. The component
+// The header: the idea, style, key and tempo windows, each with its legend above. The component
 // IDs "spellReadout", "styleMenu", "keyMenu" and "tempoReadout" name the windows.
 class TopLine : public juce::Component
 {
   public:
     explicit TopLine(MagicDustProcessor& processor);
+
+    // The legends above the windows, in header order.
+    static constexpr std::array<const char*, 4> kLegends{"IDEA", "STYLE", "KEY", "TEMPO"};
 
     void refresh();
     void paint(juce::Graphics& g) override;

@@ -311,9 +311,67 @@ TEST_CASE("the level and volume knobs' faces sit where the layout table puts the
     for (int i = 0; i < 3; ++i)
     {
         const auto id = "level" + std::to_string(i);
-        CHECK(face(id.c_str()) == Rect(54 + (i * 124) + 62 - 17, 508 - 17, 34, 34));
+        CHECK(face(id.c_str()) == Rect(54 + (i * 124) + 42 - 17, 508 - 17, 34, 34));
     }
     CHECK(face("volumeKnob") == Rect(924, 482, 52, 52));
+}
+
+TEST_CASE("the first header legend is IDEA", "[editor]")
+{
+    CHECK(std::string(md::ui::TopLine::kLegends.at(0)) == "IDEA");
+}
+
+TEST_CASE("the mute keys sit in the lane columns beside the level knobs", "[editor]")
+{
+    Fixture f;
+    for (int i = 0; i < 3; ++i)
+    {
+        const auto id = "mute" + std::to_string(i);
+        CHECK(f.boundsOf(id.c_str()) == Rect(54 + (i * 124) + 72, 508 - 12, 36, 24));
+    }
+}
+
+TEST_CASE("the mute keys toggle their lane's parameter and light their LEDs", "[editor]")
+{
+    Fixture f;
+    const std::array<const char*, 3> ids{"chordsMute", "bassMute", "melodyMute"};
+    for (std::size_t i = 0; i < ids.size(); ++i)
+    {
+        auto& key = f.find<md::ui::KeyButton>(("mute" + std::to_string(i)).c_str());
+        key.setAnimated(false);
+        CHECK_FALSE(key.isLit());
+        click(key, {18.0F, 12.0F});
+        CHECK(param(f, ids.at(i)) == 1.0F);
+        CHECK(key.isLit());
+        click(key, {18.0F, 12.0F});
+        CHECK(param(f, ids.at(i)) == 0.0F);
+        CHECK_FALSE(key.isLit());
+        REQUIRE(key.keyPressed(juce::KeyPress(juce::KeyPress::spaceKey)));
+        CHECK(param(f, ids.at(i)) == 1.0F);
+        REQUIRE(key.keyPressed(juce::KeyPress(juce::KeyPress::returnKey)));
+        CHECK(param(f, ids.at(i)) == 0.0F);
+    }
+}
+
+TEST_CASE("a mute key and its lane row follow the host, and the level knob stays put", "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    auto& key = f.find<md::ui::KeyButton>("mute1");
+    key.setAnimated(false);
+    f.processor.params.getParameter("bassMute")->setValueNotifyingHost(1.0F);
+    f.refresh();
+    CHECK(key.isLit());
+    CHECK(key.getToggleState());
+    CHECK(key.getTitle() == "bass mute");
+    CHECK(f.find<md::ui::LaneView>("lane1").muted());
+    CHECK(f.find<md::ui::LaneView>("lane1").getAlpha() == Approx(0.35F).margin(kTolerance));
+    CHECK_FALSE(f.find<md::ui::LaneView>("lane0").muted());
+    CHECK(f.find<md::ui::Knob>("level1").getValue() == Approx(1.0).margin(kTolerance));
+    f.processor.params.getParameter("bassMute")->setValueNotifyingHost(0.0F);
+    f.refresh();
+    CHECK_FALSE(key.isLit());
+    CHECK_FALSE(f.find<md::ui::LaneView>("lane1").muted());
 }
 
 TEST_CASE("level knobs bind their lanes", "[editor]")
@@ -476,9 +534,10 @@ TEST_CASE("tab visits the wordmark, header, cells, lanes, knobs, levels, keys, t
         current = traverser.getNextComponent(current);
     }
     const std::vector<std::string> expected{
-        "wordmark", "styleMenu", "keyMenu", "cell0",    "cell1",      "cell2",       "cell3",
-        "lane0",    "lane1",     "lane2",   "moodKnob", "energyKnob", "grooveKnob",  "flavourKnob",
-        "level0",   "level1",    "level2",  "playKey",  "stopKey",    "sprinkleKey", "volumeKnob"};
+        "wordmark",   "styleMenu",   "keyMenu", "cell0",   "cell1",       "cell2",
+        "cell3",      "lane0",       "lane1",   "lane2",   "moodKnob",    "energyKnob",
+        "grooveKnob", "flavourKnob", "level0",  "mute0",   "level1",      "mute1",
+        "level2",     "mute2",       "playKey", "stopKey", "sprinkleKey", "volumeKnob"};
     CHECK(order == expected);
 }
 
@@ -597,7 +656,7 @@ TEST_CASE("every control has an accessible title", "[editor]")
     CHECK(f.find("grooveKnob").getTitle() == "groove");
     CHECK(f.find("flavourKnob").getTitle() == "flavour");
     CHECK(f.find("volumeKnob").getTitle() == "volume");
-    CHECK(f.find("spellReadout").getTitle() == "spell, 0001");
+    CHECK(f.find("spellReadout").getTitle() == "idea, 0001");
     CHECK(f.find("styleMenu").getTitle().startsWith("style, "));
     CHECK(f.find("keyMenu").getTitle() == "key, a min");
     CHECK(f.find("tempoReadout").getTitle() == "tempo, 124.0");
@@ -973,6 +1032,8 @@ TEST_CASE("render the editor", "[.render]")
     {
         f.processor.params.getParameter(id)->setValueNotifyingHost(level);
     }
+    f.find<md::ui::KeyButton>("mute1").setAnimated(false);
+    f.processor.params.getParameter("bassMute")->setValueNotifyingHost(1.0F);
     f.refresh();
     const juce::File out(dir);
     out.createDirectory();

@@ -170,6 +170,10 @@ void ScreenComponent::refresh()
                                  std::cmp_equal(selection_.index, i));
         }
     }
+    for (std::size_t i = 0; i < lanes_.size(); ++i)
+    {
+        lanes_.at(i).setMuted(processor_.laneMuted(static_cast<md::LaneId>(i)));
+    }
     bottomLine_.set(playing ? static_cast<int>(barPosition) + 1 : 0, bars, selectedText(selection_),
                     "nothing pinned");
 }
