@@ -21,6 +21,7 @@ struct KnobLook
     float diameter;
     std::optional<double> resetValue;
     float legendGap = 0.0F; // extra room between the legend and the face
+    juce::String subLegend; // a small line under the legend, or empty
 };
 
 // A rotary control bound to one parameter. It draws its legend, tick scale, body, cap, pointer

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -14,8 +15,17 @@ struct KeyMaterial
 {
     juce::Colour top;
     juce::Colour bottom;
+    juce::Colour shadow;
     float radius;
     float shadowDrop;
+};
+
+// What a dark key shows inside its face; a cream key shows nothing.
+enum class KeyIcon : std::uint8_t
+{
+    none,
+    play,
+    stop
 };
 
 // A key with a hard shadow below, a legend under it and an optional LED above. Pressing moves it
@@ -23,11 +33,13 @@ struct KeyMaterial
 class KeyButton : public juce::Button, private juce::Timer
 {
   public:
-    // The label is drawn in capitals under the key.
-    KeyButton(const juce::String& label, std::optional<juce::Colour> led);
+    // The label is drawn in capitals under the key. An icon makes the key dark and draws the
+    // icon inside it.
+    KeyButton(const juce::String& label, std::optional<juce::Colour> led,
+              KeyIcon icon = KeyIcon::none);
 
-    // A subclass that draws its own text inside the key turns the legend below off.
-    void setLegendBelow(bool below) { legendBelow_ = below; }
+    // Where the legend is drawn, in the key's own coordinates.
+    [[nodiscard]] juce::Rectangle<float> legendBounds() const;
     void setLit(bool lit);
     [[nodiscard]] bool isLit() const { return lit_; }
     // Off, the key and its LED jump instead of animating.
@@ -51,9 +63,9 @@ class KeyButton : public juce::Button, private juce::Timer
     void retarget();
 
     KeyMaterial material_;
+    KeyIcon icon_ = KeyIcon::none;
     juce::String label_;
     std::optional<juce::Colour> led_;
-    bool legendBelow_ = true;
     bool lit_ = false;
     bool animated_ = true;
     float press_ = 0.0F;

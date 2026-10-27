@@ -28,8 +28,6 @@ namespace
 {
 
 constexpr float kWordmarkRingRadius = 3.0F;
-constexpr int kContinuousKnobHeight = 100;
-constexpr int kSteppedKnobHeight = 112;
 constexpr const char* kFollowMessage = "FOLLOWING YOUR DAW - USE ITS TRANSPORT";
 
 constexpr std::array<md::LaneId, 3> kLanes{md::LaneId::chords, md::LaneId::bass,
@@ -40,22 +38,28 @@ constexpr std::array<const char*, 3> kMuteIds{"chordsMute", "bassMute", "melodyM
 md::ui::KnobLook knobLook(const char* legend, juce::StringArray rangeWords,
                           juce::StringArray stepWords)
 {
+    // A stepped knob's step words already lift its legend; the others get the same lift.
+    const auto gap = stepWords.isEmpty() ? t::layout::knobLegendGap : 0.0F;
     return {.legend = legend,
             .rangeWords = std::move(rangeWords),
             .stepWords = std::move(stepWords),
             .cap = t::console::knobCap,
             .diameter = t::layout::knobDiameter,
-            .resetValue = std::nullopt};
+            .resetValue = std::nullopt,
+            .legendGap = gap,
+            .subLegend = {}};
 }
 
 md::ui::KnobLook levelLook(md::LaneId lane)
 {
-    return {.legend = "LEVEL",
+    return {.legend = juce::String(md::ui::laneLook(lane).label).toUpperCase(),
             .rangeWords = {},
             .stepWords = {},
             .cap = md::ui::laneLook(lane).colour,
             .diameter = t::layout::levelKnobDiameter,
-            .resetValue = 1.0};
+            .resetValue = 1.0,
+            .legendGap = t::layout::levelLegendGap,
+            .subLegend = "LEVEL"};
 }
 
 md::ui::KnobLook volumeLook()
@@ -64,9 +68,10 @@ md::ui::KnobLook volumeLook()
             .rangeWords = {"MIN", "MAX"},
             .stepWords = {},
             .cap = t::console::knobCap,
-            .diameter = t::layout::volumeKnobDiameter,
+            .diameter = t::layout::knobDiameter,
             .resetValue = 0.8,
-            .legendGap = t::layout::volumeLegendGap};
+            .legendGap = t::layout::knobLegendGap,
+            .subLegend = {}};
 }
 
 // The wordmark as a button: it only draws its focus ring, the body paints the lettering.
@@ -94,7 +99,7 @@ class WordmarkButton : public juce::Button
 
 } // namespace
 
-// The instrument body, drawn at the logical 1040 x 600 size; the editor scales it as a whole.
+// The instrument body, drawn at the logical 1040 x 580 size; the editor scales it as a whole.
 class MagicDustEditor::Body : public juce::Component
 {
   public:
@@ -110,10 +115,11 @@ class MagicDustEditor::Body : public juce::Component
                   md::ui::Knob(processor.params, "bassLevel", levelLook(kLanes.at(1))),
                   md::ui::Knob(processor.params, "melodyLevel", levelLook(kLanes.at(2)))},
           volume_(processor.params, "volume", volumeLook()),
-          muteKeys_{md::ui::KeyButton("mute", t::console::ledOn),
-                    md::ui::KeyButton("mute", t::console::ledOn),
-                    md::ui::KeyButton("mute", t::console::ledOn)},
-          playKey_("play", t::console::ledOn), stopKey_("stop", std::nullopt)
+          muteKeys_{md::ui::KeyButton(md::ui::laneLook(kLanes.at(0)).label, t::console::ledOn),
+                    md::ui::KeyButton(md::ui::laneLook(kLanes.at(1)).label, t::console::ledOn),
+                    md::ui::KeyButton(md::ui::laneLook(kLanes.at(2)).label, t::console::ledOn)},
+          playKey_("play", t::console::ledOn, md::ui::KeyIcon::play),
+          stopKey_("stop", std::nullopt, md::ui::KeyIcon::stop)
     {
         setBounds(0, 0, t::layout::windowWidth, t::layout::windowHeight);
         wordmark_.setBounds(md::ui::wordmarkBounds());
@@ -128,41 +134,40 @@ class MagicDustEditor::Body : public juce::Component
         screen_.setOnStatus([this](std::optional<std::string> status)
                             { setFileError(std::move(status)); });
         addAndMakeVisible(screen_);
-        addKnob(mood_, "moodKnob", 0, 0, 4);
-        addKnob(energy_, "energyKnob", 1, 0, 5);
-        addKnob(groove_, "grooveKnob", 0, 1, 6);
-        addKnob(flavour_, "flavourKnob", 1, 1, 7);
-
-        addLaneBandControls();
+        const auto& centreX = t::layout::knobCentreX;
+        const auto centreY = t::layout::knobCentreY;
+        addKnob(mood_, "moodKnob", {centreX.at(0), centreY}, 4);
+        addKnob(energy_, "energyKnob", {centreX.at(1), centreY}, 5);
+        addKnob(groove_, "grooveKnob", {centreX.at(2), centreY}, 6);
+        addKnob(flavour_, "flavourKnob", {centreX.at(3), centreY}, 7);
+        addLevelKnobs();
+        addKnob(volume_, "volumeKnob", t::layout::volumeCentre, 11);
+        addMuteKeys();
 
         addKey(playKey_,
                {.id = "playKey",
                 .title = "play the preview",
-                .bounds = t::layout::playKey,
-                .focusOrder = 14},
+                .bounds = {t::layout::transportKeyX.at(0), t::layout::keyY, t::layout::keyWidth,
+                           t::layout::keyHeight},
+                .focusOrder = 15},
                [this] { processor_.play(); });
         addKey(stopKey_,
                {.id = "stopKey",
                 .title = "stop the preview",
-                .bounds = t::layout::stopKey,
-                .focusOrder = 15},
+                .bounds = {t::layout::transportKeyX.at(1), t::layout::keyY, t::layout::keyWidth,
+                           t::layout::keyHeight},
+                .focusOrder = 16},
                [this] { processor_.stop(); });
         addKey(sprinkleKey_,
                {.id = "sprinkleKey",
                 .title = "sprinkle a new idea",
                 .bounds = t::layout::sprinkleKey,
-                .focusOrder = 16},
+                .focusOrder = 17},
                [this]
                {
                    processor_.sprinkle();
                    screen_.refresh();
                });
-        volume_.setComponentID("volumeKnob");
-        volume_.setExplicitFocusOrder(17);
-        volume_.setBounds(t::layout::volumeKnobCentreX - (t::layout::volumeKnobWidth / 2),
-                          t::layout::bandKnobCentreY - volume_.faceBounds().getCentreY(),
-                          t::layout::volumeKnobWidth, t::layout::volumeKnobHeight);
-        addAndMakeVisible(volume_);
         about_.setBounds(t::layout::aboutPanel);
         about_.setOnClose([this] { wordmark_.grabKeyboardFocus(); });
         addChildComponent(about_);
@@ -205,10 +210,13 @@ class MagicDustEditor::Body : public juce::Component
     {
         md::ui::paintFaceplate(g, getLocalBounds().toFloat());
 
-        paintGroupPanel(g, t::layout::knobGroup, t::layout::knobGroupRadius);
-        paintGroupPanel(g, t::layout::laneGroup, t::layout::laneGroupRadius);
-        paintGroupPanel(g, t::layout::transportGroup, t::layout::laneGroupRadius);
-        paintLaneLegends(g);
+        paintGroupPanel(g, t::layout::knobPanel, t::layout::knobPanelRadius);
+        g.setColour(juce::Colours::white.withAlpha(t::layout::dividerAlpha));
+        for (const auto x : t::layout::dividerX)
+        {
+            g.fillRect(x, t::layout::dividerY, 1, t::layout::dividerHeight);
+        }
+        paintMuteLegend(g);
 
         md::ui::paintWordmark(g);
     }
@@ -222,51 +230,47 @@ class MagicDustEditor::Body : public juce::Component
         int focusOrder;
     };
 
-    // Places a knob by its column and row in the knob group.
-    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-    void addKnob(md::ui::Knob& knob, const char* id, std::size_t column, std::size_t row,
-                 int focusOrder)
+    // Places a knob so that its face is centred on the given point.
+    void addKnob(md::ui::Knob& knob, const char* id, juce::Point<int> faceCentre, int focusOrder)
     {
         knob.setComponentID(id);
         knob.setExplicitFocusOrder(focusOrder);
-        knob.setSize(t::layout::knobWidth, row == 0 ? kContinuousKnobHeight : kSteppedKnobHeight);
-        knob.setTopLeftPosition(t::layout::knobColumnX.at(column) - (t::layout::knobWidth / 2),
-                                t::layout::knobFaceY.at(row) - knob.faceBounds().getY());
+        knob.setSize(t::layout::knobWidth, t::layout::knobHeight);
+        knob.setTopLeftPosition(faceCentre.x - (knob.getWidth() / 2),
+                                faceCentre.y - knob.faceBounds().getCentreY());
         addAndMakeVisible(knob);
     }
 
-    // Places each lane column's level knob and mute key, after the four knobs in the focus order.
-    void addLaneBandControls()
+    void addLevelKnobs()
     {
         for (std::size_t i = 0; i < levels_.size(); ++i)
         {
             auto& knob = levels_.at(i);
-            knob.setComponentID("level" + juce::String(i));
             knob.setTitle(juce::String(md::ui::laneLook(kLanes.at(i)).label) + " level");
-            knob.setExplicitFocusOrder(8 + (2 * static_cast<int>(i)));
             knob.setSize(t::layout::levelKnobWidth, t::layout::levelKnobHeight);
-            knob.setTopLeftPosition(laneColumnX(i) + t::layout::levelKnobOffsetX -
-                                        (t::layout::levelKnobWidth / 2),
-                                    t::layout::bandKnobCentreY - knob.faceBounds().getCentreY());
+            knob.setComponentID("level" + juce::String(i));
+            knob.setExplicitFocusOrder(8 + static_cast<int>(i));
+            knob.setTopLeftPosition(t::layout::levelCentreX.at(i) - (knob.getWidth() / 2),
+                                    t::layout::levelCentreY - knob.faceBounds().getCentreY());
             addAndMakeVisible(knob);
+        }
+    }
 
+    void addMuteKeys()
+    {
+        for (std::size_t i = 0; i < muteKeys_.size(); ++i)
+        {
             auto& mute = muteKeys_.at(i);
             mute.setComponentID("mute" + juce::String(i));
             mute.setTitle(juce::String(md::ui::laneLook(kLanes.at(i)).label) + " mute");
-            mute.setExplicitFocusOrder(9 + (2 * static_cast<int>(i)));
+            mute.setExplicitFocusOrder(12 + static_cast<int>(i));
             mute.setClickingTogglesState(true);
-            mute.setBounds(laneColumnX(i) + t::layout::muteKeyOffsetX,
-                           t::layout::bandKnobCentreY - (t::layout::muteKeyHeight / 2),
-                           t::layout::muteKeyWidth, t::layout::muteKeyHeight);
+            mute.setBounds(t::layout::muteKeyX.at(i), t::layout::keyY, t::layout::keyWidth,
+                           t::layout::keyHeight);
             muteAttachments_.at(i) = std::make_unique<juce::ButtonParameterAttachment>(
                 *processor_.params.getParameter(kMuteIds.at(i)), mute);
             addAndMakeVisible(mute);
         }
-    }
-
-    static int laneColumnX(std::size_t column)
-    {
-        return t::layout::laneColumnX + (static_cast<int>(column) * t::layout::laneColumnWidth);
     }
 
     // A darker panel with a light edge, behind a group of knobs.
@@ -279,21 +283,24 @@ class MagicDustEditor::Body : public juce::Component
         g.drawRoundedRectangle(panel.reduced(0.5F), radius, 1.0F);
     }
 
-    // The lane names above each column's knobs, in the knobs' own legend style.
-    static void paintLaneLegends(juce::Graphics& g)
+    // "MUTE" reading bottom to top, centred left of the mute keys, in the key legend style.
+    static void paintMuteLegend(juce::Graphics& g)
     {
+        const auto centre =
+            juce::Point<float>(static_cast<float>(t::layout::muteLegendCentreX),
+                               static_cast<float>(t::layout::keyY) +
+                                   (static_cast<float>(t::layout::keyHeight) / 2.0F));
+        const juce::Graphics::ScopedSaveState state(g);
+        g.addTransform(juce::AffineTransform::rotation(-juce::MathConstants<float>::halfPi,
+                                                       centre.x, centre.y));
         g.setColour(t::console::legend);
-        g.setFont(md::ui::font(md::ui::Face::groteskBold, t::layout::laneLegendSize)
-                      .withExtraKerningFactor(t::layout::laneLegendSpacing));
-        for (std::size_t i = 0; i < kLanes.size(); ++i)
-        {
-            g.drawText(
-                juce::String(md::ui::laneLook(kLanes.at(i)).label).toUpperCase(),
-                juce::Rectangle<int>(laneColumnX(i),
-                                     t::layout::laneLegendCentreY - (t::layout::legendHeight / 2),
-                                     t::layout::laneColumnWidth, t::layout::legendHeight),
-                juce::Justification::centred, false);
-        }
+        g.setFont(md::ui::font(md::ui::Face::groteskMedium, t::layout::legendSize)
+                      .withExtraKerningFactor(t::layout::legendSpacing));
+        g.drawText("MUTE",
+                   juce::Rectangle<float>(static_cast<float>(t::layout::legendHeight) * 5.0F,
+                                          static_cast<float>(t::layout::legendHeight))
+                       .withCentre(centre),
+                   juce::Justification::centred, false);
     }
 
     // Places a key in the keys row; its click clears the status line, then does its action.

@@ -87,7 +87,7 @@ struct Fixture
         return *found;
     }
 
-    // The component's bounds in the editor's 1040 x 600 space.
+    // The component's bounds in the editor's 1040 x 580 space.
     Rect boundsOf(const char* id)
     {
         auto& c = find(id);
@@ -134,17 +134,17 @@ float param(Fixture& f, const char* id)
 
 } // namespace
 
-TEST_CASE("the editor opens at 1040 x 600", "[editor]")
+TEST_CASE("the editor opens at 1040 x 580", "[editor]")
 {
     Fixture f;
     CHECK(f.editor->getWidth() == 1040);
-    CHECK(f.editor->getHeight() == 600);
+    CHECK(f.editor->getHeight() == 580);
 }
 
 TEST_CASE("every component sits where the layout table puts it", "[editor]")
 {
     Fixture f;
-    CHECK(f.boundsOf("screen") == Rect(54, 86, 672, 306));
+    CHECK(f.boundsOf("screen") == Rect(54, 86, 932, 250));
     CHECK(f.boundsOf("spellReadout") == Rect(574, 38, 84, 26));
     CHECK(f.boundsOf("styleMenu") == Rect(670, 38, 124, 26));
     CHECK(f.boundsOf("keyMenu") == Rect(806, 38, 84, 26));
@@ -152,16 +152,16 @@ TEST_CASE("every component sits where the layout table puts it", "[editor]")
     for (int i = 0; i < 4; ++i)
     {
         CHECK(f.boundsOf(("cell" + std::to_string(i)).c_str()) ==
-              Rect(166 + (i * 137), 98, 137, 48));
+              Rect(166 + (i * 202), 98, 202, 40));
     }
-    const std::array<int, 3> laneY{154, 222, 290};
+    const std::array<int, 3> laneY{144, 200, 256};
     for (std::size_t i = 0; i < 3; ++i)
     {
-        CHECK(f.boundsOf(("lane" + std::to_string(i)).c_str()) == Rect(62, laneY.at(i), 656, 64));
+        CHECK(f.boundsOf(("lane" + std::to_string(i)).c_str()) == Rect(62, laneY.at(i), 916, 52));
         CHECK(f.boundsOf(("roll" + std::to_string(i)).c_str()) ==
-              Rect(166, laneY.at(i) + 4, 548, 56));
+              Rect(166, laneY.at(i) + 2, 808, 48));
     }
-    CHECK(f.boundsOf("bottomLine") == Rect(66, 360, 648, 20));
+    CHECK(f.boundsOf("bottomLine") == Rect(66, 312, 908, 18));
 }
 
 TEST_CASE("each knob's face sits where the layout table puts it", "[editor]")
@@ -172,10 +172,10 @@ TEST_CASE("each knob's face sits where the layout table puts it", "[editor]")
         auto& knob = f.find<md::ui::Knob>(id);
         return f.editor->getLocalArea(&knob, knob.faceBounds());
     };
-    CHECK(face("moodKnob") == Rect(781, 144, 56, 56));
-    CHECK(face("energyKnob") == Rect(899, 144, 56, 56));
-    CHECK(face("grooveKnob") == Rect(781, 290, 56, 56));
-    CHECK(face("flavourKnob") == Rect(899, 290, 56, 56));
+    CHECK(face("moodKnob") == Rect(110, 384, 40, 40));
+    CHECK(face("energyKnob") == Rect(228, 384, 40, 40));
+    CHECK(face("grooveKnob") == Rect(346, 384, 40, 40));
+    CHECK(face("flavourKnob") == Rect(464, 384, 40, 40));
 }
 
 TEST_CASE("the knobs move the processor's parameters", "[editor]")
@@ -257,7 +257,7 @@ TEST_CASE("a lane maps a note's ticks across the roll", "[editor]")
     juce::ScopedJuceInitialiser_GUI gui;
     MagicDustProcessor processor{md::loadBundledBank(), kRandomSeed};
     md::ui::LaneView lane(md::LaneId::chords);
-    lane.setBounds(62, 154, 656, 64);
+    lane.setBounds(62, 144, 916, 52);
     md::Lane data{.id = md::LaneId::chords,
                   .pattern = "organ stabs",
                   .events = {{.pitch = 60, .start = 0, .length = 3840, .velocity = 90}}};
@@ -266,7 +266,7 @@ TEST_CASE("a lane maps a note's ticks across the roll", "[editor]")
     const auto rects = lane.roll().noteRects();
     REQUIRE(rects.size() == 1);
     CHECK(lane.getX() + lane.roll().getX() + rects.at(0).getX() == 166.0F);
-    CHECK(rects.at(0).getWidth() == 548.0F / 8.0F);
+    CHECK(rects.at(0).getWidth() == 808.0F / 8.0F);
 }
 
 TEST_CASE("the real notes map the same way and stay inside the roll", "[editor]")
@@ -284,9 +284,9 @@ TEST_CASE("the real notes map the same way and stay inside the roll", "[editor]"
             const auto& e = idea.lanes.at(i).events.at(n);
             const auto ticks = static_cast<float>(idea.settings.bars * md::kTicksPerBar);
             CHECK(rects.at(n).getX() ==
-                  Approx(static_cast<float>(e.start) / ticks * 548.0F).margin(kTolerance));
+                  Approx(static_cast<float>(e.start) / ticks * 808.0F).margin(kTolerance));
             CHECK(rects.at(n).getY() >= -kTolerance);
-            CHECK(rects.at(n).getBottom() <= 56.0F + kTolerance);
+            CHECK(rects.at(n).getBottom() <= 48.0F + kTolerance);
             CHECK(rects.at(n).getHeight() > 5.0F);
         }
     }
@@ -295,21 +295,20 @@ TEST_CASE("the real notes map the same way and stay inside the roll", "[editor]"
 TEST_CASE("the keys sit where the layout table puts them", "[editor]")
 {
     Fixture f;
-    CHECK(f.boundsOf("playKey") == Rect{560, 492, 48, 32});
-    CHECK(f.boundsOf("stopKey") == Rect{620, 492, 48, 32});
-    CHECK(f.boundsOf("sprinkleKey") == Rect{692, 484, 96, 48});
+    CHECK(f.boundsOf("playKey") == Rect{632, 470, 78, 54});
+    CHECK(f.boundsOf("stopKey") == Rect{724, 470, 78, 54});
+    CHECK(f.boundsOf("sprinkleKey") == Rect{816, 470, 170, 54});
 }
 
-TEST_CASE("the transport panel sits level with the lane group and holds the key cluster",
-          "[editor]")
+TEST_CASE("every key's legend sits on one baseline, 8 px under the key", "[editor]")
 {
-    namespace layout = md::tokens::layout;
-    CHECK(layout::transportGroup.getY() == layout::laneGroup.getY());
-    CHECK(layout::transportGroup.getHeight() == layout::laneGroup.getHeight());
-    const auto cluster = layout::playKey.getUnion(layout::sprinkleKey);
-    CHECK(layout::transportGroup.contains(cluster));
-    CHECK(cluster.getCentreX() == layout::transportGroup.getCentreX());
-    CHECK(layout::sprinkleKey.getCentreY() == layout::bandKnobCentreY);
+    Fixture f;
+    for (const auto* id : {"mute0", "mute1", "mute2", "playKey", "stopKey", "sprinkleKey"})
+    {
+        auto& key = f.find<md::ui::KeyButton>(id);
+        const auto legend = f.editor->getLocalArea(&key, key.legendBounds());
+        CHECK(legend.getY() == 470 + 54 + 8);
+    }
 }
 
 TEST_CASE("the level and volume knobs' faces sit where the layout table puts them", "[editor]")
@@ -320,12 +319,13 @@ TEST_CASE("the level and volume knobs' faces sit where the layout table puts the
         auto& knob = f.find<md::ui::Knob>(id);
         return f.editor->getLocalArea(&knob, knob.faceBounds());
     };
-    for (int i = 0; i < 3; ++i)
+    const std::array<int, 3> centreX{640, 726, 812};
+    for (std::size_t i = 0; i < 3; ++i)
     {
         const auto id = "level" + std::to_string(i);
-        CHECK(face(id.c_str()) == Rect(54 + (i * 124) + 42 - 17, 508 - 17, 34, 34));
+        CHECK(face(id.c_str()) == Rect(centreX.at(i) - 17, 410 - 17, 34, 34));
     }
-    CHECK(face("volumeKnob") == Rect(924, 482, 52, 52));
+    CHECK(face("volumeKnob") == Rect(916, 384, 40, 40));
 }
 
 TEST_CASE("the first header legend is IDEA", "[editor]")
@@ -333,13 +333,14 @@ TEST_CASE("the first header legend is IDEA", "[editor]")
     CHECK(std::string(md::ui::TopLine::kLegends.at(0)) == "IDEA");
 }
 
-TEST_CASE("the mute keys sit in the lane columns beside the level knobs", "[editor]")
+TEST_CASE("the mute keys sit in the key row, named for their lanes", "[editor]")
 {
     Fixture f;
-    for (int i = 0; i < 3; ++i)
+    const std::array<int, 3> x{74, 166, 258};
+    for (std::size_t i = 0; i < 3; ++i)
     {
         const auto id = "mute" + std::to_string(i);
-        CHECK(f.boundsOf(id.c_str()) == Rect(54 + (i * 124) + 72, 508 - 12, 36, 24));
+        CHECK(f.boundsOf(id.c_str()) == Rect(x.at(i), 470, 78, 54));
     }
 }
 
@@ -534,7 +535,7 @@ TEST_CASE("moving 4 px is a click and moving 5 px is a drag", "[editor]")
     CHECK(screen.selection().kind == md::ui::Selection::Kind::none);
 }
 
-TEST_CASE("tab visits the wordmark, header, cells, lanes, knobs, levels, keys, then volume",
+TEST_CASE("tab visits the wordmark, header, cells, lanes, knobs, levels, volume, then the keys",
           "[editor]")
 {
     Fixture f;
@@ -548,10 +549,10 @@ TEST_CASE("tab visits the wordmark, header, cells, lanes, knobs, levels, keys, t
         current = traverser.getNextComponent(current);
     }
     const std::vector<std::string> expected{
-        "wordmark",   "styleMenu",   "keyMenu", "cell0",   "cell1",       "cell2",
-        "cell3",      "lane0",       "lane1",   "lane2",   "moodKnob",    "energyKnob",
-        "grooveKnob", "flavourKnob", "level0",  "mute0",   "level1",      "mute1",
-        "level2",     "mute2",       "playKey", "stopKey", "sprinkleKey", "volumeKnob"};
+        "wordmark",   "styleMenu",   "keyMenu", "cell0",   "cell1",    "cell2",
+        "cell3",      "lane0",       "lane1",   "lane2",   "moodKnob", "energyKnob",
+        "grooveKnob", "flavourKnob", "level0",  "level1",  "level2",   "volumeKnob",
+        "mute0",      "mute1",       "mute2",   "playKey", "stopKey",  "sprinkleKey"};
     CHECK(order == expected);
 }
 
@@ -866,7 +867,7 @@ TEST_CASE("at 0.8x every child stays inside the editor", "[editor]")
     Fixture f;
     f.idea(4);
     f.refresh();
-    f.editor->setSize(832, 480);
+    f.editor->setSize(832, 464);
     const auto outside = [&f](auto&& self, juce::Component& parent) -> bool
     {
         for (auto* child : parent.getChildren())
@@ -891,7 +892,7 @@ TEST_CASE("wordmark opens about", "[editor][about]")
     Fixture f;
     auto& panel = f.find<md::ui::AboutPanel>("aboutPanel");
     CHECK_FALSE(panel.isVisible());
-    CHECK(f.boundsOf("aboutPanel") == Rect{57, 89, 666, 300});
+    CHECK(f.boundsOf("aboutPanel") == Rect{57, 89, 926, 244});
     click(f.find("wordmark"), {10.0F, 10.0F});
     CHECK(panel.isVisible());
     const auto text = md::ui::AboutPanel::lines().joinIntoString("\n");
@@ -1055,7 +1056,7 @@ TEST_CASE("full magic dust turns the instance main and the editor becomes the ma
     CHECK(f.processor.mode() == InstanceMode::main);
     dynamic_cast<MagicDustEditor&>(*f.editor).sync();
     CHECK(f.editor->getWidth() == 1040);
-    CHECK(f.editor->getHeight() == 600);
+    CHECK(f.editor->getHeight() == 580);
     CHECK(Fixture::search(*f.editor, "playKey") != nullptr);
     CHECK(Fixture::search(*f.editor, "senderMainKey") == nullptr);
 }
@@ -1092,7 +1093,7 @@ TEST_CASE("the editor swaps views, size and limits as the mode changes", "[edito
     }();
     std::unique_ptr<juce::AudioProcessorEditor> editor{main.createEditor()};
     auto& mine = dynamic_cast<MagicDustEditor&>(*editor);
-    checkWindow(*editor, 1040, 600);
+    checkWindow(*editor, 1040, 580);
 
     main.setStateInformation(senderState.getData(), static_cast<int>(senderState.getSize()));
     REQUIRE(main.mode() == InstanceMode::sender);
@@ -1102,7 +1103,7 @@ TEST_CASE("the editor swaps views, size and limits as the mode changes", "[edito
 
     main.becomeMain();
     mine.sync();
-    checkWindow(*editor, 1040, 600);
+    checkWindow(*editor, 1040, 580);
     CHECK(Fixture::search(*editor, "playKey") != nullptr);
 }
 
@@ -1146,7 +1147,7 @@ TEST_CASE("render the editor", "[.render]")
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
     const auto write = [&](const char* name, int width, float scale)
     {
-        f.editor->setSize(width, width * 600 / 1040);
+        f.editor->setSize(width, width * 580 / 1040);
         const auto image =
             f.editor->createComponentSnapshot(f.editor->getLocalBounds(), true, scale);
         juce::FileOutputStream stream(out.getChildFile(name));
@@ -1207,7 +1208,9 @@ struct KnobFixture
                                                                     .stepWords = {},
                                                                     .cap = juce::Colours::grey,
                                                                     .diameter = 56.0F,
-                                                                    .resetValue = reset});
+                                                                    .resetValue = reset,
+                                                                    .legendGap = 0.0F,
+                                                                    .subLegend = {}});
         knob->setBounds(0, 0, 120, 140);
         return knob;
     }

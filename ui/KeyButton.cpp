@@ -18,8 +18,15 @@ constexpr int kFrameHz = 60;
 
 const KeyMaterial keycap{.top = t::console::keyTop,
                          .bottom = t::console::keyBottom,
+                         .shadow = t::console::keyShadow,
                          .radius = t::layout::keyRadius,
                          .shadowDrop = t::layout::keyShadowDrop};
+
+const KeyMaterial dark{.top = t::console::keyDarkTop,
+                       .bottom = t::console::keyDarkBottom,
+                       .shadow = t::console::keyDarkShadow,
+                       .radius = t::layout::keyRadius,
+                       .shadowDrop = t::layout::keyShadowDrop};
 
 float easeOut(float x) { return 1.0F - ((1.0F - x) * (1.0F - x)); }
 
@@ -31,9 +38,10 @@ float approach(float value, float target, float step)
 
 } // namespace
 
-KeyButton::KeyButton(const juce::String& label, std::optional<juce::Colour> led)
-    : KeyButton(label, keycap, led)
+KeyButton::KeyButton(const juce::String& label, std::optional<juce::Colour> led, KeyIcon icon)
+    : KeyButton(label, icon == KeyIcon::none ? keycap : dark, led)
 {
+    icon_ = icon;
 }
 
 KeyButton::KeyButton(const juce::String& label, const KeyMaterial& material,
@@ -141,7 +149,7 @@ void KeyButton::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down
     const auto radius = material_.radius;
 
     // The shadow's lower edge stays put while the face drops onto it.
-    g.setColour(t::console::keyShadow);
+    g.setColour(material_.shadow);
     g.fillRoundedRectangle(
         face.translated(0.0F, material_.shadowDrop - (t::layout::keyPressDrop * pressed)), radius);
 
@@ -151,19 +159,11 @@ void KeyButton::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down
 
     paintContent(g, face);
 
-    if (legendBelow_)
-    {
-        const auto legend = font(Face::groteskMedium, t::layout::legendSize)
-                                .withExtraKerningFactor(t::layout::legendSpacing);
-        g.setColour(t::console::legend);
-        g.setFont(legend);
-        g.drawText(label_.toUpperCase(),
-                   juce::Rectangle<float>(rest.getX() - t::layout::keyLegendOverhang,
-                                          rest.getBottom() + t::layout::keyLegendGap,
-                                          rest.getWidth() + (2.0F * t::layout::keyLegendOverhang),
-                                          static_cast<float>(t::layout::legendHeight)),
-                   juce::Justification::centred, false);
-    }
+    const auto legend = font(Face::groteskMedium, t::layout::legendSize)
+                            .withExtraKerningFactor(t::layout::legendSpacing);
+    g.setColour(t::console::legend);
+    g.setFont(legend);
+    g.drawText(label_.toUpperCase(), legendBounds(), juce::Justification::centred, false);
 
     if (hasKeyboardFocus(true))
     {
@@ -192,6 +192,31 @@ void KeyButton::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down
     }
 }
 
-void KeyButton::paintContent(juce::Graphics& /*g*/, juce::Rectangle<float> /*face*/) const {}
+juce::Rectangle<float> KeyButton::legendBounds() const
+{
+    const auto rest = getLocalBounds().toFloat();
+    return {rest.getX() - t::layout::keyLegendOverhang, rest.getBottom() + t::layout::keyLegendGap,
+            rest.getWidth() + (2.0F * t::layout::keyLegendOverhang),
+            static_cast<float>(t::layout::legendHeight)};
+}
+
+void KeyButton::paintContent(juce::Graphics& g, juce::Rectangle<float> face) const
+{
+    if (icon_ == KeyIcon::none)
+    {
+        return;
+    }
+    const auto size = t::layout::keyIconSize;
+    const auto box = juce::Rectangle<float>(size, size).withCentre(face.getCentre());
+    g.setColour(t::console::legend);
+    if (icon_ == KeyIcon::stop)
+    {
+        g.fillRect(box);
+        return;
+    }
+    juce::Path triangle;
+    triangle.addTriangle(box.getTopLeft(), box.getBottomLeft(), {box.getRight(), box.getCentreY()});
+    g.fillPath(triangle);
+}
 
 } // namespace md::ui

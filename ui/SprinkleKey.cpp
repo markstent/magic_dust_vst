@@ -13,14 +13,16 @@ namespace
 
 const KeyMaterial sprinkle{.top = t::console::sprinkleTop,
                            .bottom = t::console::sprinkleBottom,
+                           .shadow = t::console::keyShadow,
                            .radius = t::layout::sprinkleRadius,
                            .shadowDrop = t::layout::sprinkleShadowDrop};
 
 constexpr const char* kTitle = "sprinkle";
+constexpr const char* kLegend = "new idea";
 
 } // namespace
 
-SprinkleKey::SprinkleKey() : KeyButton(kTitle, sprinkle, std::nullopt) { setLegendBelow(false); }
+SprinkleKey::SprinkleKey() : KeyButton(kLegend, sprinkle, std::nullopt) {}
 
 void SprinkleKey::paintContent(juce::Graphics& g, juce::Rectangle<float> face) const
 {

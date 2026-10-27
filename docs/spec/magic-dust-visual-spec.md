@@ -23,7 +23,7 @@ In the plugin, every note on the screen is drawn from the engine's real output (
 
 - Draw everything as vectors in `paint()` and a custom `LookAndFeel`.
   Never paste the reference images into the plugin.
-- The editor's logical size is 1040 x 600 px.
+- The editor's logical size is 1040 x 580 px.
   It is resizable from 80% to 150% with a fixed aspect ratio, using `setResizable`, `setResizeLimits` and the constrainer's `setFixedAspectRatio`.
   Scale the whole component tree with one transform so every measurement in this document stays true at every size.
 - Embed Space Grotesk (500 and 700), Space Mono (400 and 700) and Libre Baskerville Bold (the wordmark) as binary data and load them with `juce::Typeface::createSystemTypefaceFor`.
@@ -45,26 +45,30 @@ The look is the studio console in `visual/studio-console-mockup.html`; the numbe
 
 | Zone | x | y | Width | Height | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Window | 0 | 0 | 1040 | 600 | |
-| Cheeks | 0 and 1014 | 0 | 26 | 600 | Walnut stripes |
-| Face | 26 | 0 | 988 | 600 | Metal gradient |
+| Window | 0 | 0 | 1040 | 580 | |
+| Cheeks | 0 and 1014 | 0 | 26 | 580 | Walnut stripes |
+| Face | 26 | 0 | 988 | 580 | Metal gradient |
 | Header | 54 | 24 | 932 | 40 | Wordmark and tagline on the left, readout windows on the right |
-| Display bezel | 54 | 86 | 672 | 306 | |
-| Knob group | 750 | 86 | 236 | 306 | A 2 x 2 group |
+| Display bezel | 54 | 86 | 932 | 250 | The full content width |
+| Knob panel | 54 | 350 | 932 | 104 | Seven knobs and the volume knob in one row |
+| Key row | 54 | 462 | 932 | 82 | Mute keys on the left, play, stop and sprinkle on the right |
 
 ### Positions inside the zones
 
 | Element | Position and size |
 | --- | --- |
-| Screws | 13 px circles at (34, 8), (993, 8), (34, 579) and (993, 579). |
+| Screws | 13 px circles at (34, 8), (993, 8), (34, 559) and (993, 559). |
 | Wordmark | Starts at x = 54, centred on y = 44. The tagline starts 18 px after it. |
 | Readout legends | y = 24, 12 px tall, centred over each window. |
 | Idea, style, key and tempo windows | At y = 38, 26 px tall: x = 574 (84 wide), 670 (124), 806 (84) and 902 (84). |
-| Chord cells | 137 x 48 px at x = 166 + i * 137, y = 98. The cell is drawn inset by 4 px. |
-| Lane rows | 656 x 64 px at x = 62, y = 154, 222 and 290. The label column starts at x = 66 and is 96 px wide. The piano roll is 548 x 56 px at x = 166, 4 px below the row's top. |
-| Bottom line | 648 x 20 px at (66, 360). |
-| Knobs | Diameter 56 px. Column centres at x = 809 and 927. Faces at y = 144 to 200 (mood, energy) and y = 290 to 346 (groove, flavour), which centres the block of legends, ticks and words in the group box. |
-| Keys | Play at (560, 492) and stop at (620, 492), 48 x 32 px, in a transport panel at (450, 420, 448, 146). Sprinkle at (692, 484), 96 x 48 px. Each lane column also has a mute key at (column x + 72, 496), 36 x 24 px. |
+| Chord cells | 202 x 40 px at x = 166 + i * 202, y = 98. The cell is drawn inset by 4 px. |
+| Lane rows | 916 x 52 px at x = 62, y = 144, 200 and 256. The label column starts at x = 66 and is 96 px wide. The piano roll is 808 x 48 px at x = 166, 2 px below the row's top. |
+| Bottom line | 908 x 18 px at (66, 312). |
+| Knobs | Mood, energy, groove and flavour: faces 40 px across, centred at x = 130, 248, 366 and 484 on y = 404. |
+| Dividers | 1 px lines of `#FFFFFF` at 14%, at x = 560 and x = 880, from y = 368 to 436. |
+| Level knobs | Faces 34 px across, centred at x = 640, 726 and 812 on y = 410. |
+| Volume knob | Face 40 px across, centred at (936, 404). |
+| Keys | 78 x 54 px with their top at y = 470. Mute keys at x = 74, 166 and 258. Play at x = 632 and stop at x = 724. Sprinkle is 170 x 54 at x = 816. Every legend sits 8 px below its key. |
 | Spells panel | 340 px wide, 14 px from the display's left inner edge and 40 px below its top inner edge. |
 | Toast | Centred horizontally on the display, 96 px above its bottom inner edge. |
 
@@ -82,7 +86,8 @@ Use these names in code (the `console` block of `ui/Tokens.h`).
 | `cap-chords`, `cap-bass`, `cap-melody` | `#7B6BD6`, `#D6527C`, `#3FB6C4` | Lane knob caps and pinned LEDs |
 | `led-on`, `led-off` | `#FFCF4A`, `#4E4A3C` | Amber LEDs |
 | `sprinkle-top`, `sprinkle-bottom` | `#D84A3A`, `#A8301F` | Sprinkle key |
-| `key-top`, `key-bottom`, `key-shadow` | `#F0ECE0`, `#C9C2AD`, `#2C2F33` | Other keys, with a 2 px shadow below |
+| `key-top`, `key-bottom`, `key-shadow` | `#F0ECE0`, `#C9C2AD`, `#2C2F33` | Cream keys, with a 2 px shadow below |
+| `key-dark-top`, `key-dark-bottom`, `key-dark-shadow` | `#3A3F46`, `#22262B`, `#15171A` | Dark keys (play and stop), with a 2 px shadow below |
 | `walnut-a`, `walnut-b`, `walnut-c` | `#3D2516`, `#4B2E1B`, `#35200F` | Cheek stripes |
 | `knob-light`, `knob-dark` | `#4B4B4B`, `#141414` | Knob body gradient |
 | `knob-cap` | `#8A8F96` | Cap of the mood, energy, groove, flavour and volume knobs |
@@ -124,7 +129,7 @@ These are the only places shading is allowed.
 | Screws | Radial gradient from `#E2E2E2` to `#6D6D6D`, highlight at 35% across and 30% down, with a 2 px slot in `#444444` at 35 degrees. |
 | Cream window | A `bezel` border (3 px on the display, 2 px on readout windows), a radial cream gradient from `display-centre` to `display-edge` inside it, and an inner glow along the inside edge. The display has a 5 px radius and the readout windows 2 px. |
 | Knob | See the knob control in `ui/Knob.cpp`: black body with a radial gradient from `knob-light` to `knob-dark`, a cap disc at 52% of the diameter, and an off-white pointer. |
-| Key | 36 x 24 px, 3 px radius (sprinkle 84 x 44, 5 px), vertical gradient and a hard `key-shadow` below. See "Keys" and "Sprinkle". |
+| Key | 78 x 54 px, 3 px radius (sprinkle 170 x 54, 5 px), vertical gradient and a hard shadow below. Cream keys use `key-shadow`. Dark keys run `key-dark-top` to `key-dark-bottom` with a `key-dark-shadow` and carry a `legend` icon 12 px tall. See "Mute keys", "Transport keys" and "Sprinkle". |
 | LED | 6 px circle. Off: `led-off`. On: the LED's colour plus a 6 px glow in the same colour. |
 
 ## Components
@@ -162,12 +167,12 @@ The numbers match the order of the console's parts, left to right and top to bot
 ### 4. Lanes
 
 - Three rows: chords, bass and melody.
-- Each row has a 96 px label column, with the name and pattern centred in it, and a 548 x 56 px piano roll with a 1 px bar line at every bar in `ink` at 18%, and a 1 px `ink` playhead while playing.
+- Each row has a 96 px label column, with the name and pattern centred in it, and an 808 x 48 px piano roll with a 1 px bar line at every bar in `ink` at 18%, and a 1 px `ink` playhead while playing.
 - The label shows the lane name in capitals, with the pattern name below it, ending in an ellipsis if it is too long.
 - Notes are `ink` rectangles with a 1 px radius.
   Horizontal position and width come from the note's start and length across the 8 bars.
   Vertical position comes from pitch, with the highest pitch at the top: chords span MIDI 48 to 79, bass 28 to 48, and melody 60 to 84.
-- The lane's level is a knob in the lane group below the display (components 8 to 10), not in the row.
+- The lane's level is a knob in the knob panel below the display (component 8), not in the row.
 - Selected: an `ink` band at 8% behind the row.
 - Muted: the whole row is drawn at 35% while the lane's mute key is on.
 - Click: select the lane.
@@ -190,72 +195,58 @@ The numbers match the order of the console's parts, left to right and top to bot
 - One line along the bottom of the display: "BAR 3 OF 8 - SELECTED: CHORD 2 - NOTHING PINNED", or "STOPPED - ..." when stopped.
 - While there is an error, the line shows the error instead, and the readout returns once it clears.
 
-### 8. Lane group
+### 8. Knob panel
 
-- A panel at (54, 420, 372, 146): `#000000` at 12%, a 1 px inner line of `#FFFFFF` at 12%, and a 4 px radius.
-- Three columns, at x = 54 + i * 124 and 124 px wide, for chords, bass and melody.
-- The legends "CHORDS", "BASS" and "MELODY" are centred in their column on y 456, in Space Grotesk 700 10 px.
-- Each column has a pattern knob slot, a level knob and a mute key.
-
-### 9. Pattern knob slots (Phase 5)
-
-- Centre at (column x + 38, 508), 44 px across.
-- Left empty until Phase 5: draw nothing, so the faceplate shows through.
-
-### 10. Lane level knobs
-
-- Centre at (column x + 42, 508), 34 px across, with the legend "LEVEL", under the lane legend.
-- Phase 5 moves it to column x + 92, beside the pattern knob at column x + 38.
+- A panel at (54, 350, 932, 104): `#000000` at 12%, a 1 px inner line of `#FFFFFF` at 12%, and a 4 px radius.
+- Mood, energy, groove and flavour, then a divider, then the three lane level knobs, then a divider, then volume (see "Positions inside the zones").
+- Mood, energy, groove and flavour keep their range words and step words, and all legends share one top edge.
+- The level knobs have the lane name in capitals as their legend, in Space Grotesk 700 10 px, with a small "LEVEL" line under it (Space Grotesk 500 8 px).
 - The cap is the lane's colour, and the knob is bound to `chordsLevel`, `bassLevel` or `melodyLevel`.
 - Double-click resets to 100%.
 - Accessible titles are "chords level", "bass level" and "melody level".
+- The gap between the mute keys and the transport keys (x 336 to 632) stays plain faceplate.
+  Phase 5 puts pin, reroll, swap, keep and bottle it there.
 
-### 10a. Lane mute keys
+### 9. Mute keys
 
-- Each column has a MUTE key at x = column x + 72, 36 x 24 px, vertically centred on y 508, in the cream key material (3 px radius, 2 px shadow).
-- An amber LED 6 px across sits centred 6 px above the key and is lit while the lane is muted.
-- The legend "MUTE" is below the key, in the key legend style.
+- A vertical "MUTE" legend, reading bottom to top, centred on (62, 497), in the key legend style.
+- Three cream keys, 78 x 54 px, at x = 74, 166 and 258 on y = 470, with the legends "CHORDS", "BASS" and "MELODY" below.
+- An amber LED 6 px across sits above each key and is lit while the lane is muted.
 - Click, or Enter while focused, toggles `chordsMute`, `bassMute` or `melodyMute`.
 - Accessible titles are "chords mute", "bass mute" and "melody mute".
 - A muted lane plays nothing: no built-in sound and no MIDI out.
   A sender follows the main instance, so it goes quiet too.
-- Each level knob is followed by its mute key in the focus order.
 
-### 11. Volume
+### 10. Volume
 
-- A knob centred at (950, 508), 52 px across, like the lane level knobs, with the legend "VOLUME" centred on y 456 like the lane legends, and the end words "MIN" and "MAX".
+- A knob with a 40 px face centred at (936, 404), with the legend "VOLUME" and the end words "MIN" and "MAX".
 - Bound to `volume`; double-click resets to 80%.
 
-### 12. Transport panel and keys
+### 11. Transport keys
 
-- A panel at (450, 420, 448, 146), drawn like the lane group, so it sits level with it.
-- Play, stop and sprinkle are one cluster, centred in the panel (centre x 674) and on y 508.
-  The cluster runs from x 560 to 788.
-- Play and stop are 48 x 32 px, 12 px apart: play at (560, 492) and stop at (620, 492).
-- Face: the `key-top` to `key-bottom` gradient with a 3 px radius, and a 2 px `key-shadow` below.
+- Play and stop are 78 x 54 px dark keys at (632, 470) and (724, 470), with a 3 px radius.
+- Face: the `key-dark-top` to `key-dark-bottom` gradient, and a 2 px `key-dark-shadow` below.
+- The icon is `legend`, drawn as a vector, centred and 12 px tall: a right-pointing triangle for play and a square for stop.
 - A pressed key moves down 1 px and its shadow drops to 1 px.
-- The LED is 6 px, centred over the key with 6 px between them.
-  Amber (`led-on`) when lit, `led-off` when not.
-- The legend sits 8 px below the key, in capitals, Space Grotesk 500 9.5 px with 0.2 em spacing.
-- Play's LED is lit while the preview plays.
-- Stop has no LED.
-- Neither key has an icon, because none reads cleanly at this size.
+- Play has an amber LED above it, lit while the preview plays.
+  Stop has no LED.
+- The legends "PLAY" and "STOP" sit 8 px below the key, in capitals, Space Grotesk 500 9.5 px with 0.2 em spacing.
 - Space does what play does when the preview is stopped, and what stop does when it plays.
 - While the daw's transport plays, Magic Dust follows it and a plugin cannot drive the daw's transport.
   Play, stop and Space then leave the daw alone and replace the bottom line with "FOLLOWING YOUR DAW - USE ITS TRANSPORT" for 2 seconds, after which the readout returns.
 
-### 13. Sprinkle
+### 12. Sprinkle
 
-- At (692, 484, 96, 48), 24 px right of stop, centred on y 508, with a 5 px radius.
+- At (816, 470, 170, 54), with a 5 px radius, and its legend "NEW IDEA" 8 px below.
 - Face: the `sprinkle-top` to `sprinkle-bottom` gradient, and a 3 px `key-shadow` below.
 - "SPRINKLE" in white inside it, Space Grotesk 700 10 px with 0.18 em spacing.
 - It has no LED.
 - Writes a new idea, keeping everything pinned, and adds it to the spells list (8 most recent).
 
-### 14. Phase 5 keys
+### 13. Phase 5 keys
 
 These keys are not built yet.
-Phase 5 adds pin, reroll, swap, keep and bottle it inside the transport panel and re-lays it out.
+Phase 5 adds pin, reroll, swap, keep and bottle it in the gap between the mute keys and the transport keys (x 336 to 632).
 They use the key material.
 
 - Pin, reroll and swap act on the current selection (a chord cell or a lane), as in the table below.
@@ -289,7 +280,7 @@ Rerolling or swapping a pinned item changes nothing and shows "unpin it first" (
 ### About panel
 
 - Opened by clicking the wordmark or pressing Enter on it.
-  It is a child of the main view, over the display's inner rect (57, 89, 666, 300), in the display's cream.
+  It is a child of the main view, over the display's inner rect (57, 89, 926, 244), in the display's cream.
 - Centred lines, in `ink`, 12 px apart:
   - "MAGIC DUST" in the serif face, 26 px,
   - "version " and the plugin's version, Space Mono 12 px,
@@ -328,7 +319,7 @@ A "motion" setting turns every animation off, and the plugin also turns them off
 
 ## Accessibility
 
-- Every interactive element is keyboard-focusable in this order: the wordmark, the style and key windows, the chord cells, the lanes, the mood, energy, groove and flavour knobs, the three level knobs each followed by its mute key, play, stop, sprinkle, then the volume knob.
+- Every interactive element is keyboard-focusable in this order: the wordmark, the style and key windows, the chord cells, the lanes, the mood, energy, groove and flavour knobs, the three level knobs, the volume knob, the three mute keys, play, stop, then sprinkle.
   The sender view's order is its three lane keys, then "full magic dust".
 - Focus ring: 2 px `ink` on cream surfaces, 2 px `legend` on the metal faceplate.
 - Every control has an accessible title through `juce::AccessibilityHandler`, for example "chord 1, Am9, home", "mood", "chords level", "play the preview" and "about magic dust".

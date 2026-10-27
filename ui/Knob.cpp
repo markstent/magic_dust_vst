@@ -16,7 +16,7 @@ constexpr float kStartAngle = -135.0F; // degrees from straight up, clockwise
 constexpr float kSweep = 270.0F;
 constexpr float kLegendHeight = 14.0F;
 constexpr float kContinuousMargin = 12.0F; // room for the ticks above and beside the face
-constexpr float kSteppedMargin = 30.0F;    // room for the ticks and their step words
+constexpr float kSteppedMargin = 21.0F;    // room for the ticks and their step words
 constexpr float kTickGap = 5.0F;
 constexpr float kTickLength = 4.0F;
 constexpr float kWordGap = 8.0F;
@@ -149,6 +149,15 @@ void Knob::paint(juce::Graphics& g)
         font(Face::groteskBold, kLegendSize).withExtraKerningFactor(kLegendSpacing / kLegendSize));
     g.drawText(look_.legend, getLocalBounds().removeFromTop(static_cast<int>(kLegendHeight)),
                juce::Justification::centred, false);
+
+    if (look_.subLegend.isNotEmpty())
+    {
+        g.setFont(font(Face::groteskMedium, kWordSize));
+        g.drawText(look_.subLegend,
+                   juce::Rectangle<float>(0.0F, kLegendHeight, static_cast<float>(getWidth()),
+                                          kWordHeight),
+                   juce::Justification::centred, false);
+    }
 
     const int ticks =
         stepped_ ? static_cast<int>(getMaximum() - getMinimum()) + 1 : kContinuousTicks;

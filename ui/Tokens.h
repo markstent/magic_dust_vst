@@ -27,6 +27,9 @@ inline const juce::Colour sprinkleBottom{0xFFA8301F};
 inline const juce::Colour keyTop{0xFFF0ECE0};
 inline const juce::Colour keyBottom{0xFFC9C2AD};
 inline const juce::Colour keyShadow{0xFF2C2F33};
+inline const juce::Colour keyDarkTop{0xFF3A3F46};
+inline const juce::Colour keyDarkBottom{0xFF22262B};
+inline const juce::Colour keyDarkShadow{0xFF15171A};
 inline const juce::Colour walnutA{0xFF3D2516};
 inline const juce::Colour walnutB{0xFF4B2E1B};
 inline const juce::Colour walnutC{0xFF35200F};
@@ -52,7 +55,7 @@ inline constexpr int dragThreshold = 4;
 namespace layout
 {
 inline constexpr int windowWidth = 1040;
-inline constexpr int windowHeight = 600;
+inline constexpr int windowHeight = 580;
 inline constexpr float minScale = 0.8F;
 inline constexpr float maxScale = 1.5F;
 
@@ -88,15 +91,15 @@ inline constexpr float legendSize = 9.5F;
 inline constexpr float legendSpacing = 0.2F; // em
 
 // The display: the bezel box, and everything inside it in window space.
-inline const juce::Rectangle<int> display{54, 86, 672, 306};
+inline const juce::Rectangle<int> display{54, 86, 932, 250};
 inline constexpr float displayBorder = 3.0F;
 inline constexpr float displayRadius = 5.0F;
 inline constexpr float displayGlow = 16.0F;
 
 inline constexpr int cellX = 166;
-inline constexpr int cellPitch = 137;
+inline constexpr int cellPitch = 202;
 inline constexpr int cellY = 98;
-inline constexpr int cellHeight = 48;
+inline constexpr int cellHeight = 40;
 inline constexpr float cellInset = 4.0F;
 inline constexpr float cellRadius = 3.0F;
 inline constexpr float cellOutline = 1.5F;
@@ -107,9 +110,9 @@ inline constexpr float cellBarWidth = 40.0F;
 inline constexpr float cellBarHeight = 3.0F;
 
 inline constexpr int laneX = 62;
-inline constexpr int laneWidth = 656;
-inline constexpr int laneHeight = 64;
-inline constexpr std::array<int, 3> laneY{154, 222, 290};
+inline constexpr int laneWidth = 916;
+inline constexpr int laneHeight = 52;
+inline constexpr std::array<int, 3> laneY{144, 200, 256};
 inline constexpr float laneRadius = 3.0F;
 inline constexpr float laneSelectedAlpha = 0.08F;
 inline constexpr int laneLabelPad = 4;
@@ -118,9 +121,9 @@ inline constexpr float laneNameSize = 10.0F;
 inline constexpr float laneNameSpacing = 0.14F; // em
 inline constexpr float lanePatternSize = 10.0F;
 inline constexpr int rollX = 166;
-inline constexpr int rollPadY = 4;
-inline constexpr int rollWidth = 548;
-inline constexpr int rollHeight = 56;
+inline constexpr int rollPadY = 2;
+inline constexpr int rollWidth = 808;
+inline constexpr int rollHeight = 48;
 inline constexpr float barLineAlpha = 0.18F;
 // Note height as a fraction of the roll height, per lane (chords, bass, melody).
 inline constexpr std::array<float, 3> noteHeightFraction{0.11F, 0.18F, 0.14F};
@@ -128,47 +131,42 @@ inline constexpr int noteMinWidth = 2;
 inline constexpr float noteRadius = 1.0F;
 inline constexpr int playheadWidth = 1;
 
-inline const juce::Rectangle<int> bottomLine{66, 360, 648, 20};
+inline const juce::Rectangle<int> bottomLine{66, 312, 908, 18};
 inline constexpr float bottomLineSize = 11.0F;
 
-// The knob group and its four knobs: the column centres and the face's top edge per row.
-inline const juce::Rectangle<int> knobGroup{750, 86, 236, 306};
-inline constexpr float knobGroupRadius = 4.0F;
-inline constexpr int knobWidth = 118;
-inline constexpr float knobDiameter = 56.0F;
-inline constexpr std::array<int, 2> knobColumnX{809, 927};
-inline constexpr std::array<int, 2> knobFaceY{144, 290};
-
-// The bottom band: the lane group, its three columns and the knobs in them.
-inline const juce::Rectangle<int> laneGroup{54, 420, 372, 146};
-inline constexpr float laneGroupRadius = 4.0F;
-inline constexpr int laneColumnX = 54;
-inline constexpr int laneColumnWidth = 124;
-inline constexpr int laneLegendCentreY = 456;
-inline constexpr float laneLegendSize = 10.0F;
-inline constexpr float laneLegendSpacing = 0.12F; // em
-inline constexpr int levelKnobOffsetX = 42; // the level knob's centre from its column's left edge
-inline constexpr int muteKeyOffsetX = 72;   // the mute key's left edge from its column's left edge
-inline constexpr float mutedAlpha = 0.35F;  // a muted lane's display row
-inline constexpr int bandKnobCentreY = 508; // the level knobs and the volume knob
-inline constexpr int levelKnobWidth = 48;
-inline constexpr int levelKnobHeight = 70;
+// The knob panel under the display: the feel knobs, a divider, the three level knobs, a divider
+// and the volume knob, each placed by its face's centre.
+inline const juce::Rectangle<int> knobPanel{54, 350, 932, 104};
+inline constexpr float knobPanelRadius = 4.0F;
+inline constexpr int knobWidth = 100;
+inline constexpr int knobHeight = 90;
+inline constexpr float knobDiameter = 40.0F;
+inline constexpr float knobLegendGap =
+    9.0F; // lines a continuous knob's legend up with a stepped one's
+inline constexpr std::array<int, 4> knobCentreX{130, 248, 366, 484};
+inline constexpr int knobCentreY = 404;
+inline constexpr std::array<int, 2> dividerX{560, 880};
+inline constexpr int dividerY = 368;
+inline constexpr int dividerHeight = 68;
+inline constexpr float dividerAlpha = 0.14F;
+inline constexpr int levelKnobWidth = 84;
+inline constexpr int levelKnobHeight = 80;
 inline constexpr float levelKnobDiameter = 34.0F;
-inline constexpr int volumeKnobCentreX = 950;
-inline constexpr int volumeKnobWidth = 96;
-inline constexpr int volumeKnobHeight = 101;
-inline constexpr float volumeLegendGap = 7.0F; // extra, so its legend sits on the lane legends
-inline constexpr float volumeKnobDiameter = 52.0F;
+inline constexpr float levelLegendGap = 18.0F; // room for the "LEVEL" line under the lane name
+inline constexpr std::array<int, 3> levelCentreX{640, 726, 812};
+inline constexpr int levelCentreY = 410;
+inline constexpr juce::Point<int> volumeCentre{936, 404};
+inline constexpr float mutedAlpha = 0.35F; // a muted lane's display row
 
-// The transport panel level with the lane group, and the play, stop and sprinkle keys as one
-// cluster centred in it (x 560 to 788, on y 508). Phase 5 adds its keys inside the panel.
-// The mute keys sit in the lane columns.
-inline const juce::Rectangle<int> transportGroup{450, 420, 448, 146};
-inline const juce::Rectangle<int> playKey{560, 492, 48, 32};
-inline const juce::Rectangle<int> stopKey{620, 492, 48, 32};
-inline const juce::Rectangle<int> sprinkleKey{692, 484, 96, 48};
-inline constexpr int muteKeyWidth = 36;
-inline constexpr int muteKeyHeight = 24;
+// The key row under the knob panel: the mute keys on the left under a vertical MUTE legend,
+// then play, stop and sprinkle on the right. Every legend sits 8 px under its key.
+inline constexpr int keyY = 470;
+inline constexpr int keyHeight = 54;
+inline constexpr int keyWidth = 78;
+inline constexpr int muteLegendCentreX = 62;
+inline constexpr std::array<int, 3> muteKeyX{74, 166, 258};
+inline constexpr std::array<int, 2> transportKeyX{632, 724};
+inline const juce::Rectangle<int> sprinkleKey{816, keyY, 170, keyHeight};
 inline constexpr float keyRadius = 3.0F;
 inline constexpr float sprinkleRadius = 5.0F;
 inline constexpr float keyPressDrop = 1.0F;
@@ -176,6 +174,7 @@ inline constexpr float keyShadowDrop = 2.0F; // the hard shadow's offset at rest
 inline constexpr float sprinkleShadowDrop = 3.0F;
 inline constexpr float sprinkleTitleSize = 10.0F;
 inline constexpr float sprinkleTitleSpacing = 0.18F; // em
+inline constexpr float keyIconSize = 12.0F;
 inline constexpr float ledSize = 6.0F;
 inline constexpr float keyLedGap = 6.0F; // from the LED's lower edge to the key's top
 inline constexpr float ledGlow = 6.0F;
@@ -201,7 +200,7 @@ inline constexpr float senderStatusSize = 10.0F;
 inline constexpr float senderStatusInset = 10.0F; // the text from the bezel's outer edge
 
 // The about panel: the display's inner rect, and its lines, centred, in order.
-inline const juce::Rectangle<int> aboutPanel{57, 89, 666, 300};
+inline const juce::Rectangle<int> aboutPanel{57, 89, 926, 244};
 inline constexpr int aboutLineGap = 12;
 inline constexpr float aboutTitleSize = 26.0F;
 inline constexpr float aboutVersionSize = 12.0F;
