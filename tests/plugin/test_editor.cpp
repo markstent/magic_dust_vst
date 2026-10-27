@@ -912,6 +912,31 @@ TEST_CASE("Arrow keys step a knob", "[knob]")
     CHECK(f.raw("flavour") == Approx(0));
 }
 
+TEST_CASE("Small smooth wheel deltas add up to one step per notch", "[knob]")
+{
+    KnobFixture f;
+    auto knob = f.make("flavour");
+    const auto at = knob->faceBounds().getCentre().toFloat();
+    const auto swipe = [&](float delta)
+    {
+        knob->mouseWheelMove(mouseAt(*knob, at, at, false), {.deltaX = 0.0F,
+                                                             .deltaY = delta,
+                                                             .isReversed = false,
+                                                             .isSmooth = true,
+                                                             .isInertial = false});
+    };
+    for (int i = 0; i < 5; ++i)
+    {
+        swipe(0.0125F);
+    }
+    CHECK(f.raw("flavour") == Approx(1));
+    for (int i = 0; i < 5; ++i)
+    {
+        swipe(0.0125F);
+    }
+    CHECK(f.raw("flavour") == Approx(2));
+}
+
 TEST_CASE("Double-click resets", "[knob]")
 {
     KnobFixture f;

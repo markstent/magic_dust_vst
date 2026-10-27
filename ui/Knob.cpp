@@ -34,6 +34,8 @@ constexpr double kShiftFactor = 4.0;
 constexpr double kHundredWheelStep = 5.0;
 constexpr double kUnitWheelStep = 0.05;
 constexpr double kHundred = 100.0;
+constexpr float kWheelNotch = 0.125F; // deltaY of one mouse wheel notch on macOS
+constexpr float kWheelTolerance = 0.001F;
 
 juce::String textForValue(juce::RangedAudioParameter* parameter, double value)
 {
@@ -61,6 +63,8 @@ Knob::Knob(juce::AudioProcessorValueTreeState& params, const juce::String& param
     setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     setRotaryParameters(juce::degreesToRadians(kStartAngle + 360.0F),
                         juce::degreesToRadians(kStartAngle + kSweep + 360.0F), true);
+    jassert(look_.stepWords.isEmpty() ||
+            look_.stepWords.size() == static_cast<int>(getMaximum() - getMinimum()) + 1);
     setTitle(look_.legend.toLowerCase());
     setWantsKeyboardFocus(true);
     auto* parameter = params.getParameter(paramId);
@@ -112,12 +116,16 @@ void Knob::mouseDrag(const juce::MouseEvent& e)
              juce::sendNotificationSync);
 }
 
+// A smooth trackpad swipe sends many small deltas, so they add up to one step per mouse notch.
 void Knob::mouseWheelMove(const juce::MouseEvent& /*e*/, const juce::MouseWheelDetails& wheel)
 {
     const auto delta = wheel.deltaY != 0.0F ? wheel.deltaY : -wheel.deltaX;
-    if (delta != 0.0F)
+    wheelAccumulated_ += wheel.isReversed ? -delta : delta;
+    const auto notches = std::trunc((wheelAccumulated_ / kWheelNotch) + kWheelTolerance);
+    if (notches != 0.0F)
     {
-        setValue(getValue() + (delta > 0.0F ? step() : -step()), juce::sendNotificationSync);
+        wheelAccumulated_ -= notches * kWheelNotch;
+        setValue(getValue() + (static_cast<double>(notches) * step()), juce::sendNotificationSync);
     }
 }
 
@@ -126,7 +134,6 @@ void Knob::paint(juce::Graphics& g)
     const auto face = faceBounds().toFloat();
     const auto centre = face.getCentre();
     const auto faceRadius = face.getWidth() / 2.0F;
-    const bool stepped = !look_.stepWords.isEmpty();
 
     g.setColour(tokens::console::legend);
     g.setFont(
@@ -134,18 +141,19 @@ void Knob::paint(juce::Graphics& g)
     g.drawText(look_.legend, getLocalBounds().removeFromTop(static_cast<int>(kLegendHeight)),
                juce::Justification::centred, false);
 
-    const int ticks = stepped ? look_.stepWords.size() : kContinuousTicks;
+    const int ticks =
+        stepped_ ? static_cast<int>(getMaximum() - getMinimum()) + 1 : kContinuousTicks;
     g.setFont(font(Face::groteskMedium, kWordSize));
     for (int i = 0; i < ticks; ++i)
     {
-        const auto angle =
-            kStartAngle + (kSweep * static_cast<float>(i) / static_cast<float>(ticks - 1));
+        const auto angle = kStartAngle + (kSweep * static_cast<float>(i) /
+                                          static_cast<float>(std::max(1, ticks - 1)));
         const auto theta = juce::degreesToRadians(angle);
         const auto tickStart = faceRadius + kTickGap;
         g.drawLine({centre.getPointOnCircumference(tickStart, theta),
                     centre.getPointOnCircumference(tickStart + kTickLength, theta)},
                    1.0F);
-        if (stepped)
+        if (!look_.stepWords.isEmpty())
         {
             const auto at =
                 centre.getPointOnCircumference(tickStart + kTickLength + kWordGap, theta);

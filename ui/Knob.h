@@ -43,6 +43,7 @@ class Knob : public juce::Slider
     KnobLook look_;
     bool stepped_;
     double valueOnDown_ = 0.0;
+    float wheelAccumulated_ = 0.0F;
     juce::SliderParameterAttachment attachment_;
 
     MD_COMPONENT_BOILERPLATE(Knob)
