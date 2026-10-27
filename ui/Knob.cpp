@@ -206,15 +206,17 @@ void Knob::paint(juce::Graphics& g)
     {
         g.setColour(tokens::console::legend);
         g.setFont(font(Face::groteskMedium, kWordSize));
+        // Each word's inner edge sits under the end of the scale and the word runs outward.
         const auto y = face.getBottom() + kTickGap;
-        for (int i = 0; i < 2; ++i)
-        {
-            const auto x = i == 0 ? face.getX() - (kWordWidth / 2.0F) + kTickLength
-                                  : face.getRight() - (kWordWidth / 2.0F) - kTickLength;
-            g.drawText(look_.rangeWords.getReference(i),
-                       juce::Rectangle<float>(x, y, kWordWidth, kWordHeight),
-                       juce::Justification::centred, false);
-        }
+        const auto scaleEnd =
+            (faceRadius + kTickGap + kTickLength) * std::sin(juce::degreesToRadians(45.0F));
+        g.drawText(
+            look_.rangeWords.getReference(0),
+            juce::Rectangle<float>(centre.x - scaleEnd - kWordWidth, y, kWordWidth, kWordHeight),
+            juce::Justification::centredRight, false);
+        g.drawText(look_.rangeWords.getReference(1),
+                   juce::Rectangle<float>(centre.x + scaleEnd, y, kWordWidth, kWordHeight),
+                   juce::Justification::centredLeft, false);
     }
 
     if (hasKeyboardFocus(false))

@@ -85,7 +85,8 @@ void ChordCell::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down
     const auto feelFont = font(Face::monoRegular, t::layout::cellFeelSize);
     const auto nameHeight = nameFont.getHeight();
     const auto feelHeight = feelFont.getHeight();
-    const auto top = cell.getY() + ((cell.getHeight() - (nameHeight + feelHeight)) / 2.0F);
+    const auto top = cell.getY() + ((cell.getHeight() - (nameHeight + feelHeight)) / 2.0F) -
+                     t::layout::cellTextLift;
     g.setFont(nameFont);
     g.setColour(ink);
     g.drawText(name_, juce::Rectangle<float>(cell.getX(), top, cell.getWidth(), nameHeight),
@@ -101,7 +102,7 @@ void ChordCell::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down
     {
         g.fillRect(juce::Rectangle<float>(t::layout::cellBarWidth, t::layout::cellBarHeight)
                        .withCentre({cell.getCentreX(),
-                                    cell.getBottom() - (t::layout::cellBarHeight / 2.0F) - 1.0F}));
+                                    cell.getBottom() - (t::layout::cellBarHeight / 2.0F) + 1.0F}));
     }
     if (selected_)
     {

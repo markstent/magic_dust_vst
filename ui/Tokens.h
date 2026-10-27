@@ -106,6 +106,7 @@ inline constexpr float cellOutline = 1.5F;
 inline constexpr float cellNameSize = 14.0F;
 inline constexpr float cellFeelSize = 10.0F;
 inline constexpr float cellFeelAlpha = 0.6F;
+inline constexpr float cellTextLift = 3.0F; // keeps the feel word clear of the playing bar
 inline constexpr float cellBarWidth = 40.0F;
 inline constexpr float cellBarHeight = 3.0F;
 
@@ -144,9 +145,9 @@ inline constexpr float knobDiameter = 40.0F;
 inline constexpr float knobLegendGap =
     9.0F; // lines a continuous knob's legend up with a stepped one's
 inline constexpr std::array<int, 4> knobCentreX{130, 248, 366, 484};
-inline constexpr int knobCentreY = 404;
+inline constexpr int knobCentreY = 412;
 inline constexpr std::array<int, 2> dividerX{560, 880};
-inline constexpr int dividerY = 368;
+inline constexpr int dividerY = 372;
 inline constexpr int dividerHeight = 68;
 inline constexpr float dividerAlpha = 0.14F;
 inline constexpr int levelKnobWidth = 84;
@@ -154,8 +155,8 @@ inline constexpr int levelKnobHeight = 80;
 inline constexpr float levelKnobDiameter = 34.0F;
 inline constexpr float levelLegendGap = 18.0F; // room for the "LEVEL" line under the lane name
 inline constexpr std::array<int, 3> levelCentreX{640, 726, 812};
-inline constexpr int levelCentreY = 410;
-inline constexpr juce::Point<int> volumeCentre{936, 404};
+inline constexpr int levelCentreY = 418;
+inline constexpr juce::Point<int> volumeCentre{936, 412};
 inline constexpr float mutedAlpha = 0.35F; // a muted lane's display row
 
 // The key row under the knob panel: the mute keys on the left under a vertical MUTE legend,

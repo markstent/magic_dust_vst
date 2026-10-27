@@ -64,10 +64,10 @@ The look is the studio console in `visual/studio-console-mockup.html`; the numbe
 | Chord cells | 202 x 40 px at x = 166 + i * 202, y = 98. The cell is drawn inset by 4 px. |
 | Lane rows | 916 x 52 px at x = 62, y = 144, 200 and 256. The label column starts at x = 66 and is 96 px wide. The piano roll is 808 x 48 px at x = 166, 2 px below the row's top. |
 | Bottom line | 908 x 18 px at (66, 312). |
-| Knobs | Mood, energy, groove and flavour: faces 40 px across, centred at x = 130, 248, 366 and 484 on y = 404. |
-| Dividers | 1 px lines of `#FFFFFF` at 14%, at x = 560 and x = 880, from y = 368 to 436. |
-| Level knobs | Faces 34 px across, centred at x = 640, 726 and 812 on y = 410. |
-| Volume knob | Face 40 px across, centred at (936, 404). |
+| Knobs | Mood, energy, groove and flavour: faces 40 px across, centred at x = 130, 248, 366 and 484 on y = 412. |
+| Dividers | 1 px lines of `#FFFFFF` at 14%, at x = 560 and x = 880, from y = 372 to 440. |
+| Level knobs | Faces 34 px across, centred at x = 640, 726 and 812 on y = 418. |
+| Volume knob | Face 40 px across, centred at (936, 412). |
 | Keys | 78 x 54 px with their top at y = 470. Mute keys at x = 74, 166 and 258. Play at x = 632 and stop at x = 724. Sprinkle is 170 x 54 at x = 816. Every legend sits 8 px below its key. |
 | Spells panel | 340 px wide, 14 px from the display's left inner edge and 40 px below its top inner edge. |
 | Toast | Centred horizontally on the display, 96 px above its bottom inner edge. |
@@ -156,7 +156,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 | State | Look |
 | --- | --- |
 | Default | Name in `ink`, feel word below it in `ink` at 60% |
-| Playing | A 3 px tall, 40 px wide `ink` bar centred at the bottom of the cell, under the name and the feel word |
+| Playing | A 3 px tall, 40 px wide `ink` bar centred at the bottom of the cell, 1 px past its inset edge, under the name and the feel word (the text sits 3 px above centre to clear it) |
 | Selected | A 1.5 px `ink` outline, 3 px radius |
 | Focused | A 2 px `ink` focus ring just outside the cell |
 
@@ -219,7 +219,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 
 ### 10. Volume
 
-- A knob with a 40 px face centred at (936, 404), with the legend "VOLUME" and the end words "MIN" and "MAX".
+- A knob with a 40 px face centred at (936, 412), with the legend "VOLUME" and the end words "MIN" and "MAX".
 - Bound to `volume`; double-click resets to 80%.
 
 ### 11. Transport keys

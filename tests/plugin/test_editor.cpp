@@ -172,10 +172,10 @@ TEST_CASE("each knob's face sits where the layout table puts it", "[editor]")
         auto& knob = f.find<md::ui::Knob>(id);
         return f.editor->getLocalArea(&knob, knob.faceBounds());
     };
-    CHECK(face("moodKnob") == Rect(110, 384, 40, 40));
-    CHECK(face("energyKnob") == Rect(228, 384, 40, 40));
-    CHECK(face("grooveKnob") == Rect(346, 384, 40, 40));
-    CHECK(face("flavourKnob") == Rect(464, 384, 40, 40));
+    CHECK(face("moodKnob") == Rect(110, 392, 40, 40));
+    CHECK(face("energyKnob") == Rect(228, 392, 40, 40));
+    CHECK(face("grooveKnob") == Rect(346, 392, 40, 40));
+    CHECK(face("flavourKnob") == Rect(464, 392, 40, 40));
 }
 
 TEST_CASE("the knobs move the processor's parameters", "[editor]")
@@ -323,9 +323,9 @@ TEST_CASE("the level and volume knobs' faces sit where the layout table puts the
     for (std::size_t i = 0; i < 3; ++i)
     {
         const auto id = "level" + std::to_string(i);
-        CHECK(face(id.c_str()) == Rect(centreX.at(i) - 17, 410 - 17, 34, 34));
+        CHECK(face(id.c_str()) == Rect(centreX.at(i) - 17, 418 - 17, 34, 34));
     }
-    CHECK(face("volumeKnob") == Rect(916, 384, 40, 40));
+    CHECK(face("volumeKnob") == Rect(916, 392, 40, 40));
 }
 
 TEST_CASE("the first header legend is IDEA", "[editor]")
@@ -1161,6 +1161,9 @@ TEST_CASE("render the editor", "[.render]")
     write("editor-200.png", 1040, 2.0F);
     f.find<md::ui::AboutPanel>("aboutPanel").setVisible(true);
     write("about-100.png", 1040, 1.0F);
+    f.find<md::ui::AboutPanel>("aboutPanel").setVisible(false);
+    f.find<md::ui::ChordCell>("cell0").set("Am7", "home", true, false);
+    write("editor-playing-100.png", 1040, 1.0F);
 }
 
 // Renders the sender screen to PNGs in $MD_RENDER_DIR; does nothing when the variable is not set.
