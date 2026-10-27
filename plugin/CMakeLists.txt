@@ -39,10 +39,11 @@ target_compile_definitions(md_juce_headers
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0)
 
-add_library(md_plugin_core STATIC PluginProcessor.cpp PluginEditor.cpp Playback.cpp AuditionSynth.cpp)
+add_library(md_plugin_core STATIC PluginProcessor.cpp PluginEditor.cpp Playback.cpp
+  AuditionSynth.cpp Link.cpp)
 target_include_directories(md_plugin_core PUBLIC ${CMAKE_SOURCE_DIR})
 target_link_libraries(md_plugin_core
-  PUBLIC md_juce_headers md_engine
+  PUBLIC md_juce_headers md_engine md_bank
   PRIVATE juce::juce_recommended_warning_flags)
 md_target_defaults(md_plugin_core)
 
