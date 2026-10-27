@@ -36,8 +36,8 @@ class MagicDustEditor::Body : public juce::Component
     void paint(juce::Graphics& g) override
     {
         const auto outer = getLocalBounds().toFloat();
-        const auto inner = outer.reduced(1.0F);
-        const auto radius = t::bodyRadius - 1.0F;
+        const auto inner = outer.reduced(t::bodyBorder);
+        const auto radius = t::bodyRadius - t::bodyBorder;
 
         g.setColour(t::bodyEdge);
         g.fillRoundedRectangle(outer, t::bodyRadius);
@@ -109,6 +109,8 @@ MagicDustEditor::MagicDustEditor(MagicDustProcessor& owner)
 }
 
 MagicDustEditor::~MagicDustEditor() { body_->setLookAndFeel(nullptr); }
+
+void MagicDustEditor::paint(juce::Graphics& g) { g.fillAll(t::body); }
 
 void MagicDustEditor::resized()
 {

@@ -1,10 +1,15 @@
 #include "ui/ScreenComponent.h"
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
+#include <optional>
 #include <utility>
 
+#include "md/ranges.hpp"
 #include "md/theory.hpp"
+#include "md/types.hpp"
 #include "plugin/PluginProcessor.h"
 #include "ui/Tokens.h"
 
@@ -16,8 +21,7 @@ namespace t = md::tokens;
 namespace
 {
 
-constexpr int kBeatsPerBar = 4;
-const std::array<const char*, 3> kLaneNames{"chords", "bass", "melody"};
+constexpr int kBeatsPerBar = md::kTicksPerBar / md::kTicksPerQuarter;
 
 juce::Rectangle<int> inScreen(juce::Rectangle<int> window)
 {
@@ -32,7 +36,7 @@ juce::String selectedText(Selection selection)
         return "selected: chord " + juce::String(selection.index + 1);
     case Selection::Kind::lane:
         return juce::String("selected: ") +
-               kLaneNames.at(static_cast<std::size_t>(selection.index));
+               laneLook(static_cast<md::LaneId>(selection.index)).label;
     case Selection::Kind::none:
         break;
     }
@@ -99,7 +103,8 @@ void ScreenComponent::refresh()
     const auto* idea = processor_.idea();
     const auto playing = processor_.previewPlaying();
     const auto bars = idea != nullptr ? idea->settings.bars : md::Settings{}.bars;
-    const auto barPosition = std::fmod(processor_.previewPpq() / kBeatsPerBar, bars);
+    // A count-in before bar 1 reports a negative position.
+    const auto barPosition = std::fmod(std::max(0.0, processor_.previewPpq()) / kBeatsPerBar, bars);
     const std::optional<float> playhead =
         playing ? std::optional<float>(static_cast<float>(barPosition / bars)) : std::nullopt;
 

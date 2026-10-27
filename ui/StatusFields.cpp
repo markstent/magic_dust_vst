@@ -13,7 +13,6 @@ namespace t = md::tokens;
 namespace
 {
 
-constexpr float kHalf = 50.0F;
 constexpr juce::juce_wchar kChevron = 0x203A; // single right-pointing angle quotation mark
 
 void drawLine(juce::Graphics& g, juce::Rectangle<int> area, const juce::String& key, bool chevron,
@@ -36,8 +35,8 @@ void drawLine(juce::Graphics& g, juce::Rectangle<int> area, const juce::String& 
 // The aura quadrant: mood and energy each split at 50.
 juce::String auraName(juce::AudioProcessorValueTreeState& params)
 {
-    const auto bright = params.getRawParameterValue("mood")->load() >= kHalf;
-    const auto wild = params.getRawParameterValue("energy")->load() >= kHalf;
+    const auto bright = params.getRawParameterValue("mood")->load() >= t::layout::auraQuadrantSplit;
+    const auto wild = params.getRawParameterValue("energy")->load() >= t::layout::auraQuadrantSplit;
     if (wild)
     {
         return bright ? "starburst" : "midnight rave";

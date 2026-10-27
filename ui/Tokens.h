@@ -50,6 +50,7 @@ inline const juce::Colour focus{0xFF8C6CF5};
 
 // Body material.
 inline constexpr float bodyRadius = 28.0F;
+inline constexpr float bodyBorder = 1.0F;
 inline constexpr float brushWhiteAlpha = 0.09F;
 inline constexpr float brushBlackAlpha = 0.025F;
 inline constexpr int brushPeriod = 3;
@@ -86,8 +87,10 @@ inline constexpr int bubbleSize = 92;
 inline constexpr int bubbleY = 82;
 inline constexpr std::array<int, 4> bubbleX{278, 407, 537, 666};
 inline constexpr float bubbleRing = 2.0F;
-inline constexpr float playingRingOffset = 6.0F; // 4 px gap then the 2 px ring
+inline constexpr float playingGap = 4.0F; // the gap between the bubble and its gold ring
 inline constexpr float focusRingOffset = 3.0F;
+// The most the ring, focus ring or selected dot reach outside the bubble.
+inline constexpr int bubbleOverflow = 12;
 inline constexpr float selectedDotSize = 6.0F;
 inline constexpr float selectedDotGap = 6.0F;
 inline constexpr float bubbleLineGap = 2.0F;
@@ -110,6 +113,18 @@ inline constexpr int playheadWidth = 2;
 
 inline const juce::Rectangle<int> auraPad{272, 432, 70, 70};
 inline constexpr float auraRadius = 8.0F;
+inline constexpr int auraBorder = 1;
+inline constexpr float auraStroke = 1.0F;
+inline constexpr float auraQuadrantSplit = 50.0F; // mood and energy each split the quadrants here
+// The sparkle is drawn on a 24 x 24 grid: a start point, then four cubic curves of three points.
+inline constexpr float sparkleGrid = 24.0F;
+inline constexpr std::array<float, 2> sparkleStart{12.0F, 2.0F};
+inline constexpr std::array<std::array<float, 6>, 4> sparkleCurves{{
+    {12.6F, 7.2F, 16.8F, 11.4F, 22.0F, 12.0F},
+    {16.8F, 12.6F, 12.6F, 16.8F, 12.0F, 22.0F},
+    {11.4F, 16.8F, 7.2F, 12.6F, 2.0F, 12.0F},
+    {7.2F, 11.4F, 11.4F, 7.2F, 12.0F, 2.0F},
+}};
 inline constexpr float auraSparkle = 20.0F;
 inline constexpr float auraInset = 0.08F;
 
@@ -122,6 +137,10 @@ inline constexpr int readoutPitch = 21;
 
 inline constexpr float chevronSize = 12.0F;
 inline constexpr float chevronGap = 4.0F;
+inline constexpr float chevronGrid = 24.0F; // the chevron is drawn on a 24 x 24 grid
+inline constexpr float chevronStroke = 1.0F;
+inline constexpr std::array<std::array<float, 2>, 3> chevronPoints{
+    {{6.0F, 9.0F}, {12.0F, 15.0F}, {18.0F, 9.0F}}};
 } // namespace layout
 
 } // namespace md::tokens

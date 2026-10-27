@@ -1,8 +1,12 @@
 #include "ui/TopLine.h"
 
 #include <cmath>
+#include <cstddef>
+#include <string>
 
 #include "md/names.hpp"
+#include "md/ranges.hpp"
+#include "md/types.hpp"
 #include "plugin/PluginProcessor.h"
 #include "ui/Fonts.h"
 #include "ui/Tokens.h"
@@ -15,9 +19,7 @@ namespace t = md::tokens;
 namespace
 {
 
-constexpr int kRootCount = 12;
-constexpr int kStyleCount = 6;
-constexpr float kChevronStroke = 1.0F;
+constexpr int kStyleCount = static_cast<int>(md::Style::nyGroove) + 1;
 
 const char* const kUnknown = "---";
 
@@ -123,16 +125,27 @@ void TopLine::paint(juce::Graphics& g)
     g.setColour(t::gold);
     g.drawText(spell_, getLocalBounds(), juce::Justification::centredLeft, false);
 
-    const auto unit = t::layout::chevronSize / 24.0F; // the chevron is drawn on a 24 x 24 grid
+    const auto unit = t::layout::chevronSize / t::layout::chevronGrid;
     const auto origin =
         juce::Point<float>(static_cast<float>(widthOf(spell_)) + t::layout::chevronGap,
                            (static_cast<float>(getHeight()) - t::layout::chevronSize) / 2.0F);
     juce::Path chevron;
-    chevron.startNewSubPath(origin + juce::Point<float>(6.0F, 9.0F) * unit);
-    chevron.lineTo(origin + juce::Point<float>(12.0F, 15.0F) * unit);
-    chevron.lineTo(origin + juce::Point<float>(18.0F, 9.0F) * unit);
-    g.strokePath(chevron, juce::PathStrokeType(kChevronStroke, juce::PathStrokeType::curved,
-                                               juce::PathStrokeType::rounded));
+    for (std::size_t i = 0; i < t::layout::chevronPoints.size(); ++i)
+    {
+        const auto& point = t::layout::chevronPoints.at(i);
+        const auto at = origin + (juce::Point<float>(point.at(0), point.at(1)) * unit);
+        if (i == 0)
+        {
+            chevron.startNewSubPath(at);
+        }
+        else
+        {
+            chevron.lineTo(at);
+        }
+    }
+    g.strokePath(chevron,
+                 juce::PathStrokeType(t::layout::chevronStroke, juce::PathStrokeType::curved,
+                                      juce::PathStrokeType::rounded));
 
     g.setFont(topFont());
     g.setColour(t::screenQuiet);
@@ -143,7 +156,7 @@ void TopLine::openKeyMenu()
 {
     const auto* idea = processor_.idea();
     juce::PopupMenu menu;
-    for (int root = 0; root < kRootCount; ++root)
+    for (int root = 0; root < md::kPitchClasses; ++root)
     {
         menu.addItem(root + 1, juce::String(std::string(md::rootName(root))).toLowerCase(), true,
                      idea != nullptr && idea->key.root == root);

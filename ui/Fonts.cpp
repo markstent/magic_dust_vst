@@ -25,7 +25,12 @@ juce::Font font(Face face, float size)
         load(MdFontData::SpaceGrotesk700_ttf, MdFontData::SpaceGrotesk700_ttfSize),
         load(MdFontData::SpaceMonoRegular_ttf, MdFontData::SpaceMonoRegular_ttfSize),
         load(MdFontData::SpaceMonoBold_ttf, MdFontData::SpaceMonoBold_ttfSize)};
-    return {juce::FontOptions(faces.at(static_cast<std::size_t>(face))).withPointHeight(size)};
+    const auto& typeface = faces.at(static_cast<std::size_t>(face));
+    if (typeface == nullptr)
+    {
+        return {juce::FontOptions(size).withPointHeight(size)};
+    }
+    return {juce::FontOptions(typeface).withPointHeight(size)};
 }
 
 } // namespace md::ui

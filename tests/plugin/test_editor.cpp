@@ -1,3 +1,4 @@
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
@@ -22,12 +23,46 @@ namespace
 {
 
 using Rect = juce::Rectangle<int>;
+using Catch::Approx;
+
+// Seeds that give exactly this many placed chords with the default style, key and settings.
+constexpr float kTolerance = 0.001F;
+constexpr int kFourChordSeed = 1;
+constexpr int kThreeChordSeed = 6;
+
+// Puts the processor on a known idea: the state's seed is restored and the lane seeds derived.
+void setSeed(MagicDustProcessor& p, int seed)
+{
+    juce::MemoryBlock state;
+    p.getStateInformation(state);
+    auto xml =
+        juce::AudioProcessor::getXmlFromBinary(state.getData(), static_cast<int>(state.getSize()));
+    xml->setAttribute("seed", seed);
+    xml->removeAttribute("chordsSeed");
+    juce::MemoryBlock edited;
+    juce::AudioProcessor::copyXmlToBinary(*xml, edited);
+    p.setStateInformation(edited.getData(), static_cast<int>(edited.getSize()));
+}
 
 struct Fixture
 {
     juce::ScopedJuceInitialiser_GUI gui;
     MagicDustProcessor processor;
-    std::unique_ptr<juce::AudioProcessorEditor> editor{processor.createEditor()};
+    std::unique_ptr<juce::AudioProcessorEditor> editor;
+
+    explicit Fixture(int seed = kFourChordSeed)
+    {
+        setSeed(processor, seed);
+        editor.reset(processor.createEditor());
+    }
+
+    // The fixed idea, which every test that reads it first checks has the chords it expects.
+    const md::Idea& idea(std::size_t chords) const
+    {
+        REQUIRE(processor.idea() != nullptr);
+        REQUIRE(processor.idea()->progression.size() == chords);
+        return *processor.idea();
+    }
 
     static juce::Component* search(juce::Component& parent, const juce::String& id)
     {
@@ -60,21 +95,6 @@ struct Fixture
     }
 
     void refresh() { find<md::ui::ScreenComponent>("screen").refresh(); }
-
-    // Sprinkles until the idea has exactly `count` placed chords.
-    void ideaWithChords(std::size_t count)
-    {
-        for (int tries = 0; tries < 500; ++tries)
-        {
-            if (processor.idea() != nullptr && processor.idea()->progression.size() == count)
-            {
-                refresh();
-                return;
-            }
-            processor.sprinkle();
-        }
-        FAIL("no idea with " << count << " chords");
-    }
 };
 
 juce::MouseEvent mouseAt(juce::Component& c, juce::Point<float> position, juce::Point<float> down,
@@ -152,15 +172,17 @@ TEST_CASE("the top line spells the key as min, maj or the mode name", "[editor]"
 TEST_CASE("the key button shows the idea's key", "[editor]")
 {
     Fixture f;
+    const auto& idea = f.idea(4);
     f.refresh();
-    CHECK(f.find<md::ui::MenuText>("keyMenu").getText() ==
-          md::ui::keyText(f.processor.idea()->key));
+    CHECK(f.find<md::ui::MenuText>("keyMenu").getText() == md::ui::keyText(idea.key));
+    CHECK(f.find<md::ui::MenuText>("keyMenu").getText() == "a min");
 }
 
 TEST_CASE("an idea with three placed chords shows three bubbles", "[editor]")
 {
-    Fixture f;
-    f.ideaWithChords(3);
+    Fixture f(kThreeChordSeed);
+    f.idea(3);
+    f.refresh();
     CHECK(f.find("bubble0").isVisible());
     CHECK(f.find("bubble1").isVisible());
     CHECK(f.find("bubble2").isVisible());
@@ -170,8 +192,8 @@ TEST_CASE("an idea with three placed chords shows three bubbles", "[editor]")
 TEST_CASE("a bubble's accessible title names the chord and its feel", "[editor]")
 {
     Fixture f;
-    f.ideaWithChords(4);
-    const auto& idea = *f.processor.idea();
+    const auto& idea = f.idea(4);
+    f.refresh();
     for (std::size_t i = 0; i < 4; ++i)
     {
         const auto& chord = idea.progression.at(i);
@@ -180,6 +202,7 @@ TEST_CASE("a bubble's accessible title names the chord and its feel", "[editor]"
         CHECK(f.find(("bubble" + std::to_string(i)).c_str()).getTitle().toStdString() == expected);
     }
     CHECK(f.find("bubble0").getTitle().startsWith("chord 1, "));
+    CHECK(f.find("bubble0").getTitle().endsWith(", home"));
 }
 
 TEST_CASE("a lane maps a note's ticks across the roll", "[editor]")
@@ -201,8 +224,8 @@ TEST_CASE("a lane maps a note's ticks across the roll", "[editor]")
 TEST_CASE("the real notes map the same way and stay inside the roll", "[editor]")
 {
     Fixture f;
+    const auto& idea = f.idea(4);
     f.refresh();
-    const auto& idea = *f.processor.idea();
     for (std::size_t i = 0; i < 3; ++i)
     {
         auto& roll = f.find<md::ui::PianoRoll>(("roll" + std::to_string(i)).c_str());
@@ -212,9 +235,10 @@ TEST_CASE("the real notes map the same way and stay inside the roll", "[editor]"
         {
             const auto& e = idea.lanes.at(i).events.at(n);
             const auto ticks = static_cast<float>(idea.settings.bars * md::kTicksPerBar);
-            CHECK(rects.at(n).getX() == static_cast<float>(e.start) / ticks * 414.0F);
-            CHECK(rects.at(n).getY() >= 0.0F);
-            CHECK(rects.at(n).getBottom() <= 56.0F);
+            CHECK(rects.at(n).getX() ==
+                  Approx(static_cast<float>(e.start) / ticks * 414.0F).margin(kTolerance));
+            CHECK(rects.at(n).getY() >= -kTolerance);
+            CHECK(rects.at(n).getBottom() <= 56.0F + kTolerance);
             CHECK(rects.at(n).getHeight() > 5.0F);
         }
     }

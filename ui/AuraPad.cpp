@@ -13,18 +13,16 @@ namespace t = md::tokens;
 namespace
 {
 
-constexpr int kBorder = 1;
 constexpr float kSpan = 1.0F - (2.0F * t::layout::auraInset); // the sparkle's travel
-constexpr float kSparkleView = 24.0F; // the sparkle path is drawn on a 24 x 24 grid
 
 juce::Path sparkle()
 {
     juce::Path p;
-    p.startNewSubPath(12, 2);
-    p.cubicTo(12.6F, 7.2F, 16.8F, 11.4F, 22, 12);
-    p.cubicTo(16.8F, 12.6F, 12.6F, 16.8F, 12, 22);
-    p.cubicTo(11.4F, 16.8F, 7.2F, 12.6F, 2, 12);
-    p.cubicTo(7.2F, 11.4F, 11.4F, 7.2F, 12, 2);
+    p.startNewSubPath(t::layout::sparkleStart.at(0), t::layout::sparkleStart.at(1));
+    for (const auto& c : t::layout::sparkleCurves)
+    {
+        p.cubicTo(c.at(0), c.at(1), c.at(2), c.at(3), c.at(4), c.at(5));
+    }
     p.closeSubPath();
     return p;
 }
@@ -63,22 +61,25 @@ void AuraPad::set(int mood, int energy)
 void AuraPad::paint(juce::Graphics& g)
 {
     const auto bounds = getLocalBounds();
-    const auto inner = bounds.reduced(kBorder).toFloat();
+    const auto inner = bounds.reduced(t::layout::auraBorder).toFloat();
 
     g.setColour(t::screenLine);
-    g.drawRoundedRectangle(bounds.toFloat().reduced(0.5F), t::layout::auraRadius, 1.0F);
-    g.fillRect(bounds.getCentreX(), kBorder, 1, bounds.getHeight() - (2 * kBorder));
-    g.fillRect(kBorder, bounds.getCentreY(), bounds.getWidth() - (2 * kBorder), 1);
+    g.drawRoundedRectangle(bounds.toFloat().reduced(t::layout::auraStroke / 2.0F),
+                           t::layout::auraRadius, t::layout::auraStroke);
+    g.fillRect(bounds.getCentreX(), t::layout::auraBorder, 1,
+               bounds.getHeight() - (2 * t::layout::auraBorder));
+    g.fillRect(t::layout::auraBorder, bounds.getCentreY(),
+               bounds.getWidth() - (2 * t::layout::auraBorder), 1);
 
     const auto centre =
         juce::Point<float>(inner.getX() + (fractionOf(mood_) * inner.getWidth()),
                            inner.getY() + (fractionOf(100 - energy_) * inner.getHeight()));
-    const auto scale = t::layout::auraSparkle / kSparkleView;
+    const auto scale = t::layout::auraSparkle / t::layout::sparkleGrid;
     g.setColour(t::gold);
-    g.fillPath(sparkle(),
-               juce::AffineTransform::translation(-kSparkleView / 2.0F, -kSparkleView / 2.0F)
-                   .scaled(scale)
-                   .translated(centre.x, centre.y));
+    g.fillPath(sparkle(), juce::AffineTransform::translation(-t::layout::sparkleGrid / 2.0F,
+                                                             -t::layout::sparkleGrid / 2.0F)
+                              .scaled(scale)
+                              .translated(centre.x, centre.y));
 }
 
 void AuraPad::mouseDown(const juce::MouseEvent& e)
@@ -98,7 +99,7 @@ void AuraPad::mouseUp(const juce::MouseEvent& /*e*/)
 
 void AuraPad::move(juce::Point<float> position)
 {
-    const auto inner = getLocalBounds().reduced(kBorder).toFloat();
+    const auto inner = getLocalBounds().reduced(t::layout::auraBorder).toFloat();
     const auto mood = valueOf((position.x - inner.getX()) / inner.getWidth());
     const auto energy = 100 - valueOf((position.y - inner.getY()) / inner.getHeight());
     set(mood, energy);

@@ -26,7 +26,7 @@ void ChordBubble::set(const juce::String& name, const juce::String& feel, bool p
     playing_ = playing;
     selected_ = selected;
     setTitle("chord " + juce::String(slot_ + 1) + ", " + name_ + ", " + feel_);
-    repaint(getLocalBounds().expanded(12, 14));
+    repaint(getLocalBounds().expanded(t::layout::bubbleOverflow));
 }
 
 void ChordBubble::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down*/)
@@ -39,12 +39,14 @@ void ChordBubble::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*do
     if (playing_)
     {
         g.setColour(t::gold);
-        g.drawEllipse(bounds.expanded(t::layout::playingRingOffset - 1.0F), 2.0F);
+        g.drawEllipse(bounds.expanded(t::layout::playingGap + (t::layout::bubbleRing / 2.0F)),
+                      t::layout::bubbleRing);
     }
     if (hasKeyboardFocus(true))
     {
         g.setColour(t::gold);
-        g.drawEllipse(bounds.expanded(t::layout::focusRingOffset + 1.0F), 2.0F);
+        g.drawEllipse(bounds.expanded(t::layout::focusRingOffset + (t::layout::bubbleRing / 2.0F)),
+                      t::layout::bubbleRing);
     }
     if (selected_)
     {

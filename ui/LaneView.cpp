@@ -13,18 +13,7 @@ namespace md::ui
 
 namespace t = md::tokens;
 
-namespace
-{
-
-struct LaneLook
-{
-    const char* label;
-    juce::Colour colour;
-    int low;
-    int high;
-};
-
-LaneLook lookOf(md::LaneId lane)
+LaneLook laneLook(md::LaneId lane)
 {
     switch (lane)
     {
@@ -38,8 +27,6 @@ LaneLook lookOf(md::LaneId lane)
     }
     return {.label = "melody", .colour = t::cyan, .low = md::kMelodyLow, .high = md::kMelodyHigh};
 }
-
-} // namespace
 
 PianoRoll::PianoRoll(md::LaneId lane) : lane_(lane) { setInterceptsMouseClicks(false, false); }
 
@@ -58,7 +45,7 @@ void PianoRoll::set(const std::vector<md::NoteEvent>& notes, int bars,
 
 std::vector<juce::Rectangle<float>> PianoRoll::noteRects() const
 {
-    const auto look = lookOf(lane_);
+    const auto look = laneLook(lane_);
     const auto width = static_cast<float>(getWidth());
     const auto noteHeight = static_cast<float>(getHeight()) *
                             t::layout::noteHeightFraction.at(static_cast<std::size_t>(lane_));
@@ -93,7 +80,7 @@ void PianoRoll::paint(juce::Graphics& g)
         g.fillRect(width * k / segments, 0, 1, height);
     }
 
-    g.setColour(lookOf(lane_).colour);
+    g.setColour(laneLook(lane_).colour);
     for (const auto& r : noteRects())
     {
         const auto left = std::round(r.getX());
@@ -122,7 +109,7 @@ LaneView::LaneView(md::LaneId lane) : lane_(lane), roll_(lane)
 void LaneView::set(const md::Lane& lane, int bars, std::optional<float> playhead, bool selected)
 {
     roll_.set(lane.events, bars, playhead);
-    setTitle(juce::String(lookOf(lane_).label) + " lane, " + lane.pattern);
+    setTitle(juce::String(laneLook(lane_).label) + " lane, " + lane.pattern);
     if (selected != selected_)
     {
         selected_ = selected;
@@ -143,7 +130,7 @@ void LaneView::paint(juce::Graphics& g)
         g.setColour(t::screenSelected);
         g.fillRoundedRectangle(getLocalBounds().toFloat(), t::layout::laneRadius);
     }
-    const auto look = lookOf(lane_);
+    const auto look = laneLook(lane_);
     g.setFont(font(Face::monoRegular, t::laneLabelSize));
     g.setColour(selected_ ? t::screenInk : look.colour);
     g.drawText(look.label,

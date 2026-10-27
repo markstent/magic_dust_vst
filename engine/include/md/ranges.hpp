@@ -5,6 +5,7 @@ namespace md
 constexpr int kTicksPerQuarter = 960;
 constexpr int kTicksPerSixteenth = 240;
 constexpr int kTicksPerBar = 3840;
+constexpr int kPitchClasses = 12;
 constexpr int kStepsPerBar = 16;
 // A rhythm cell is at most 2 bars: hit steps 0 to 31, lengths 1 to 32.
 constexpr int kMaxStep = 31;

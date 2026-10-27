@@ -12,6 +12,17 @@
 namespace md::ui
 {
 
+struct LaneLook
+{
+    const char* label;
+    juce::Colour colour;
+    int low;
+    int high;
+};
+
+// Label, colour and pitch range of each lane.
+LaneLook laneLook(md::LaneId lane);
+
 class PianoRoll : public juce::Component
 {
   public:

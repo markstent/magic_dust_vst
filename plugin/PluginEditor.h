@@ -18,6 +18,7 @@ class MagicDustEditor : public juce::AudioProcessorEditor, private juce::Timer
     MagicDustEditor& operator=(MagicDustEditor&&) = delete;
     ~MagicDustEditor() override;
 
+    void paint(juce::Graphics& g) override;
     void resized() override;
 
   private:
