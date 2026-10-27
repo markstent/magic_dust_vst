@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** The owner loads Magic Dust in their daw, sprinkles ideas, hears the chords on a built-in organ in time with the daw, turns flavour, aura and groove for variety, drags chords and lanes into clips, and sends any lane to their own instrument through a second Magic Dust instance in sender mode.
+**Goal:** The owner loads Magic Dust in their daw, sprinkles ideas, hears all three lanes on built-in sounds (organ, sub bass, soft lead) in time with the daw, turns flavour, aura and groove for variety, drags chords and lanes into clips, and sends any lane to their own instrument through a second Magic Dust instance in sender mode.
 
-**Architecture:** The pure C++ engine gains flavour and the four voicing shapes. A JUCE-free playback core in `plugin/` turns an idea into a sorted event list and schedules it against host or internal time. The processor generates on the message thread, publishes immutable patterns through an atomic pointer held by a process-wide link, renders the chords lane on an organ voice and sends all three lanes as MIDI. Further instances in the same process become senders that play one lane from the main instance's pattern.
+**Architecture:** The pure C++ engine gains flavour and the four voicing shapes. A JUCE-free playback core in `plugin/` turns an idea into a sorted event list and schedules it against host or internal time. The processor generates on the message thread, publishes immutable patterns through an atomic pointer held by a process-wide link, renders each lane on its own audition voice and sends all three lanes as MIDI. Further instances in the same process become senders that play one lane from the main instance's pattern.
 
 **Tech Stack:** C++20, JUCE 9.0.4, Catch2 v3, CMake presets (dev, release, asan, tsan, lint).
 
@@ -40,6 +40,7 @@ These are recorded in `docs/DECISIONS.md` by the task named, so the owner can ov
 5. While at least one sender sends a lane, the main instance's built-in sound for that lane is silent (Task 6). The explicit per-lane source control arrives in Phase 5 around this rule.
 6. A new instance is the main instance when no main instance exists in the process; otherwise it is a sender. Saved state restores the saved mode. Senders follow the oldest main instance. A sender has a "full magic dust" key that turns it into an independent main instance, which keeps the spec's "two instances stay independent" check possible (Task 7).
 7. Senders play only while the host transport plays; the main instance's internal play key does not drive senders (Task 7). Upgrade path: publish the internal clock's position through the link.
+9. The sub bass and soft lead voices come forward from Phases 3 and 4 into Phase 2 (owner request, to hear all three lanes sooner); the bass and melody generators themselves stay as they are until their phases (Task 5).
 8. The volume knob, wordmark, grille, encoders, pin, reroll, mute, swap, keep, bottle it and the spells panel stay in Phase 5. The aura pad and the groove and flavour fields come forward into Phase 2 because the owner asked for a way to add variety.
 
 ## Review Focus
@@ -147,22 +148,31 @@ A JUCE-free scheduler, so preview timing is tested in plain unit tests.
 - [ ] **Step 4: Run** `ctest --preset dev`; pass.
 - [ ] **Step 5: Commit** `feat(plugin): playback pattern and sample-accurate scheduling`.
 
-### Task 5: Organ voice
+### Task 5: Audition voices
 
 **Files:**
-- Create: `plugin/Organ.h`, `plugin/Organ.cpp` (add to `md_plugin_core`); constants in `engine/include/md/ranges.hpp` only if musical, otherwise at the top of `Organ.cpp`
-- Test: `tests/plugin/test_organ.cpp`
+- Create: `plugin/AuditionSynth.h`, `plugin/AuditionSynth.cpp` (add to `md_plugin_core`); modify `docs/DECISIONS.md` (row for ruling 9)
+- Test: `tests/plugin/test_audition.cpp`
 
 **Interfaces:**
-- Produces: `class Organ` wrapping `juce::Synthesiser` with 8 voices: `void prepare(double sampleRate)`, `void noteOn(int note, int velocity)`, `void noteOff(int note)`, `void allNotesOff()`, `void render(juce::AudioBuffer<float>&, int start, int num)` (adds into the buffer), `void setGain(float)` (from the volume parameter, 0 to 1, default 0.8).
+- Produces:
+  - `struct VoiceRecipe { std::array<float, 8> partials; float attackMs; float releaseMs; float gain; int voices; };` where `partials[k]` is the amplitude of harmonic `k + 1`.
+  - `inline constexpr VoiceRecipe kOrgan`, `kSubBass`, `kSoftLead` with the values below.
+  - `class AuditionSynth` wrapping `juce::Synthesiser` built from one recipe: `explicit AuditionSynth(const VoiceRecipe&)`, `void prepare(double sampleRate)`, `void noteOn(int note, int velocity)`, `void noteOff(int note)`, `void allNotesOff()`, `void render(juce::AudioBuffer<float>&, int start, int num)` (adds into the buffer), `void setLevel(float)` (the volume parameter, 0 to 1, default 0.8).
 
-Sound: sine partials at harmonics 1, 2, 3, 4 with amplitudes 1, 0.5, 0.25, 0.125 (partials at or above Nyquist are skipped), linear attack 5 ms, linear release 60 ms, per-voice gain `0.2 * velocity / 127 * gain`, same signal on both channels.
+Recipes (partials at or above Nyquist are skipped; linear attack and release; per-voice output `gain * velocity / 127 * level`; same signal on both channels):
 
-- [ ] **Step 1: Write the failing tests:** with no notes, `render` leaves a zeroed buffer exactly zero; one note 69 at velocity 127 and gain 1 at 48000 Hz gives a steady-state RMS (samples 2400 to 7200) of `0.2 * sqrt((1 + 0.25 + 0.0625 + 0.015625) / 2)` = 0.16298 within 2%; after `noteOff` and 60 ms the output is exactly zero; gain 0.5 halves the RMS within 2%; `allNotesOff` silences within 60 ms.
-- [ ] **Step 2: Run** `ctest --preset dev -R organ`; fail.
-- [ ] **Step 3: Implement** with a phase accumulator per voice (no `std::sin` table needed; `std::sin` is fine, it does not allocate).
+| Recipe | Partials (harmonics 1, 2, 3, ...) | Attack | Release | Gain | Voices |
+| --- | --- | --- | --- | --- | --- |
+| `kOrgan` | 1, 0.5, 0.25, 0.125 | 5 ms | 60 ms | 0.2 | 8 |
+| `kSubBass` | 1, 0.15 | 3 ms | 40 ms | 0.3 | 1 |
+| `kSoftLead` | 1, 0, 1/9, 0, 1/25, 0, 1/49 (a soft triangle) | 10 ms | 120 ms | 0.15 | 2 |
+
+- [ ] **Step 1: Write the failing tests:** for each recipe, no notes leaves a zeroed buffer exactly zero; one note 69 at velocity 127 and level 1 at 48000 Hz gives a steady-state RMS (samples 4800 to 9600) of `gain * sqrt(sum(partials^2) / 2)` within 2% (organ 0.16298); after `noteOff` and the release time the output is exactly zero; level 0.5 halves the RMS within 2%; `allNotesOff` silences within the release time; `kSubBass` with a second note-on steals the first (mono).
+- [ ] **Step 2: Run** `ctest --preset dev -R audition`; fail.
+- [ ] **Step 3: Implement** with a phase accumulator per voice (`std::sin` is fine; it does not allocate).
 - [ ] **Step 4: Run** `ctest --preset dev`; pass.
-- [ ] **Step 5: Commit** `feat(plugin): organ audition voice`.
+- [ ] **Step 5: Commit** `feat(plugin): organ, sub bass and soft lead audition voices`.
 
 ### Task 6: Processor
 
@@ -172,7 +182,7 @@ Sound: sine partials at harmonics 1, 2, 3, 4 with amplitudes 1, 0.5, 0.25, 0.125
 - Test: `tests/plugin/test_processor.cpp`, `tests/plugin/AllocationGuard.h`, `tests/plugin/AllocationGuard.cpp`
 
 **Interfaces:**
-- Consumes: `makePattern`, `schedule`, `SoundingNotes`, `InternalClock` (Task 4); `Organ` (Task 5); `md::loadBundledBank`, `md::generate`, `md::LaneSeeds`.
+- Consumes: `makePattern`, `schedule`, `SoundingNotes`, `InternalClock` (Task 4); `AuditionSynth`, `kOrgan`, `kSubBass`, `kSoftLead` (Task 5); `md::loadBundledBank`, `md::generate`, `md::LaneSeeds`.
 - Produces:
   - Parameters in a `juce::AudioProcessorValueTreeState` named `params`: `mood` (int 0 to 100, default 30), `energy` (int 0 to 100, default 50), `groove` (choice: straight, swing 54%, uk shuffle 58%, heavy 62%; default straight), `flavour` (choice: simple, soulful, jazzy; default simple), `volume` (float 0 to 1, default 0.8).
   - Message-thread API used by the editor: `const md::Idea* idea() const`, `std::optional<std::string> lastError() const`, `void sprinkle()` (new seed from `juce::Random` on the message thread, regenerate), `void setStyle(md::Style)`, `void setKeyRoot(int)`, `void play()`, `void stop()`, `bool previewPlaying() const`, `double previewPpq() const` (atomic, written by the audio thread), `std::optional<double> hostBpm() const`, `void auditionChord(std::size_t slot)`.
@@ -181,7 +191,7 @@ Sound: sine partials at harmonics 1, 2, 3, 4 with amplitudes 1, 0.5, 0.25, 0.125
 Behaviour:
 - Generation runs on the message thread only; a 30 Hz `juce::Timer` compares the parameter values with the last generated settings. Groove changes regenerate at once; mood, energy and flavour regenerate once the values have not changed for 150 ms. The seed and lane seeds stay.
 - A generation exception keeps the previous idea and sets `lastError()` to "couldn't write that idea"; a bank load failure leaves no idea and sets "the style bank failed to load".
-- The audio thread: clears the buffer, reads the host position; when the host plays, schedules from the host ppq; when stopped and the internal clock runs, schedules from it and advances it; on a transport stop, a stop key, or a new pattern pointer, emits note-offs for every sounding note first. It writes every event to the MIDI output on its channel, and plays chords-lane events (channel 0) on the organ unless `Link::sendersFor(chords) > 0` (Task 7; until then always plays). Audition events are queued from the message thread through a single-producer atomic slot and played as one beat of the chord's voicing.
+- The audio thread: clears the buffer, reads the host position; when the host plays, schedules from the host ppq; when stopped and the internal clock runs, schedules from it and advances it; on a transport stop, a stop key, or a new pattern pointer, emits note-offs for every sounding note first. It writes every event to the MIDI output on its channel, and plays each lane's events on its voice (chords on the organ, bass on the sub bass, melody on the soft lead) unless `Link::sendersFor(lane) > 0` (Task 7; until then always plays). Audition events are queued from the message thread through a single-producer atomic slot and played as one beat of the chord's voicing.
 - `isBusesLayoutSupported`: stereo output only, no input.
 - State (`getStateInformation`/`setStateInformation`): `schemaVersion` 1, `seed`, `style`, `keyRoot`, `bars`, the three lane seeds as decimal strings, `mode` (`main`; Task 7 adds `sender`), and the APVTS state. Missing fields take the defaults (a Phase 0 state has none).
 - CI: the concurrency group becomes `ci-${{ github.head_ref || github.ref_name }}` so a push and its PR share one group.
@@ -222,7 +232,7 @@ Behaviour:
 - `becomeMain()` turns a sender into a main instance that generates its own idea from a new seed.
 - Patterns stay alive in `Link` for at least 1 s after retirement or after their owner is removed, so a sender never reads freed memory.
 
-- [ ] **Step 1: Write the failing tests:** the first processor is main and the second is a sender for chords, the third for bass, the fourth for melody; a sender for bass, with a fake playhead playing, outputs exactly the main idea's bass events on channel 2 and nothing else; the main instance's organ goes silent for chords while a chords sender exists and plays again after it is destroyed; destroying the main instance while a sender plays produces note-offs and then silence, with no crash under asan; a sender state round trip restores `sender` and the lane; `becomeMain()` makes the instance main with its own idea and `oldestMain()` unchanged.
+- [ ] **Step 1: Write the failing tests:** the first processor is main and the second is a sender for chords, the third for bass, the fourth for melody; a sender for bass, with a fake playhead playing, outputs exactly the main idea's bass events on channel 2 and nothing else; the main instance's sub bass goes silent while a bass sender exists (organ and soft lead keep playing) and plays again after the sender is destroyed; destroying the main instance while a sender plays produces note-offs and then silence, with no crash under asan; a sender state round trip restores `sender` and the lane; `becomeMain()` makes the instance main with its own idea and `oldestMain()` unchanged.
 - [ ] **Step 2: Run** `ctest --preset dev -R sender`; fail.
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run** `ctest --preset dev`, `ctest --preset asan`, tsan plugin tests, `scripts/validate.sh`; pass.
