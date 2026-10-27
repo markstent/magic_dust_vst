@@ -39,12 +39,27 @@ target_compile_definitions(md_juce_headers
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0)
 
+juce_add_binary_data(MdFonts
+  HEADER_NAME MdFontData.h
+  NAMESPACE MdFontData
+  SOURCES
+    ${CMAKE_SOURCE_DIR}/ui/fonts/SpaceGrotesk500.ttf
+    ${CMAKE_SOURCE_DIR}/ui/fonts/SpaceGrotesk700.ttf
+    ${CMAKE_SOURCE_DIR}/ui/fonts/SpaceMonoRegular.ttf
+    ${CMAKE_SOURCE_DIR}/ui/fonts/SpaceMonoBold.ttf)
+
 add_library(md_plugin_core STATIC PluginProcessor.cpp PluginEditor.cpp Playback.cpp
-  AuditionSynth.cpp Link.cpp)
+  AuditionSynth.cpp Link.cpp
+  ${CMAKE_SOURCE_DIR}/ui/Fonts.cpp ${CMAKE_SOURCE_DIR}/ui/ChordBubble.cpp ${CMAKE_SOURCE_DIR}/ui/LaneView.cpp ${CMAKE_SOURCE_DIR}/ui/AuraPad.cpp
+  ${CMAKE_SOURCE_DIR}/ui/StatusFields.cpp ${CMAKE_SOURCE_DIR}/ui/Readout.cpp ${CMAKE_SOURCE_DIR}/ui/TopLine.cpp ${CMAKE_SOURCE_DIR}/ui/ScreenComponent.cpp)
 target_include_directories(md_plugin_core PUBLIC ${CMAKE_SOURCE_DIR})
 target_link_libraries(md_plugin_core
   PUBLIC md_juce_headers md_engine md_bank
-  PRIVATE juce::juce_recommended_warning_flags)
+  PRIVATE MdFonts juce::juce_recommended_warning_flags)
+# The generated font header is not our code, so lint treats it as a system header.
+get_target_property(md_font_includes MdFonts INTERFACE_INCLUDE_DIRECTORIES)
+set_target_properties(MdFonts PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "")
+target_include_directories(md_plugin_core SYSTEM PRIVATE ${md_font_includes})
 md_target_defaults(md_plugin_core)
 
 juce_add_plugin(MagicDust

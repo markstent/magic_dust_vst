@@ -1,0 +1,31 @@
+#include "ui/Fonts.h"
+
+#include <array>
+#include <cstddef>
+
+#include "MdFontData.h"
+
+namespace md::ui
+{
+
+namespace
+{
+
+juce::Typeface::Ptr load(const char* data, int size)
+{
+    return juce::Typeface::createSystemTypefaceFor(data, static_cast<std::size_t>(size));
+}
+
+} // namespace
+
+juce::Font font(Face face, float size)
+{
+    static const std::array<juce::Typeface::Ptr, 4> faces{
+        load(MdFontData::SpaceGrotesk500_ttf, MdFontData::SpaceGrotesk500_ttfSize),
+        load(MdFontData::SpaceGrotesk700_ttf, MdFontData::SpaceGrotesk700_ttfSize),
+        load(MdFontData::SpaceMonoRegular_ttf, MdFontData::SpaceMonoRegular_ttfSize),
+        load(MdFontData::SpaceMonoBold_ttf, MdFontData::SpaceMonoBold_ttfSize)};
+    return {juce::FontOptions(faces.at(static_cast<std::size_t>(face))).withPointHeight(size)};
+}
+
+} // namespace md::ui
