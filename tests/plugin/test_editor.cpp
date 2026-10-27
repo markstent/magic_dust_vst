@@ -1250,3 +1250,13 @@ TEST_CASE("Serif face loads", "[knob]")
     juce::ScopedJuceInitialiser_GUI gui;
     CHECK(md::ui::font(md::ui::Face::serifBold, 20.0F).getTypefaceName() == "Libre Baskerville");
 }
+
+TEST_CASE("the melody lane label shows PLUCK for a pluck idea", "[editor]")
+{
+    Fixture f;
+    const auto& idea = f.idea(4);
+    const auto& melody = idea.lanes.at(2);
+    REQUIRE(melody.pattern == "pluck");
+    f.refresh();
+    CHECK(f.find<md::ui::LaneView>("lane2").drawnPattern() == "PLUCK");
+}

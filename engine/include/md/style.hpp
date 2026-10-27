@@ -46,7 +46,7 @@ enum class BassPattern : std::uint8_t
 
 enum class MelodyMode : std::uint8_t
 {
-    vocalChop,
+    pluck,
     hook,
     riff,
     sparse,

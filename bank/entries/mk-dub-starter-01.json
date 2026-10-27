@@ -26,7 +26,7 @@
     { "id": "chop-eight", "bars": 2, "hits": [[2, 1], [3, 1], [6, 1], [7, 1], [10, 2], [18, 1], [19, 1], [22, 2]] }
   ],
   "bassPatterns": ["offbeat", "octave-bounce"],
-  "melodyModes": ["vocal-chop"],
+  "melodyModes": ["pluck"],
   "swing": 0.56,
   "tags": ["mk-ish", "peak time"]
 }

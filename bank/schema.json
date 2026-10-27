@@ -96,7 +96,7 @@
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "enum": ["vocal-chop", "hook", "riff", "sparse"] }
+      "items": { "enum": ["pluck", "hook", "riff", "sparse"] }
     },
     "swing": { "type": "number", "minimum": 0.5, "maximum": 0.75 },
     "tags": { "type": "array", "items": { "type": "string" } }

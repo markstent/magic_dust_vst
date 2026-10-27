@@ -48,7 +48,7 @@ constexpr Table<BassPattern, 8> kBassPatterns{{
     {"call-response", BassPattern::callResponse},
 }};
 constexpr Table<MelodyMode, 4> kMelodyModes{{
-    {"vocal-chop", MelodyMode::vocalChop},
+    {"pluck", MelodyMode::pluck},
     {"hook", MelodyMode::hook},
     {"riff", MelodyMode::riff},
     {"sparse", MelodyMode::sparse},

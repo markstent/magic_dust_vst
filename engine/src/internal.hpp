@@ -17,7 +17,7 @@ namespace md::detail
 // Every random draw is Pcg32(<lane seed>, slot) with one fixed slot per use:
 //   chords: 0 entry, 1 progression, 2 chord rhythm cell, 3 velocity humanize
 //   bass:   0 velocity humanize
-//   melody: 0 rhythm cell A, 1 rhythm cell B, 2 pitch walk, 3 vocal-chop tones, 4 velocity humanize
+//   melody: 0 rhythm cell A, 1 rhythm cell B, 2 pitch walk, 3 pluck tones, 4 velocity humanize
 // Entry, progression, mode and chord-cell choices belong to the chords lane.
 constexpr std::uint32_t kChordEntry = 0;
 constexpr std::uint32_t kChordProgression = 1;
@@ -27,7 +27,7 @@ constexpr std::uint32_t kBassHumanize = 0;
 constexpr std::uint32_t kMelodyCellA = 0;
 constexpr std::uint32_t kMelodyCellB = 1;
 constexpr std::uint32_t kMelodyWalk = 2;
-constexpr std::uint32_t kMelodyChop = 3;
+constexpr std::uint32_t kMelodyPluck = 3;
 constexpr std::uint32_t kMelodyHumanize = 4;
 
 // Odd sixteenth steps land late: start = pairStart + 480 * swingPermille / 1000.
@@ -81,9 +81,9 @@ std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const
 BassPattern bassPatternFor(const StyleEntry& entry);
 std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern);
 
-// 1 to 3 of the allowed tones nearest the centre, cycled by the vocal chop.
+// 1 to 3 of the allowed tones nearest the centre, cycled by the pluck.
 // Throws std::logic_error when no tone is allowed.
-std::vector<int> chopPitches(const std::vector<int>& allowedPcs, Pcg32& rng);
+std::vector<int> pluckPitches(const std::vector<int>& allowedPcs, Pcg32& rng);
 std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea,
                                     std::uint64_t melodySeed);
 } // namespace md::detail

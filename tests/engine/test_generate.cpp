@@ -330,7 +330,7 @@ TEST_CASE("the final melody note lands on the home chord when it can", "[generat
     for (const Idea& idea : allIdeas())
     {
         const Lane& melody = idea.lanes.at(2);
-        if (melody.pattern == "vocal-chop")
+        if (melody.pattern == "pluck")
         {
             continue;
         }
@@ -567,10 +567,10 @@ TEST_CASE("every bundled entry generates across keys, bar counts, mood and energ
     }
 }
 
-TEST_CASE("the vocal chop throws when the home chord has no allowed tone", "[generate]")
+TEST_CASE("the pluck throws when the home chord has no allowed tone", "[generate]")
 {
     Pcg32 rng(1, 1);
-    REQUIRE_THROWS_AS(detail::chopPitches({}, rng), std::logic_error);
+    REQUIRE_THROWS_AS(detail::pluckPitches({}, rng), std::logic_error);
 }
 
 namespace

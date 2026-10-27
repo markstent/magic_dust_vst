@@ -131,7 +131,7 @@ TEST_CASE("the spec example parses to the expected entry")
     CHECK(entry.melodyRhythms.at(0).bars == 2);
     CHECK(entry.bassPatterns ==
           std::vector<md::BassPattern>{md::BassPattern::offbeat, md::BassPattern::octaveBounce});
-    CHECK(entry.melodyModes == std::vector<md::MelodyMode>{md::MelodyMode::vocalChop});
+    CHECK(entry.melodyModes == std::vector<md::MelodyMode>{md::MelodyMode::pluck});
     CHECK(entry.swingPermille == 560);
     CHECK(entry.tags == std::vector<std::string>{"mk-ish", "peak time"});
 }

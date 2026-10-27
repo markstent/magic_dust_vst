@@ -17,7 +17,7 @@
     { "id": "chop-sparse", "bars": 2, "hits": [[2, 2], [11, 1], [22, 2]] }
   ],
   "bassPatterns": ["offbeat", "octave-bounce"],
-  "melodyModes": ["vocal-chop"],
+  "melodyModes": ["pluck"],
   "swing": NaN,
   "tags": ["mk-ish", "peak time"]
 }

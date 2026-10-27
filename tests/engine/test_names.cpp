@@ -75,7 +75,7 @@ TEST_CASE("every name round trips and unknown text parses to nothing", "[names]"
         CHECK(parseStyle(styleName(style)) == style);
     }
     CHECK(bassPatternName(BassPattern::callResponse) == "call-response");
-    CHECK(melodyModeName(MelodyMode::vocalChop) == "vocal-chop");
+    CHECK(melodyModeName(MelodyMode::pluck) == "pluck");
     CHECK(styleName(Style::ukFunky) == "uk-funky");
     CHECK_FALSE(parseMode("Aeolian").has_value());
     CHECK_FALSE(parseBassPattern("offbeat ").has_value());

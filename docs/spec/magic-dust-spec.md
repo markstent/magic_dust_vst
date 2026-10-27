@@ -78,7 +78,7 @@ Existing chord plugins felt generic, not house-specific, and clunky in Ableton.
 ### Goals for version 1
 
 1. One key writes an 8-bar idea: chords, bass and melody, written together so they always fit.
-2. It sounds like UK club house out of the box: extended chords, organ and piano stabs, offbeat and rolling bass, vocal-chop hooks.
+2. It sounds like UK club house out of the box: extended chords, organ and piano stabs, offbeat and rolling bass, pluck hooks.
 3. No theory is needed.
    Controls use feel words (aura, groove, flavour), and chords are labelled by feel (home, lift, tension).
 4. Pin and reroll work at every level: one chord, one lane, or the whole idea.
@@ -159,7 +159,7 @@ Bass and melody are written from the chords, which is why they always fit.
 4. **Voice chords** using the voice-leading cost rules below.
 5. **Apply chord rhythm:** a pattern from the bank, plus swing and velocity.
 6. **Write the bass** from chord roots and a bass pattern.
-7. **Write the melody** from chord tones and motif rules, or in vocal-chop mode.
+7. **Write the melody** from chord tones and motif rules, or in pluck mode.
 8. **Humanize** timing and velocity, deterministically from the seed.
 9. **Validate** against the rules at the end of this section, then output the idea.
 
@@ -194,7 +194,7 @@ Each lane encoder steps through these patterns, in this order.
 | --- | --- |
 | Chords | organ stabs, piano chops, long pads, offbeat stabs |
 | Bass | rolling offbeat, offbeat, octave bounce, garage skip, sustained |
-| Melody | vocal chop, hook, riff, sparse |
+| Melody | pluck, hook, riff, sparse |
 
 ### Chord rules
 
@@ -239,7 +239,8 @@ Each lane encoder steps through these patterns, in this order.
   The last 2 bars land on a chord tone of the home chord.
 - **No clashes.**
   On strong beats, never put a melody note a half step away from a sounding chord tone.
-- **Vocal-chop mode** (the MK sound): 1 to 3 pitches taken from chord tones, mostly 16th notes, with stutter repeats, syncopation and gaps.
+- **Pluck mode** (the MK sound): 1 to 3 pitches taken from chord tones, mostly 16th notes, with stutter repeats, syncopation and gaps.
+  It plays a short pluck sound, and it also suits loading a vocal into a sampler.
   It is meant to drive a sampler holding chopped vocal syllables.
 
 ### Pin, reroll and seeds
@@ -285,7 +286,7 @@ Tempo ranges are starting estimates; confirm them with the analysis tool.
 
 | Family | Inspired by | Tempo | Signature |
 | --- | --- | --- | --- |
-| MK dub | MK; Nightcrawlers "Push the Feeling On" (MK dub) | 122 to 126 BPM | Organ stabs, organ bass, vocal-chop hook, 909 groove |
+| MK dub | MK; Nightcrawlers "Push the Feeling On" (MK dub) | 122 to 126 BPM | Organ stabs, organ bass, pluck hook, 909 groove |
 | Soulful | Sonny Fodera | 122 to 125 BPM | Warm 7th and 9th chords, smooth voice leading, piano and Rhodes |
 | Bassline | Gorgon City | 122 to 126 BPM | Bass-led, UK garage swing, sparser chords |
 | Festival | Solardo ("The Juice", "Freedom") | 126 to 130 BPM | Fewer chords, driving bass, rising stabs, build-ups |
@@ -313,7 +314,7 @@ In `hits`, each pair is a 16th-note step and a length in 16ths.
     { "id": "offbeat-stabs", "bars": 1, "hits": [[2, 1], [6, 1], [10, 1], [14, 1]] }
   ],
   "bassPatterns": ["offbeat", "octave-bounce"],
-  "melodyModes": ["vocal-chop"],
+  "melodyModes": ["pluck"],
   "swing": 0.56,
   "tags": ["mk-ish", "peak time"]
 }
@@ -323,7 +324,7 @@ In `hits`, each pair is a 16th-note step and a length in 16ths.
 
 - **No melodies, by construction.**
   The schema sets `additionalProperties: false` and has no field for pitch sequences beyond chord degrees and rhythm cells.
-  Melody and vocal-chop behaviour are engine rules, not stored lines.
+  Melody and pluck behaviour are engine rules, not stored lines.
 - **Confidence levels:** `placeholder` (hand-authored starter), `estimated` (from the analysis tool, not yet checked by ear), and `verified` (the owner confirmed it by ear).
   The generator gives verified entries double weight.
 - **Where it lives.**
@@ -600,8 +601,8 @@ flowchart LR
 
 ### Phase 4: Melody
 
-- **Build:** the motif generator, phrase forms, vocal-chop mode, the lead voice, and the melody lane.
-- **Done when:** the listening review passes, including at least three vocal-chop ideas the owner would load a vocal sample against.
+- **Build:** the motif generator, phrase forms, pluck mode, the pluck voice, and the melody lane.
+- **Done when:** the listening review passes, including at least three pluck ideas the owner would load a vocal sample against.
 
 ### Phase 5: Full interface
 
@@ -722,7 +723,7 @@ Turn this section into `docs/USER_GUIDE.md`.
 ### Tips
 
 - **Vocal chops:** load a vocal phrase into Simpler in Slice mode on the melody track.
-  The vocal-chop pattern then triggers syllables, MK style.
+  The pluck pattern then triggers syllables, MK style.
 - **One chord feels wrong?**
   Select its bubble and press swap to pick a ranked alternative.
 - **Lost a good one?**

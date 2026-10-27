@@ -180,7 +180,7 @@ const PlacedChord& homeChord(const Idea& idea)
 
 } // namespace
 
-std::vector<int> chopPitches(const std::vector<int>& allowedPcs, Pcg32& rng)
+std::vector<int> pluckPitches(const std::vector<int>& allowedPcs, Pcg32& rng)
 {
     const Pool pool = poolOf(allowedPcs);
     std::vector<int> pitches;
@@ -193,7 +193,7 @@ std::vector<int> chopPitches(const std::vector<int>& allowedPcs, Pcg32& rng)
     }
     if (pitches.empty())
     {
-        throw std::logic_error("the home chord has no allowed tone for the vocal chop");
+        throw std::logic_error("the home chord has no allowed tone for the pluck");
     }
     std::ranges::sort(
         pitches, [](int a, int b)
@@ -205,7 +205,7 @@ std::vector<int> chopPitches(const std::vector<int>& allowedPcs, Pcg32& rng)
 std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea,
                                     std::uint64_t melodySeed)
 {
-    const bool chop = entry.melodyModes.front() == MelodyMode::vocalChop;
+    const bool pluck = entry.melodyModes.front() == MelodyMode::pluck;
     const std::vector<Onset> onsets = rhythm(entry, idea, melodySeed);
     if (onsets.empty())
     {
@@ -223,7 +223,7 @@ std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea,
         const int step = onsets.at(i).step;
         const PlacedChord& chord = chordAt(idea.progression, step * kTicksPerSixteenth);
         allowed.push_back(poolOf(allowedPitchClasses(soundingPitchClasses(idea, chord))));
-        if (chop)
+        if (pluck)
         {
             pools.push_back(allowed.back());
         }
@@ -252,9 +252,9 @@ std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea,
         }
     }
     Pcg32 walk(melodySeed, kMelodyWalk);
-    Pcg32 chopRng(melodySeed, kMelodyChop);
-    const std::vector<int> chopTones =
-        chop ? chopPitches(allowedPitchClasses(homePcs), chopRng) : std::vector<int>{};
+    Pcg32 pluckRng(melodySeed, kMelodyPluck);
+    const std::vector<int> pluckTones =
+        pluck ? pluckPitches(allowedPitchClasses(homePcs), pluckRng) : std::vector<int>{};
     // The line starts from the allowed tone of the first chord nearest the centre.
     int target = choose(allowed.front(), kCentre, std::nullopt);
 
@@ -263,9 +263,9 @@ std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea,
     std::optional<int> previous;
     for (std::size_t i = 0; i < onsets.size(); ++i)
     {
-        if (chop)
+        if (pluck)
         {
-            target = chopTones.at(i % chopTones.size());
+            target = pluckTones.at(i % pluckTones.size());
         }
         else if (previous)
         {

@@ -26,7 +26,7 @@
     { "id": "stutter-dense", "bars": 2, "hits": [[1, 1], [2, 1], [3, 1], [6, 1], [7, 1], [11, 1], [17, 1], [18, 1], [19, 1], [22, 2]] }
   ],
   "bassPatterns": ["offbeat", "rolling-offbeat", "pedal"],
-  "melodyModes": ["vocal-chop", "hook"],
+  "melodyModes": ["pluck", "hook"],
   "swing": 0.57,
   "tags": ["mk-ish", "chops"]
 }
