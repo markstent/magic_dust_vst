@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/magic-dust.png" alt="The Magic Dust plugin window, showing a four-chord idea in A minor" width="760">
+  <img src="docs/images/magic-dust.png" alt="The Magic Dust plugin window, showing a four-chord idea in A minor, with an octave rocker under each mute key" width="760">
 </p>
 
 ## What it is
