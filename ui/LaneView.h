@@ -54,6 +54,7 @@ class LaneView : public juce::Component
     [[nodiscard]] PianoRoll& roll() { return roll_; }
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void mouseDown(const juce::MouseEvent& e) override;
     void mouseDrag(const juce::MouseEvent& e) override;
     void mouseUp(const juce::MouseEvent& e) override;
     bool keyPressed(const juce::KeyPress& key) override;

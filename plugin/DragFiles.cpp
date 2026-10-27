@@ -6,7 +6,6 @@
 
 #include "md/midifile.hpp"
 #include "md/ranges.hpp"
-#include "ui/Tokens.h"
 
 namespace md
 {
@@ -25,6 +24,10 @@ std::optional<juce::File> writeDragFile(const Idea& idea, std::optional<LaneId> 
     int totalTicks = ideaLengthTicks(idea);
     if (slot)
     {
+        if (*slot >= idea.progression.size())
+        {
+            return std::nullopt;
+        }
         tracks.push_back(chordSlotTrack(idea, *slot));
         totalTicks = idea.progression.at(*slot).bars * kTicksPerBar;
     }
@@ -34,7 +37,7 @@ std::optional<juce::File> writeDragFile(const Idea& idea, std::optional<LaneId> 
     }
     else
     {
-        tracks = ideaTracks(idea);
+        return std::nullopt;
     }
     const auto bytes = writeMidiFile(tracks, tempoBpm, totalTicks);
 
@@ -54,9 +57,9 @@ std::optional<juce::File> writeDragFile(const Idea& idea, std::optional<LaneId> 
 void cleanDragFolder(const juce::File& folder)
 {
     const auto cutoff = juce::Time::getCurrentTime() - juce::RelativeTime::hours(24);
-    for (const auto& file : folder.findChildFiles(juce::File::findFiles, false))
+    for (const auto& file : folder.findChildFiles(juce::File::findFiles, false, "*.mid"))
     {
-        if (file.getLastModificationTime() < cutoff)
+        if (!file.isSymbolicLink() && file.getLastModificationTime() < cutoff)
         {
             file.deleteFile();
         }
@@ -70,11 +73,6 @@ int dragTempo(std::optional<double> hostBpm)
         return kDefaultTempo;
     }
     return std::clamp(static_cast<int>(std::lround(*hostBpm)), kMidiTempoMin, kMidiTempoMax);
-}
-
-bool exceedsDragThreshold(juce::Point<int> down, juce::Point<int> now)
-{
-    return down.getDistanceFrom(now) > md::tokens::dragThreshold;
 }
 
 } // namespace md

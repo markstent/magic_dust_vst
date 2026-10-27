@@ -34,6 +34,7 @@ class KeyButton : public juce::Button, private juce::Timer
     // 0 at rest, 1 fully pressed.
     [[nodiscard]] float pressedAmount() const { return press_; }
     void paintButton(juce::Graphics& g, bool highlighted, bool down) override;
+    bool keyPressed(const juce::KeyPress& key) override;
 
   protected:
     KeyButton(const juce::String& label, const KeyMaterial& material,

@@ -10,6 +10,7 @@
 #include "md/ranges.hpp"
 #include "plugin/DragFiles.h"
 #include "plugin/PluginProcessor.h"
+#include "ui/Drag.h"
 
 namespace
 {
@@ -106,21 +107,52 @@ TEST_CASE("a folder that cannot be made gives no file", "[dragfiles]")
             .has_value());
 }
 
-TEST_CASE("cleaning removes files older than 24 hours and keeps newer ones", "[dragfiles]")
+TEST_CASE("a missing chord or no target gives no file", "[dragfiles]")
+{
+    const juce::ScopedJuceInitialiser_GUI gui;
+    MagicDustProcessor processor;
+    setSeed(processor, kFourChordSeed);
+    REQUIRE(processor.idea() != nullptr);
+    const auto& idea = *processor.idea();
+    const TempFolder temp;
+
+    CHECK_FALSE(md::writeDragFile(idea, std::nullopt, idea.progression.size(), kTempo, temp.folder)
+                    .has_value());
+    CHECK_FALSE(
+        md::writeDragFile(idea, std::nullopt, std::nullopt, kTempo, temp.folder).has_value());
+    CHECK(temp.folder.getNumberOfChildFiles(juce::File::findFilesAndDirectories) == 0);
+}
+
+TEST_CASE("cleaning removes old .mid files and touches nothing else", "[dragfiles]")
 {
     const TempFolder temp;
-    const auto old = temp.folder.getChildFile("old.mid");
-    const auto recent = temp.folder.getChildFile("recent.mid");
-    REQUIRE(old.create().wasOk());
-    REQUIRE(recent.create().wasOk());
     const auto now = juce::Time::getCurrentTime();
-    REQUIRE(old.setLastModificationTime(now - juce::RelativeTime::hours(25)));
-    REQUIRE(recent.setLastModificationTime(now - juce::RelativeTime::hours(1)));
+    const auto old = now - juce::RelativeTime::hours(25);
+    const auto make = [&](const char* name, juce::Time when)
+    {
+        const auto file = temp.folder.getChildFile(name);
+        REQUIRE(file.create().wasOk());
+        REQUIRE(file.setLastModificationTime(when));
+        return file;
+    };
+    const auto stale = make("old.mid", old);
+    const auto recent = make("recent.mid", now - juce::RelativeTime::hours(1));
+    const auto other = make("old.txt", old);
+    const auto subfolder = temp.folder.getChildFile("old-folder.mid");
+    REQUIRE(subfolder.createDirectory().wasOk());
+    REQUIRE(subfolder.setLastModificationTime(old));
+    const auto target = make("target.dat", old);
+    const auto link = temp.folder.getChildFile("link.mid");
+    REQUIRE(target.createSymbolicLink(link, true));
 
     md::cleanDragFolder(temp.folder);
 
-    CHECK_FALSE(old.exists());
+    CHECK_FALSE(stale.exists());
     CHECK(recent.exists());
+    CHECK(other.exists());
+    CHECK(subfolder.isDirectory());
+    CHECK(link.isSymbolicLink());
+    CHECK(target.exists());
 }
 
 TEST_CASE("the tempo is the host's rounded, or 124 when unknown", "[dragfiles]")
@@ -133,9 +165,9 @@ TEST_CASE("the tempo is the host's rounded, or 124 when unknown", "[dragfiles]")
 
 TEST_CASE("a drag starts only past 4 px of movement", "[dragfiles]")
 {
-    CHECK_FALSE(md::exceedsDragThreshold({10, 10}, {10, 10}));
-    CHECK_FALSE(md::exceedsDragThreshold({10, 10}, {14, 10}));
-    CHECK_FALSE(md::exceedsDragThreshold({10, 10}, {13, 13}));
-    CHECK(md::exceedsDragThreshold({10, 10}, {15, 10}));
-    CHECK(md::exceedsDragThreshold({10, 10}, {14, 14}));
+    CHECK_FALSE(md::ui::exceedsDragThreshold({10, 10}, {10, 10}));
+    CHECK_FALSE(md::ui::exceedsDragThreshold({10, 10}, {14, 10}));
+    CHECK_FALSE(md::ui::exceedsDragThreshold({10, 10}, {13, 13}));
+    CHECK(md::ui::exceedsDragThreshold({10, 10}, {15, 10}));
+    CHECK(md::ui::exceedsDragThreshold({10, 10}, {14, 14}));
 }

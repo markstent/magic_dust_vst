@@ -88,7 +88,7 @@ void FieldRow::paint(juce::Graphics& g)
 
 bool FieldRow::keyPressed(const juce::KeyPress& key)
 {
-    if (key == juce::KeyPress::returnKey || key == juce::KeyPress::spaceKey)
+    if (isActivateKey(key))
     {
         cycle(1);
         return true;

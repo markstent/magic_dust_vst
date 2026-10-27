@@ -11,6 +11,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "md/types.hpp"
+#include "plugin/DragFiles.h"
 #include "ui/AuraPad.h"
 #include "ui/ChordBubble.h"
 #include "ui/LaneView.h"
@@ -56,6 +57,9 @@ class ScreenComponent : public juce::Component
         onStatus_ = std::move(callback);
     }
 
+    // Where dragged MIDI files are written; tests point it elsewhere.
+    void setDragFolder(juce::File folder) { dragFolder_ = std::move(folder); }
+
   private:
     void startDrag(std::optional<md::LaneId> lane, std::optional<std::size_t> slot);
     void report(std::optional<std::string> status);
@@ -69,6 +73,7 @@ class ScreenComponent : public juce::Component
     Readout readout_;
     Selection selection_;
     std::function<void(std::optional<std::string>)> onStatus_;
+    juce::File dragFolder_ = md::defaultDragFolder();
 
     MD_COMPONENT_BOILERPLATE(ScreenComponent)
 };

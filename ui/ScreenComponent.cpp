@@ -113,7 +113,8 @@ void ScreenComponent::startDrag(std::optional<md::LaneId> lane, std::optional<st
     {
         return;
     }
-    const auto file = md::writeDragFile(*idea, lane, slot, md::dragTempo(processor_.hostBpm()));
+    const auto file =
+        md::writeDragFile(*idea, lane, slot, md::dragTempo(processor_.hostBpm()), dragFolder_);
     if (!file)
     {
         report("couldn't write the midi file");

@@ -1,6 +1,7 @@
 #include "ui/ChordBubble.h"
 
-#include "plugin/DragFiles.h"
+#include "ui/Drag.h"
+#include "ui/Focus.h"
 #include "ui/Fonts.h"
 #include "ui/Tokens.h"
 
@@ -30,10 +31,35 @@ void ChordBubble::set(const juce::String& name, const juce::String& feel, bool p
     repaint(getLocalBounds().expanded(t::layout::bubbleOverflow));
 }
 
+bool ChordBubble::keyPressed(const juce::KeyPress& key)
+{
+    // juce::Button answers Enter but not Space.
+    if (!isActivateKey(key))
+    {
+        return false;
+    }
+    if (onClick)
+    {
+        onClick();
+    }
+    return true;
+}
+
+void ChordBubble::mouseDown(const juce::MouseEvent& e)
+{
+    // The OS drag can swallow the mouse-up, so every press starts afresh.
+    dragging_ = false;
+    juce::Button::mouseDown(e);
+}
+
 void ChordBubble::mouseDrag(const juce::MouseEvent& e)
 {
+    if (dragging_)
+    {
+        return;
+    }
     juce::Button::mouseDrag(e);
-    if (!dragging_ && md::exceedsDragThreshold(e.getMouseDownPosition(), e.getPosition()))
+    if (exceedsDragThreshold(e.getMouseDownPosition(), e.getPosition()))
     {
         dragging_ = true;
         // A drag is not a click.
@@ -47,7 +73,11 @@ void ChordBubble::mouseDrag(const juce::MouseEvent& e)
 
 void ChordBubble::mouseUp(const juce::MouseEvent& e)
 {
-    dragging_ = false;
+    if (dragging_)
+    {
+        dragging_ = false;
+        return;
+    }
     juce::Button::mouseUp(e);
 }
 

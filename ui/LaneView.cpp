@@ -6,7 +6,7 @@
 #include <utility>
 
 #include "md/ranges.hpp"
-#include "plugin/DragFiles.h"
+#include "ui/Drag.h"
 #include "ui/Focus.h"
 #include "ui/Fonts.h"
 #include "ui/Tokens.h"
@@ -126,9 +126,15 @@ void LaneView::resized()
                     t::layout::rollHeight);
 }
 
+void LaneView::mouseDown(const juce::MouseEvent& /*e*/)
+{
+    // The OS drag can swallow the mouse-up, so every press starts afresh.
+    dragging_ = false;
+}
+
 void LaneView::mouseDrag(const juce::MouseEvent& e)
 {
-    if (!dragging_ && md::exceedsDragThreshold(e.getMouseDownPosition(), e.getPosition()))
+    if (!dragging_ && exceedsDragThreshold(e.getMouseDownPosition(), e.getPosition()))
     {
         dragging_ = true;
         if (onDrag_)
@@ -149,7 +155,7 @@ void LaneView::mouseUp(const juce::MouseEvent& e)
 
 bool LaneView::keyPressed(const juce::KeyPress& key)
 {
-    if ((key == juce::KeyPress::returnKey || key == juce::KeyPress::spaceKey) && onClick_)
+    if (isActivateKey(key) && onClick_)
     {
         onClick_();
         return true;

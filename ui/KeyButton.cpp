@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "ui/Focus.h"
 #include "ui/Fonts.h"
 #include "ui/Tokens.h"
 
@@ -50,6 +51,30 @@ KeyButton::KeyButton(const juce::String& label, const KeyMaterial& material,
     setPaintingIsUnclipped(true);
 }
 
+bool KeyButton::keyPressed(const juce::KeyPress& key)
+{
+    // juce::Button answers Enter but not Space, and neither shows the key going down.
+    if (!isActivateKey(key))
+    {
+        return false;
+    }
+    setState(juce::Button::buttonDown);
+    const juce::Component::SafePointer<KeyButton> self(this);
+    juce::Timer::callAfterDelay(static_cast<int>(t::keyPressMs),
+                                [self]
+                                {
+                                    if (self != nullptr)
+                                    {
+                                        self->setState(juce::Button::buttonNormal);
+                                    }
+                                });
+    if (onClick)
+    {
+        onClick();
+    }
+    return true;
+}
+
 void KeyButton::setLit(bool lit)
 {
     if (lit != lit_)
@@ -71,6 +96,11 @@ void KeyButton::retarget()
 {
     if (animated_)
     {
+        if (juce::approximatelyEqual(press_, isDown() ? 1.0F : 0.0F) &&
+            juce::approximatelyEqual(ledLevel_, lit_ ? 1.0F : 0.0F))
+        {
+            return;
+        }
         lastTickMs_ = juce::Time::getMillisecondCounterHiRes();
         startTimerHz(kFrameHz);
         return;

@@ -17,6 +17,8 @@ class ChordBubble : public juce::Button
 
     void set(const juce::String& name, const juce::String& feel, bool playing, bool selected);
     void paintButton(juce::Graphics& g, bool highlighted, bool down) override;
+    bool keyPressed(const juce::KeyPress& key) override;
+    void mouseDown(const juce::MouseEvent& e) override;
     void mouseDrag(const juce::MouseEvent& e) override;
     void mouseUp(const juce::MouseEvent& e) override;
 

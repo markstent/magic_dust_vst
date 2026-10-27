@@ -15,6 +15,7 @@
 #include "plugin/PluginProcessor.h"
 #include "ui/AuraPad.h"
 #include "ui/ChordBubble.h"
+#include "ui/Drag.h"
 #include "ui/KeyButton.h"
 #include "ui/LaneView.h"
 #include "ui/ScreenComponent.h"
@@ -434,9 +435,124 @@ TEST_CASE("tab visits top line, bubbles, lanes, aura pad, fields, then keys", "[
     CHECK(order == expected);
 }
 
-TEST_CASE("every key and bubble has an accessible title", "[editor]")
+TEST_CASE("space and enter each activate a key, bubble, lane and field row once", "[editor]")
 {
     Fixture f;
+    f.idea(4);
+    const auto space = juce::KeyPress(juce::KeyPress::spaceKey);
+    const auto enter = juce::KeyPress(juce::KeyPress::returnKey);
+    const auto fires = [](juce::Component& c, const juce::KeyPress& key, int& count)
+    {
+        count = 0;
+        REQUIRE(c.keyPressed(key));
+        return count;
+    };
+
+    int count = 0;
+    auto& key = f.find<md::ui::KeyButton>("stopKey");
+    key.onClick = [&] { ++count; };
+    CHECK(fires(key, space, count) == 1);
+    CHECK(fires(key, enter, count) == 1);
+
+    auto& bubble = f.find<md::ui::ChordBubble>("bubble0");
+    bubble.onClick = [&] { ++count; };
+    CHECK(fires(bubble, space, count) == 1);
+    CHECK(fires(bubble, enter, count) == 1);
+
+    auto& screen = f.find<md::ui::ScreenComponent>("screen");
+    auto& lane = f.find<md::ui::LaneView>("lane1");
+    for (const auto& pressed : {space, enter})
+    {
+        screen.setSelection({});
+        REQUIRE(lane.keyPressed(pressed));
+        CHECK(screen.selection().kind == md::ui::Selection::Kind::lane);
+        CHECK(screen.selection().index == 1);
+    }
+
+    auto& field = f.find("flavour");
+    for (const auto& pressed : {space, enter})
+    {
+        const auto before = param(f, "flavour");
+        REQUIRE(field.keyPressed(pressed));
+        CHECK(param(f, "flavour") != before);
+    }
+}
+
+TEST_CASE("a drag is never also a click, and a lost mouse-up does not break the next click",
+          "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    auto& screen = f.find<md::ui::ScreenComponent>("screen");
+    const auto statuses = std::make_shared<std::vector<std::optional<std::string>>>();
+    screen.setOnStatus([statuses](const std::optional<std::string>& s) { statuses->push_back(s); });
+    int drags = 0;
+    auto& bubble = f.find<md::ui::ChordBubble>("bubble1");
+    bubble.setOnDrag([&] { ++drags; });
+    juce::Component& component = bubble;
+
+    const auto down = juce::Point<float>(40.0F, 40.0F);
+    const auto far = down.translated(10.0F, 0.0F);
+    component.mouseDown(mouseAt(component, down, down, false));
+    component.mouseDrag(mouseAt(component, far, down, true));
+    component.mouseDrag(mouseAt(component, far.translated(5.0F, 0.0F), down, true));
+    component.mouseUp(mouseAt(component, down, down, true));
+    CHECK(drags == 1);
+    CHECK(screen.selection().kind == md::ui::Selection::Kind::none);
+    CHECK(statuses->empty());
+
+    // A drag whose mouse-up never arrives.
+    component.mouseDown(mouseAt(component, down, down, false));
+    component.mouseDrag(mouseAt(component, far, down, true));
+    CHECK(drags == 2);
+    click(component, down);
+    CHECK(screen.selection().kind == md::ui::Selection::Kind::chord);
+    CHECK(screen.selection().index == 1);
+    component.mouseDown(mouseAt(component, down, down, false));
+    component.mouseDrag(mouseAt(component, far, down, true));
+    CHECK(drags == 3);
+}
+
+TEST_CASE("a failed drag shows the write error and the next successful action clears it",
+          "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    const auto folder = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                            .getChildFile("md-editor-" + juce::Uuid().toString());
+    REQUIRE(folder.create().wasOk());
+    auto& screen = f.find<md::ui::ScreenComponent>("screen");
+    screen.setDragFolder(folder.getChildFile("drag"));
+    const auto statuses = std::make_shared<std::vector<std::optional<std::string>>>();
+    screen.setOnStatus([statuses](const std::optional<std::string>& s) { statuses->push_back(s); });
+
+    auto& lane = f.find<md::ui::LaneView>("lane0");
+    juce::Component& component = lane;
+    const auto down = juce::Point<float>(40.0F, 20.0F);
+    component.mouseDown(mouseAt(component, down, down, false));
+    component.mouseDrag(mouseAt(component, down.translated(10.0F, 0.0F), down, true));
+    component.mouseUp(mouseAt(component, down, down, true));
+    REQUIRE(statuses->size() == 1);
+    CHECK(statuses->back() == "couldn't write the midi file");
+
+    click(f.find("bubble0"), {40.0F, 40.0F});
+    REQUIRE(statuses->size() == 2);
+    CHECK_FALSE(statuses->back().has_value());
+    folder.deleteRecursively();
+}
+
+TEST_CASE("every control has an accessible title", "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    f.refresh();
+    CHECK(f.find("bubble0").getTitle().startsWith("chord 1, "));
+    CHECK(f.find("lane0").getTitle().startsWith("chords lane, "));
+    CHECK(f.find("lane1").getTitle().startsWith("bass lane, "));
+    CHECK(f.find("lane2").getTitle().startsWith("melody lane, "));
+    CHECK(f.find("auraPad").getTitle().startsWith("aura pad, mood "));
+    CHECK(f.find("groove").getTitle().startsWith("groove, "));
+    CHECK(f.find("flavour").getTitle().startsWith("flavour, "));
     CHECK(f.find("playKey").getTitle() == "play the preview");
     CHECK(f.find("stopKey").getTitle() == "stop the preview");
     CHECK(f.find("sprinkleKey").getTitle() == "sprinkle a new idea");
