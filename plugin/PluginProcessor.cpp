@@ -215,7 +215,7 @@ md::Settings MagicDustProcessor::currentSettings() const
 
 bool MagicDustProcessor::regenerate(std::uint32_t seed, const md::LaneSeeds& laneSeeds)
 {
-    if (!bank_)
+    if (!bank_ || mode_.load() != InstanceMode::main)
     {
         return false;
     }
@@ -501,13 +501,14 @@ void MagicDustProcessor::senderBlock(juce::MidiBuffer& midi, int numSamples,
                  });
 }
 
-// The built-in sound of a lane goes quiet while a sender plays that lane.
+// The oldest main's built-in sound of a lane goes quiet while a sender plays that lane.
 void MagicDustProcessor::muteSentLanes()
 {
     const Link& link = Link::instance();
+    const bool oldest = link.oldestMain() == this;
     for (int lane = 0; lane < 3; ++lane)
     {
-        const bool sent = link.sendersFor(static_cast<md::LaneId>(lane)) > 0;
+        const bool sent = oldest && link.sendersFor(static_cast<md::LaneId>(lane)) > 0;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access): lane < 3
         if (sent && !laneSent_[static_cast<std::size_t>(lane)])
         {

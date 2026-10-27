@@ -1,9 +1,12 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <memory>
 #include <set>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -268,6 +271,7 @@ TEST_CASE("a sender state round trip restores the mode and lane, even into a mai
 
     MagicDustProcessor restored;
     REQUIRE(restored.mode() == InstanceMode::main);
+    const auto mainState = save(restored);
     REQUIRE(Link::instance().oldestMain() == &restored);
     restored.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
 
@@ -277,11 +281,19 @@ TEST_CASE("a sender state round trip restores the mode and lane, even into a mai
     CHECK(Link::instance().current(&restored) == nullptr);
     CHECK(Link::instance().sendersFor(md::LaneId::melody) == 1);
 
+    restored.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+    CHECK(Link::instance().sendersFor(md::LaneId::melody) == 1);
+
     const auto saved = save(restored);
     const auto xml =
         juce::AudioProcessor::getXmlFromBinary(saved.getData(), static_cast<int>(saved.getSize()));
     CHECK(xml->getStringAttribute("mode") == "sender");
     CHECK(xml->getIntAttribute("senderLane") == static_cast<int>(md::LaneId::melody));
+
+    restored.setStateInformation(mainState.getData(), static_cast<int>(mainState.getSize()));
+    CHECK(restored.mode() == InstanceMode::main);
+    CHECK(Link::instance().sendersFor(md::LaneId::melody) == 0);
+    CHECK(Link::instance().oldestMain() == &restored);
 }
 
 TEST_CASE("becomeMain makes a sender main with its own idea and leaves the oldest main alone")
@@ -290,6 +302,7 @@ TEST_CASE("becomeMain makes a sender main with its own idea and leaves the oldes
     MagicDustProcessor main;
     MagicDustProcessor sender;
     REQUIRE(sender.mode() == InstanceMode::sender);
+    REQUIRE(Link::instance().sendersFor(md::LaneId::chords) == 1);
 
     sender.becomeMain();
 
@@ -299,4 +312,100 @@ TEST_CASE("becomeMain makes a sender main with its own idea and leaves the oldes
     CHECK(Link::instance().current(&sender) != Link::instance().current(&main));
     CHECK(Link::instance().oldestMain() == &main);
     CHECK(Link::instance().sendersFor(md::LaneId::chords) == 0);
+}
+
+TEST_CASE("setSenderLane moves the sender count")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor main;
+    MagicDustProcessor sender;
+    sender.setSenderLane(md::LaneId::bass);
+
+    CHECK(Link::instance().sendersFor(md::LaneId::chords) == 0);
+    CHECK(Link::instance().sendersFor(md::LaneId::bass) == 1);
+}
+
+TEST_CASE("a sender generates and publishes nothing")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor main;
+    MagicDustProcessor sender;
+    sender.sprinkle();
+    sender.setStyle(md::Style::mkDub);
+    sender.setKeyRoot(3);
+
+    CHECK(sender.idea() == nullptr);
+    CHECK(Link::instance().current(&sender) == nullptr);
+}
+
+TEST_CASE("only the oldest main mutes the lanes that senders play")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor main;
+    MagicDustProcessor independent;
+    independent.becomeMain();
+    setSeed(independent, 48213);
+    FakeHead head;
+    prepare(independent, head);
+    constexpr int blocks = 187;
+    const double alone = runBlocks(independent, head, blocks).energy;
+    REQUIRE(alone > 0.0);
+
+    MagicDustProcessor bass;
+    bass.setSenderLane(md::LaneId::bass);
+    head.ppq = 0.0;
+    const double withSender = runBlocks(independent, head, blocks).energy;
+
+    CHECK(withSender == Catch::Approx(alone).epsilon(0.02));
+}
+
+TEST_CASE("a sender survives its main being destroyed and replaced while it plays")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    auto main = std::make_unique<MagicDustProcessor>();
+    MagicDustProcessor sender;
+    sender.setSenderLane(md::LaneId::bass);
+    FakeHead head;
+    prepare(sender, head);
+
+    std::atomic<bool> stop{false};
+    std::thread audio(
+        [&]
+        {
+            juce::AudioBuffer<float> buffer(2, kBlock);
+            juce::MidiBuffer midi;
+            midi.ensureSize(16384);
+            while (!stop.load())
+            {
+                sender.processBlock(buffer, midi);
+                head.ppq += md::ppqForSamples(kBlock, 120.0, kRate);
+            }
+        });
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    main = nullptr;
+    Link::instance().retire(std::chrono::steady_clock::now() + std::chrono::seconds(2));
+    main = std::make_unique<MagicDustProcessor>();
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    stop.store(true);
+    audio.join();
+
+    std::set<int> bassNotes;
+    for (const md::PlayEvent& e : md::makePattern(*main->idea()).events)
+    {
+        if (e.channel == kBassChannel)
+        {
+            bassNotes.insert(e.note);
+        }
+    }
+    const Run run = runBlocks(sender, head, 400);
+    int ons = 0;
+    for (const Ev& e : run.events)
+    {
+        if (e.on)
+        {
+            ++ons;
+            CHECK(bassNotes.contains(e.note));
+        }
+    }
+    CHECK(ons > 0);
 }
