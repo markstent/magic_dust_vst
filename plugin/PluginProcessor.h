@@ -25,8 +25,9 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
   public:
     MagicDustProcessor();
     // For tests: runs on the given bank instead of the bundled one; nullopt simulates a bank that
-    // failed to load.
-    explicit MagicDustProcessor(std::optional<md::Bank> bank);
+    // failed to load. A random seed makes the generated ideas repeatable.
+    explicit MagicDustProcessor(std::optional<md::Bank> bank,
+                                std::optional<std::int64_t> randomSeed = std::nullopt);
     MagicDustProcessor(const MagicDustProcessor&) = delete;
     MagicDustProcessor& operator=(const MagicDustProcessor&) = delete;
     MagicDustProcessor(MagicDustProcessor&&) = delete;
@@ -123,6 +124,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     void emitEvent(const md::PlayEvent& e, juce::MidiBuffer& midi, int offset);
     md::AuditionSynth& voiceFor(int channel);
 
+    juce::Random random_;
     std::optional<md::Bank> bank_;
     const std::atomic<float>* volume_;
     std::atomic<InstanceMode> mode_{InstanceMode::main};
@@ -155,7 +157,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     Source lastSource_ = Source::none;
     std::array<bool, 3> laneSent_{}; // a sender plays the lane, so the built-in sound is muted
     double expectedPpq_ = 0.0;
-    double bpm_ = 120.0;
+    double bpm_ = md::kDefaultTempo;
     double sampleRate_ = 48000.0;
     std::uint64_t auditionPacked_ = 0; // see auditionChord
     int auditionSamplesLeft_ = 0;

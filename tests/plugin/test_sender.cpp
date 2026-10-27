@@ -13,6 +13,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include "AllocationGuard.h"
+#include "SeedHelper.h"
 #include "plugin/Link.h"
 #include "plugin/Playback.h"
 #include "plugin/PluginProcessor.h"
@@ -119,19 +120,6 @@ juce::MemoryBlock save(MagicDustProcessor& p)
     juce::MemoryBlock state;
     p.getStateInformation(state);
     return state;
-}
-
-// Gives the main instance a known idea.
-void setSeed(MagicDustProcessor& p, int seed)
-{
-    auto state = save(p);
-    auto xml =
-        juce::AudioProcessor::getXmlFromBinary(state.getData(), static_cast<int>(state.getSize()));
-    xml->setAttribute("seed", seed);
-    xml->removeAttribute("chordsSeed");
-    juce::MemoryBlock edited;
-    juce::AudioProcessor::copyXmlToBinary(*xml, edited);
-    p.setStateInformation(edited.getData(), static_cast<int>(edited.getSize()));
 }
 
 } // namespace
@@ -383,11 +371,13 @@ TEST_CASE("a sender survives its main being destroyed and replaced while it play
         });
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
     main = nullptr;
-    Link::instance().retire(std::chrono::steady_clock::now() + std::chrono::seconds(2));
+    Link::instance().retire();
     main = std::make_unique<MagicDustProcessor>();
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
     stop.store(true);
     audio.join();
+    // Only now, with no audio thread reading, is it safe to treat the grace period as over.
+    Link::instance().retire(std::chrono::steady_clock::now() + std::chrono::seconds(2));
 
     std::set<int> bassNotes;
     for (const md::PlayEvent& e : md::makePattern(*main->idea()).events)

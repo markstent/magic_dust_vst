@@ -12,6 +12,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include "AllocationGuard.h"
+#include "SeedHelper.h"
 #include "md/bank.hpp"
 #include "plugin/Link.h"
 #include "plugin/Playback.h"
@@ -118,20 +119,6 @@ void setParam(MagicDustProcessor& p, const char* id, int index)
 {
     auto* param = p.params.getParameter(id);
     param->setValueNotifyingHost(param->convertTo0to1(static_cast<float>(index)));
-}
-
-// Gives the processor a known idea: the state's seed is restored and the lane seeds derived.
-void setSeed(MagicDustProcessor& p, int seed)
-{
-    juce::MemoryBlock state;
-    p.getStateInformation(state);
-    auto xml =
-        juce::AudioProcessor::getXmlFromBinary(state.getData(), static_cast<int>(state.getSize()));
-    xml->setAttribute("seed", seed);
-    xml->removeAttribute("chordsSeed");
-    juce::MemoryBlock edited;
-    juce::AudioProcessor::copyXmlToBinary(*xml, edited);
-    p.setStateInformation(edited.getData(), static_cast<int>(edited.getSize()));
 }
 
 std::vector<std::vector<md::NoteEvent>> laneEvents(const md::Idea& idea)

@@ -11,6 +11,8 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include "SeedHelper.h"
+#include "md/bank.hpp"
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
 #include "plugin/PluginEditor.h"
@@ -35,25 +37,12 @@ using Catch::Approx;
 constexpr float kTolerance = 0.001F;
 constexpr int kFourChordSeed = 1;
 constexpr int kThreeChordSeed = 6;
-
-// Puts the processor on a known idea: the state's seed is restored and the lane seeds derived.
-void setSeed(MagicDustProcessor& p, int seed)
-{
-    juce::MemoryBlock state;
-    p.getStateInformation(state);
-    auto xml =
-        juce::AudioProcessor::getXmlFromBinary(state.getData(), static_cast<int>(state.getSize()));
-    xml->setAttribute("seed", seed);
-    xml->removeAttribute("chordsSeed");
-    juce::MemoryBlock edited;
-    juce::AudioProcessor::copyXmlToBinary(*xml, edited);
-    p.setStateInformation(edited.getData(), static_cast<int>(edited.getSize()));
-}
+constexpr std::int64_t kRandomSeed = 7;
 
 struct Fixture
 {
     juce::ScopedJuceInitialiser_GUI gui;
-    MagicDustProcessor processor;
+    MagicDustProcessor processor{md::loadBundledBank(), kRandomSeed};
     std::unique_ptr<juce::AudioProcessorEditor> editor;
 
     explicit Fixture(int seed = kFourChordSeed)
@@ -339,7 +328,6 @@ TEST_CASE("clicking play then stop toggles the preview", "[editor]")
 TEST_CASE("clicking sprinkle writes a new idea and the bubbles follow", "[editor]")
 {
     Fixture f;
-    juce::Random::getSystemRandom().setSeed(7);
     const auto before = f.idea(4).seed;
     const auto titles = [&]
     {

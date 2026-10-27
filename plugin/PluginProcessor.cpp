@@ -111,9 +111,11 @@ md::LaneId firstFreeLane(const Link& link)
 
 MagicDustProcessor::MagicDustProcessor() : MagicDustProcessor(tryLoadBank()) {}
 
-MagicDustProcessor::MagicDustProcessor(std::optional<md::Bank> bank)
+MagicDustProcessor::MagicDustProcessor(std::optional<md::Bank> bank,
+                                       std::optional<std::int64_t> randomSeed)
     : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      params(*this, nullptr, "params", makeLayout()), bank_(std::move(bank)),
+      params(*this, nullptr, "params", makeLayout()),
+      random_(randomSeed ? juce::Random(*randomSeed) : juce::Random()), bank_(std::move(bank)),
       volume_(params.getRawParameterValue("volume"))
 {
     Link& link = Link::instance();
@@ -132,8 +134,7 @@ MagicDustProcessor::MagicDustProcessor(std::optional<md::Bank> bank)
     }
     else if (!sender)
     {
-        seed_ =
-            static_cast<std::uint32_t>(juce::Random::getSystemRandom().nextInt(md::kSeedMax + 1));
+        seed_ = static_cast<std::uint32_t>(random_.nextInt(md::kSeedMax + 1));
         laneSeeds_ = md::defaultLaneSeeds(seed_);
         regenerate();
     }
@@ -241,8 +242,7 @@ bool MagicDustProcessor::regenerate(std::uint32_t seed, const md::LaneSeeds& lan
 
 void MagicDustProcessor::sprinkle()
 {
-    const auto seed =
-        static_cast<std::uint32_t>(juce::Random::getSystemRandom().nextInt(md::kSeedMax + 1));
+    const auto seed = static_cast<std::uint32_t>(random_.nextInt(md::kSeedMax + 1));
     regenerate(seed, md::defaultLaneSeeds(seed));
 }
 

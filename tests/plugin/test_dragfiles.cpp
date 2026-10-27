@@ -6,6 +6,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+#include "SeedHelper.h"
 #include "md/midifile.hpp"
 #include "md/ranges.hpp"
 #include "plugin/DragFiles.h"
@@ -17,20 +18,6 @@ namespace
 
 constexpr int kTempo = 118;
 constexpr int kFourChordSeed = 1;
-
-// Puts the processor on a known idea: the state's seed is restored and the lane seeds derived.
-void setSeed(MagicDustProcessor& p, int seed)
-{
-    juce::MemoryBlock state;
-    p.getStateInformation(state);
-    auto xml =
-        juce::AudioProcessor::getXmlFromBinary(state.getData(), static_cast<int>(state.getSize()));
-    xml->setAttribute("seed", seed);
-    xml->removeAttribute("chordsSeed");
-    juce::MemoryBlock edited;
-    juce::AudioProcessor::copyXmlToBinary(*xml, edited);
-    p.setStateInformation(edited.getData(), static_cast<int>(edited.getSize()));
-}
 
 // A scratch folder that is gone when the test ends.
 struct TempFolder
