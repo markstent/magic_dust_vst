@@ -2,7 +2,6 @@
 
 #include <algorithm>
 
-#include "ui/AuraPad.h"
 #include "ui/Fonts.h"
 #include "ui/Tokens.h"
 
@@ -23,6 +22,19 @@ const KeyMaterial gold{.top = t::goldLight,
 
 constexpr const char* kTitle = "sprinkle";
 constexpr const char* kSubline = "new idea";
+
+// The four-point sparkle on its 24 x 24 grid.
+juce::Path sparklePath()
+{
+    juce::Path p;
+    p.startNewSubPath(t::layout::sparkleStart.at(0), t::layout::sparkleStart.at(1));
+    for (const auto& c : t::layout::sparkleCurves)
+    {
+        p.cubicTo(c.at(0), c.at(1), c.at(2), c.at(3), c.at(4), c.at(5));
+    }
+    p.closeSubPath();
+    return p;
+}
 
 } // namespace
 

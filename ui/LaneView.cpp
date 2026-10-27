@@ -21,14 +21,22 @@ LaneLook laneLook(md::LaneId lane)
     switch (lane)
     {
     case md::LaneId::chords:
-        return {
-            .label = "chords", .colour = t::violet, .low = md::kChordLow, .high = md::kChordHigh};
+        return {.label = "chords",
+                .colour = t::console::capChords,
+                .low = md::kChordLow,
+                .high = md::kChordHigh};
     case md::LaneId::bass:
-        return {.label = "bass", .colour = t::magenta, .low = md::kBassLow, .high = md::kBassHigh};
+        return {.label = "bass",
+                .colour = t::console::capBass,
+                .low = md::kBassLow,
+                .high = md::kBassHigh};
     case md::LaneId::melody:
         break;
     }
-    return {.label = "melody", .colour = t::cyan, .low = md::kMelodyLow, .high = md::kMelodyHigh};
+    return {.label = "melody",
+            .colour = t::console::capMelody,
+            .low = md::kMelodyLow,
+            .high = md::kMelodyHigh};
 }
 
 PianoRoll::PianoRoll(md::LaneId lane) : lane_(lane) { setInterceptsMouseClicks(false, false); }
@@ -72,18 +80,15 @@ void PianoRoll::paint(juce::Graphics& g)
 {
     const auto width = getWidth();
     const auto height = getHeight();
+    const auto ink = t::console::ink;
 
-    g.setColour(t::screenAxis);
-    g.fillRect(0, height / 2, width, 1);
-
-    g.setColour(t::screenBar);
-    const auto segments = std::max(1, bars_ / 2);
-    for (int k = 1; k < segments; ++k)
+    g.setColour(ink.withAlpha(t::layout::barLineAlpha));
+    for (int k = 1; k < bars_; ++k)
     {
-        g.fillRect(width * k / segments, 0, 1, height);
+        g.fillRect(width * k / bars_, 0, 1, height);
     }
 
-    g.setColour(laneLook(lane_).colour);
+    g.setColour(ink);
     for (const auto& r : noteRects())
     {
         const auto left = std::round(r.getX());
@@ -97,7 +102,6 @@ void PianoRoll::paint(juce::Graphics& g)
 
     if (playhead_)
     {
-        g.setColour(t::gold);
         g.fillRect(static_cast<int>(std::round(*playhead_ * static_cast<float>(width))), 0,
                    t::layout::playheadWidth, height);
     }
@@ -110,7 +114,8 @@ LaneView::LaneView(md::LaneId lane, juce::AudioProcessorValueTreeState& params)
     const auto look = laneLook(lane);
     addAndMakeVisible(roll_);
     level_.setTitle(juce::String(look.label) + " level");
-    level_.setColour(juce::Slider::backgroundColourId, t::screenLine);
+    level_.setColour(juce::Slider::backgroundColourId,
+                     t::console::ink.withAlpha(t::layout::barLineAlpha));
     level_.setColour(juce::Slider::trackColourId, look.colour);
     level_.setDoubleClickReturnValue(true, 1.0);
     level_.setWantsKeyboardFocus(true);
@@ -124,24 +129,30 @@ LaneView::LaneView(md::LaneId lane, juce::AudioProcessorValueTreeState& params)
 void LaneView::set(const md::Lane& lane, int bars, std::optional<float> playhead, bool selected)
 {
     roll_.set(lane.events, bars, playhead);
-    setTitle(juce::String(laneLook(lane_).label) + " lane, " + lane.pattern);
-    if (selected != selected_)
+    const auto pattern = juce::String(lane.pattern);
+    if (pattern != pattern_ || selected != selected_)
     {
+        pattern_ = pattern;
         selected_ = selected;
+        setTitle(juce::String(laneLook(lane_).label) + " lane, " + pattern_);
         repaint();
     }
 }
 
 void LaneView::resized()
 {
-    level_.setBounds(t::layout::laneLabelPad,
-                     getHeight() - t::layout::laneLevelCentreAboveBottom -
-                         (t::layout::laneLevelHeight / 2),
-                     t::layout::rollX - t::layout::laneX - t::layout::laneLabelPad -
-                         t::layout::laneLevelRightGap,
-                     t::layout::laneLevelHeight);
+    level_.setBounds(
+        t::layout::laneLabelPad,
+        getHeight() - t::layout::laneLevelCentreAboveBottom - (t::layout::laneLevelHeight / 2),
+        t::layout::laneLabelWidth - t::layout::laneLevelRightGap, t::layout::laneLevelHeight);
     roll_.setBounds(t::layout::rollX - t::layout::laneX, t::layout::rollPadY, t::layout::rollWidth,
                     t::layout::rollHeight);
+}
+
+// The label column above the level slider, where the lane name and pattern name are drawn.
+juce::Rectangle<int> LaneView::labelBounds() const
+{
+    return {t::layout::laneLabelPad, 0, t::layout::laneLabelWidth, level_.getY()};
 }
 
 void LaneView::mouseDown(const juce::MouseEvent& /*e*/)
@@ -183,22 +194,32 @@ bool LaneView::keyPressed(const juce::KeyPress& key)
 
 void LaneView::paint(juce::Graphics& g)
 {
+    const auto ink = t::console::ink;
     if (selected_)
     {
-        g.setColour(t::screenSelected);
+        g.setColour(ink.withAlpha(t::layout::laneSelectedAlpha));
         g.fillRoundedRectangle(getLocalBounds().toFloat(), t::layout::laneRadius);
     }
-    const auto look = laneLook(lane_);
-    g.setFont(font(Face::monoRegular, t::laneLabelSize));
-    g.setColour(selected_ ? t::screenInk : look.colour);
-    g.drawText(look.label,
-               juce::Rectangle<int>(t::layout::laneLabelPad, 0,
-                                    t::layout::rollX - t::layout::laneX - t::layout::laneLabelPad,
-                                    getHeight()),
-               juce::Justification::centredLeft, false);
+    const auto nameFont = font(Face::groteskBold, t::layout::laneNameSize)
+                              .withExtraKerningFactor(t::layout::laneNameSpacing);
+    const auto patternFont = font(Face::monoRegular, t::layout::lanePatternSize);
+    const auto label = labelBounds().toFloat();
+    const auto top =
+        label.getY() +
+        ((label.getHeight() - (nameFont.getHeight() + patternFont.getHeight())) / 2.0F);
+    g.setColour(ink);
+    g.setFont(nameFont);
+    g.drawText(juce::String(laneLook(lane_).label).toUpperCase(),
+               juce::Rectangle<float>(label.getX(), top, label.getWidth(), nameFont.getHeight()),
+               juce::Justification::centredLeft, true);
+    g.setFont(patternFont);
+    g.drawText(pattern_.toUpperCase(),
+               juce::Rectangle<float>(label.getX(), top + nameFont.getHeight(), label.getWidth(),
+                                      patternFont.getHeight()),
+               juce::Justification::centredLeft, true);
     if (hasKeyboardFocus(true))
     {
-        drawFocusRing(g, getLocalBounds().toFloat(), t::layout::laneRadius);
+        drawFocusRing(g, getLocalBounds().toFloat(), t::layout::laneRadius, ink);
     }
 }
 

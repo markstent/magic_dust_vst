@@ -1,6 +1,6 @@
 #include "ui/TopLine.h"
 
-#include <cmath>
+#include <array>
 #include <cstddef>
 #include <string>
 
@@ -8,6 +8,8 @@
 #include "md/ranges.hpp"
 #include "md/types.hpp"
 #include "plugin/PluginProcessor.h"
+#include "ui/Faceplate.h"
+#include "ui/Focus.h"
 #include "ui/Fonts.h"
 #include "ui/Tokens.h"
 
@@ -21,19 +23,13 @@ namespace
 
 constexpr int kStyleCount = static_cast<int>(md::Style::nyGroove) + 1;
 
-const char* const kUnknown = "---";
+const char* const kUnknown = "----";
+constexpr int kSpellDigits = 4;
 
 // Style names are spelt with hyphens in the engine and with spaces on screen.
 juce::String styleText(md::Style style)
 {
     return juce::String(std::string(md::styleName(style))).replaceCharacter('-', ' ');
-}
-
-juce::Font topFont() { return font(Face::monoRegular, t::topLineSize); }
-
-int widthOf(const juce::String& text)
-{
-    return juce::GlyphArrangement::getStringWidthInt(topFont(), text);
 }
 
 } // namespace
@@ -55,13 +51,21 @@ juce::String keyText(const md::Key& key)
     return root + " " + juce::String(std::string(md::modeName(key.mode)));
 }
 
-MenuText::MenuText(const juce::String& id) : juce::Button(id)
+ReadoutWindow::ReadoutWindow(const juce::String& id, bool interactive) : juce::Button(id)
 {
     setComponentID(id);
-    setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    if (interactive)
+    {
+        setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    }
+    else
+    {
+        setInterceptsMouseClicks(false, false);
+        setWantsKeyboardFocus(false);
+    }
 }
 
-void MenuText::setText(const juce::String& text)
+void ReadoutWindow::setText(const juce::String& text)
 {
     if (text != text_)
     {
@@ -71,85 +75,70 @@ void MenuText::setText(const juce::String& text)
     }
 }
 
-void MenuText::paintButton(juce::Graphics& g, bool highlighted, bool /*down*/)
+void ReadoutWindow::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down*/)
 {
-    g.setFont(topFont());
-    g.setColour(highlighted ? t::screenInk : t::screenQuiet);
-    g.drawText(text_, getLocalBounds(), juce::Justification::centredRight, false);
+    const auto bounds = getLocalBounds().toFloat();
+    paintCreamWindow(g, bounds, t::layout::readoutBorder, t::layout::readoutRadius,
+                     juce::Colour(0xFFFFBE5A).withAlpha(0.6F), t::layout::readoutGlow);
+    g.setFont(font(Face::monoBold, t::layout::readoutTextSize));
+    g.setColour(t::console::ink);
+    g.drawText(text_.toUpperCase(),
+               bounds.reduced(t::layout::readoutBorder + t::layout::readoutTextPad, 0.0F),
+               juce::Justification::centred, true);
+    if (hasKeyboardFocus(true))
+    {
+        drawFocusRing(g, bounds, t::layout::readoutRadius, t::console::ink);
+    }
 }
 
 TopLine::TopLine(MagicDustProcessor& processor)
-    : processor_(processor), key_("keyMenu"), style_("styleMenu")
+    : processor_(processor), spell_("spellReadout", false), style_("styleMenu", true),
+      key_("keyMenu", true), tempo_("tempoReadout", false)
 {
     setComponentID("topLine");
-    key_.onClick = [this] { openKeyMenu(); };
     style_.onClick = [this] { openStyleMenu(); };
-    addAndMakeVisible(key_);
-    addAndMakeVisible(style_);
+    key_.onClick = [this] { openKeyMenu(); };
+    const std::array<ReadoutWindow*, 4> windows{&spell_, &style_, &key_, &tempo_};
+    for (auto* window : windows)
+    {
+        addAndMakeVisible(*window);
+    }
 }
 
 void TopLine::refresh()
 {
     const auto* idea = processor_.idea();
-    const auto bpm = processor_.hostBpm();
-    spell_ = "spell " + (idea != nullptr ? juce::String(idea->seed) : juce::String(kUnknown));
-    tempo_ =
-        (bpm ? juce::String(static_cast<int>(std::lround(*bpm))) : juce::String(kUnknown)) + " bpm";
-    key_.setText(idea != nullptr ? keyText(idea->key) : juce::String(kUnknown));
+    spell_.setText(idea != nullptr ? juce::String(idea->seed).paddedLeft('0', kSpellDigits)
+                                   : juce::String(kUnknown));
     style_.setText(idea != nullptr ? styleText(idea->settings.style) : juce::String(kUnknown));
-    layoutRight();
-    repaint();
+    key_.setText(idea != nullptr ? keyText(idea->key) : juce::String(kUnknown));
+    tempo_.setText(juce::String(processor_.hostBpm().value_or(md::kDefaultTempo), 1));
 }
 
-void TopLine::layoutRight()
+void TopLine::resized()
 {
-    const auto gap = widthOf(" ");
-    const auto height = getHeight();
-    auto right = getWidth();
-
-    const auto styleWidth = widthOf(style_.getText());
-    style_.setBounds(right - styleWidth, 0, styleWidth, height);
-    right -= styleWidth + gap;
-
-    const auto tempoWidth = widthOf(tempo_);
-    tempoArea_ = juce::Rectangle<int>(right - tempoWidth, 0, tempoWidth, height);
-    right -= tempoWidth + gap;
-
-    const auto keyWidth = widthOf(key_.getText());
-    key_.setBounds(right - keyWidth, 0, keyWidth, height);
+    // The windows in header order: spell, style, key, tempo.
+    const std::array<ReadoutWindow*, 4> windows{&spell_, &style_, &key_, &tempo_};
+    for (std::size_t i = 0; i < windows.size(); ++i)
+    {
+        windows.at(i)->setBounds(t::layout::readoutX.at(i), t::layout::readoutY,
+                                 t::layout::readoutWidth.at(i), t::layout::readoutHeight);
+    }
 }
 
 void TopLine::paint(juce::Graphics& g)
 {
-    g.setFont(topFont());
-    g.setColour(t::gold);
-    g.drawText(spell_, getLocalBounds(), juce::Justification::centredLeft, false);
-
-    const auto unit = t::layout::chevronSize / t::layout::chevronGrid;
-    const auto origin =
-        juce::Point<float>(static_cast<float>(widthOf(spell_)) + t::layout::chevronGap,
-                           (static_cast<float>(getHeight()) - t::layout::chevronSize) / 2.0F);
-    juce::Path chevron;
-    for (std::size_t i = 0; i < t::layout::chevronPoints.size(); ++i)
+    const std::array<const char*, 4> legends{"SPELL", "STYLE", "KEY", "TEMPO"};
+    g.setFont(font(Face::groteskMedium, t::layout::legendSize)
+                  .withExtraKerningFactor(t::layout::legendSpacing));
+    g.setColour(t::console::legend);
+    for (std::size_t i = 0; i < legends.size(); ++i)
     {
-        const auto& point = t::layout::chevronPoints.at(i);
-        const auto at = origin + (juce::Point<float>(point.at(0), point.at(1)) * unit);
-        if (i == 0)
-        {
-            chevron.startNewSubPath(at);
-        }
-        else
-        {
-            chevron.lineTo(at);
-        }
+        g.drawText(legends.at(i),
+                   juce::Rectangle<int>(t::layout::readoutX.at(i), 0, t::layout::readoutWidth.at(i),
+                                        t::layout::legendHeight),
+                   juce::Justification::centred, false);
     }
-    g.strokePath(chevron,
-                 juce::PathStrokeType(t::layout::chevronStroke, juce::PathStrokeType::curved,
-                                      juce::PathStrokeType::rounded));
-
-    g.setFont(topFont());
-    g.setColour(t::screenQuiet);
-    g.drawText(tempo_, tempoArea_, juce::Justification::centredRight, false);
 }
 
 void TopLine::openKeyMenu()

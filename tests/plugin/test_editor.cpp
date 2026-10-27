@@ -17,16 +17,15 @@
 #include "md/theory.hpp"
 #include "plugin/PluginEditor.h"
 #include "plugin/PluginProcessor.h"
-#include "ui/AuraPad.h"
-#include "ui/ChordBubble.h"
+#include "ui/ChordCell.h"
 #include "ui/Drag.h"
 #include "ui/Fonts.h"
 #include "ui/KeyButton.h"
 #include "ui/Knob.h"
 #include "ui/LaneView.h"
+#include "ui/Readout.h"
 #include "ui/ScreenComponent.h"
 #include "ui/SenderEditor.h"
-#include "ui/StatusFields.h"
 #include "ui/TopLine.h"
 
 namespace
@@ -84,14 +83,18 @@ struct Fixture
         return *found;
     }
 
-    // The component's bounds in the editor's 1040 x 740 space.
+    // The component's bounds in the editor's 1040 x 600 space.
     Rect boundsOf(const char* id)
     {
         auto& c = find(id);
         return editor->getLocalArea(&c, c.getLocalBounds());
     }
 
-    void refresh() { find<md::ui::ScreenComponent>("screen").refresh(); }
+    void refresh()
+    {
+        find<md::ui::TopLine>("topLine").refresh();
+        find<md::ui::ScreenComponent>("screen").refresh();
+    }
 };
 
 juce::MouseEvent mouseAt(juce::Component& c, juce::Point<float> position, juce::Point<float> down,
@@ -127,34 +130,77 @@ float param(Fixture& f, const char* id)
 
 } // namespace
 
-TEST_CASE("the editor opens at 1040 x 740", "[editor]")
+TEST_CASE("the editor opens at 1040 x 600", "[editor]")
 {
     Fixture f;
     CHECK(f.editor->getWidth() == 1040);
-    CHECK(f.editor->getHeight() == 740);
+    CHECK(f.editor->getHeight() == 600);
 }
 
 TEST_CASE("every component sits where the layout table puts it", "[editor]")
 {
     Fixture f;
-    CHECK(f.boundsOf("screen") == Rect(245, 27, 546, 498));
-    CHECK(f.boundsOf("topLine") == Rect(272, 50, 492, 20));
-    const std::array<int, 4> bubbleX{278, 407, 537, 666};
-    for (std::size_t i = 0; i < 4; ++i)
+    CHECK(f.boundsOf("screen") == Rect(54, 86, 672, 306));
+    CHECK(f.boundsOf("spellReadout") == Rect(574, 38, 84, 26));
+    CHECK(f.boundsOf("styleMenu") == Rect(670, 38, 124, 26));
+    CHECK(f.boundsOf("keyMenu") == Rect(806, 38, 84, 26));
+    CHECK(f.boundsOf("tempoReadout") == Rect(902, 38, 84, 26));
+    for (int i = 0; i < 4; ++i)
     {
-        CHECK(f.boundsOf(("bubble" + std::to_string(i)).c_str()) ==
-              Rect(bubbleX.at(i), 82, 92, 92));
+        CHECK(f.boundsOf(("cell" + std::to_string(i)).c_str()) ==
+              Rect(166 + (i * 137), 98, 137, 48));
     }
-    const std::array<int, 3> laneY{198, 264, 330};
+    const std::array<int, 3> laneY{154, 222, 290};
     for (std::size_t i = 0; i < 3; ++i)
     {
-        CHECK(f.boundsOf(("lane" + std::to_string(i)).c_str()) == Rect(272, laneY.at(i), 492, 62));
+        CHECK(f.boundsOf(("lane" + std::to_string(i)).c_str()) == Rect(62, laneY.at(i), 656, 64));
         CHECK(f.boundsOf(("roll" + std::to_string(i)).c_str()) ==
-              Rect(344, laneY.at(i) + 3, 414, 56));
+              Rect(166, laneY.at(i) + 4, 548, 56));
     }
-    CHECK(f.boundsOf("auraPad") == Rect(272, 432, 70, 70));
-    CHECK(f.boundsOf("statusFields").getX() == 358);
-    CHECK(f.boundsOf("readout").getRight() == 764);
+    CHECK(f.boundsOf("bottomLine") == Rect(66, 360, 648, 20));
+}
+
+TEST_CASE("each knob's face sits where the layout table puts it", "[editor]")
+{
+    Fixture f;
+    const auto face = [&f](const char* id)
+    {
+        auto& knob = f.find<md::ui::Knob>(id);
+        return f.editor->getLocalArea(&knob, knob.faceBounds());
+    };
+    CHECK(face("moodKnob") == Rect(781, 116, 56, 56));
+    CHECK(face("energyKnob") == Rect(899, 116, 56, 56));
+    CHECK(face("grooveKnob") == Rect(781, 262, 56, 56));
+    CHECK(face("flavourKnob") == Rect(899, 262, 56, 56));
+}
+
+TEST_CASE("the knobs move the processor's parameters", "[editor]")
+{
+    Fixture f;
+    f.find<md::ui::Knob>("moodKnob").setValue(20.0, juce::sendNotificationSync);
+    f.find<md::ui::Knob>("grooveKnob").setValue(2.0, juce::sendNotificationSync);
+    CHECK(param(f, "mood") == Approx(20.0F));
+    CHECK(param(f, "groove") == 2.0F);
+    f.processor.params.getParameter("flavour")->setValueNotifyingHost(1.0F);
+    CHECK(f.find<md::ui::Knob>("flavourKnob").getValue() == Approx(2.0));
+}
+
+TEST_CASE("the header windows show the spell, style, key and tempo", "[editor]")
+{
+    Fixture f;
+    const auto& idea = f.idea(4);
+    f.refresh();
+    CHECK(f.find<md::ui::ReadoutWindow>("spellReadout").getText() == "0001");
+    CHECK(f.find<md::ui::ReadoutWindow>("tempoReadout").getText() == "124.0");
+    CHECK(f.find<md::ui::ReadoutWindow>("styleMenu").getText().isNotEmpty());
+    CHECK(f.find<md::ui::ReadoutWindow>("keyMenu").getText() == md::ui::keyText(idea.key));
+}
+
+TEST_CASE("clicking the key window opens its menu", "[editor]")
+{
+    Fixture f;
+    click(f.find("keyMenu"), {20.0F, 10.0F});
+    CHECK(juce::PopupMenu::dismissAllActiveMenus());
 }
 
 TEST_CASE("the top line spells the key as min, maj or the mode name", "[editor]")
@@ -166,27 +212,27 @@ TEST_CASE("the top line spells the key as min, maj or the mode name", "[editor]"
     CHECK(md::ui::keyText({.root = 0, .mode = md::Mode::mixolydian}) == "c mixolydian");
 }
 
-TEST_CASE("the key button shows the idea's key", "[editor]")
+TEST_CASE("the key window shows the idea's key", "[editor]")
 {
     Fixture f;
     const auto& idea = f.idea(4);
     f.refresh();
-    CHECK(f.find<md::ui::MenuText>("keyMenu").getText() == md::ui::keyText(idea.key));
-    CHECK(f.find<md::ui::MenuText>("keyMenu").getText() == "a min");
+    CHECK(f.find<md::ui::ReadoutWindow>("keyMenu").getText() == md::ui::keyText(idea.key));
+    CHECK(f.find<md::ui::ReadoutWindow>("keyMenu").getText() == "a min");
 }
 
-TEST_CASE("an idea with three placed chords shows three bubbles", "[editor]")
+TEST_CASE("an idea with three placed chords shows three cells", "[editor]")
 {
     Fixture f(kThreeChordSeed);
     f.idea(3);
     f.refresh();
-    CHECK(f.find("bubble0").isVisible());
-    CHECK(f.find("bubble1").isVisible());
-    CHECK(f.find("bubble2").isVisible());
-    CHECK_FALSE(f.find("bubble3").isVisible());
+    CHECK(f.find("cell0").isVisible());
+    CHECK(f.find("cell1").isVisible());
+    CHECK(f.find("cell2").isVisible());
+    CHECK_FALSE(f.find("cell3").isVisible());
 }
 
-TEST_CASE("a bubble's accessible title names the chord and its feel", "[editor]")
+TEST_CASE("a chord cell's accessible title names the chord and its feel", "[editor]")
 {
     Fixture f;
     const auto& idea = f.idea(4);
@@ -196,10 +242,10 @@ TEST_CASE("a bubble's accessible title names the chord and its feel", "[editor]"
         const auto& chord = idea.progression.at(i);
         const auto expected = "chord " + std::to_string(i + 1) + ", " +
                               md::chordName(idea.key, chord.symbol) + ", " + chord.feel;
-        CHECK(f.find(("bubble" + std::to_string(i)).c_str()).getTitle().toStdString() == expected);
+        CHECK(f.find(("cell" + std::to_string(i)).c_str()).getTitle().toStdString() == expected);
     }
-    CHECK(f.find("bubble0").getTitle().startsWith("chord 1, "));
-    CHECK(f.find("bubble0").getTitle().endsWith(", home"));
+    CHECK(f.find("cell0").getTitle().startsWith("chord 1, "));
+    CHECK(f.find("cell0").getTitle().endsWith(", home"));
 }
 
 TEST_CASE("a lane maps a note's ticks across the roll", "[editor]")
@@ -207,7 +253,7 @@ TEST_CASE("a lane maps a note's ticks across the roll", "[editor]")
     juce::ScopedJuceInitialiser_GUI gui;
     MagicDustProcessor processor{md::loadBundledBank(), kRandomSeed};
     md::ui::LaneView lane(md::LaneId::chords, processor.params);
-    lane.setBounds(272, 198, 492, 62);
+    lane.setBounds(62, 154, 656, 64);
     md::Lane data{.id = md::LaneId::chords,
                   .pattern = "organ stabs",
                   .events = {{.pitch = 60, .start = 0, .length = 3840, .velocity = 90}}};
@@ -215,8 +261,8 @@ TEST_CASE("a lane maps a note's ticks across the roll", "[editor]")
 
     const auto rects = lane.roll().noteRects();
     REQUIRE(rects.size() == 1);
-    CHECK(lane.getX() + lane.roll().getX() + rects.at(0).getX() == 344.0F);
-    CHECK(rects.at(0).getWidth() == 414.0F / 8.0F);
+    CHECK(lane.getX() + lane.roll().getX() + rects.at(0).getX() == 166.0F);
+    CHECK(rects.at(0).getWidth() == 548.0F / 8.0F);
 }
 
 TEST_CASE("the real notes map the same way and stay inside the roll", "[editor]")
@@ -234,7 +280,7 @@ TEST_CASE("the real notes map the same way and stay inside the roll", "[editor]"
             const auto& e = idea.lanes.at(i).events.at(n);
             const auto ticks = static_cast<float>(idea.settings.bars * md::kTicksPerBar);
             CHECK(rects.at(n).getX() ==
-                  Approx(static_cast<float>(e.start) / ticks * 414.0F).margin(kTolerance));
+                  Approx(static_cast<float>(e.start) / ticks * 548.0F).margin(kTolerance));
             CHECK(rects.at(n).getY() >= -kTolerance);
             CHECK(rects.at(n).getBottom() <= 56.0F + kTolerance);
             CHECK(rects.at(n).getHeight() > 5.0F);
@@ -242,75 +288,12 @@ TEST_CASE("the real notes map the same way and stay inside the roll", "[editor]"
     }
 }
 
-TEST_CASE("clicking the flavour field cycles simple, soulful, jazzy, simple", "[editor]")
-{
-    Fixture f;
-    f.processor.params.getParameter("flavour")->setValueNotifyingHost(0.0F);
-    auto& field = f.find("flavour");
-    const std::array<float, 3> expected{1.0F, 2.0F, 0.0F};
-    for (const float flavour : expected)
-    {
-        click(field, {10.0F, 9.0F});
-        CHECK(param(f, "flavour") == flavour);
-    }
-}
-
-TEST_CASE("the groove field steps with the scroll wheel and wraps", "[editor]")
-{
-    Fixture f;
-    auto& field = f.find("groove");
-    juce::MouseWheelDetails wheel{};
-    wheel.deltaY = -1.0F;
-    field.mouseWheelMove(mouseAt(field, {10.0F, 9.0F}, {10.0F, 9.0F}, false), wheel);
-    CHECK(param(f, "groove") == 1.0F);
-    wheel.deltaY = 1.0F;
-    field.mouseWheelMove(mouseAt(field, {10.0F, 9.0F}, {10.0F, 9.0F}, false), wheel);
-    field.mouseWheelMove(mouseAt(field, {10.0F, 9.0F}, {10.0F, 9.0F}, false), wheel);
-    CHECK(param(f, "groove") == 3.0F);
-}
-
-TEST_CASE("dragging on the aura pad sets mood and energy within the 8% inset", "[editor]")
-{
-    Fixture f;
-    auto& pad = f.find<md::ui::AuraPad>("auraPad");
-    const juce::Point<float> centre{35.0F, 35.0F};
-    pad.mouseDown(mouseAt(pad, centre, centre, false));
-    CHECK(param(f, "mood") == 50.0F);
-    CHECK(param(f, "energy") == 50.0F);
-    pad.mouseDrag(mouseAt(pad, {70.0F, 0.0F}, centre, true));
-    pad.mouseUp(mouseAt(pad, {70.0F, 0.0F}, centre, true));
-    CHECK(param(f, "mood") == 100.0F);
-    CHECK(param(f, "energy") == 100.0F);
-
-    pad.mouseDown(mouseAt(pad, {0.0F, 70.0F}, {0.0F, 70.0F}, false));
-    pad.mouseUp(mouseAt(pad, {0.0F, 70.0F}, {0.0F, 70.0F}, false));
-    CHECK(param(f, "mood") == 0.0F);
-    CHECK(param(f, "energy") == 0.0F);
-}
-
-TEST_CASE("the aura field names the quadrant at mood and energy 50", "[editor]")
-{
-    Fixture f;
-    auto& fields = f.find<md::ui::StatusFields>("statusFields");
-    const auto set = [&f, &fields](float mood, float energy)
-    {
-        f.processor.params.getParameter("mood")->setValueNotifyingHost(mood / 100.0F);
-        f.processor.params.getParameter("energy")->setValueNotifyingHost(energy / 100.0F);
-        fields.refresh();
-        return fields.getTitle().toStdString();
-    };
-    CHECK(set(49, 50) == "aura, midnight rave");
-    CHECK(set(50, 50) == "aura, starburst");
-    CHECK(set(49, 49) == "aura, moonlight");
-    CHECK(set(50, 49) == "aura, daydream");
-}
-
 TEST_CASE("the keys sit where the layout table puts them", "[editor]")
 {
     Fixture f;
-    CHECK(f.boundsOf("playKey") == Rect{27, 575, 82, 82});
-    CHECK(f.boundsOf("stopKey") == Rect{121, 575, 82, 82});
-    CHECK(f.boundsOf("sprinkleKey") == Rect{227, 575, 176, 82});
+    CHECK(f.boundsOf("playKey") == Rect{450, 464, 36, 24});
+    CHECK(f.boundsOf("stopKey") == Rect{498, 464, 36, 24});
+    CHECK(f.boundsOf("sprinkleKey") == Rect{818, 454, 84, 44});
 }
 
 TEST_CASE("clicking play then stop toggles the preview", "[editor]")
@@ -320,15 +303,15 @@ TEST_CASE("clicking play then stop toggles the preview", "[editor]")
     juce::AudioBuffer<float> buffer(2, 512);
     juce::MidiBuffer midi;
 
-    click(f.find("playKey"), {40.0F, 40.0F});
+    click(f.find("playKey"), {18.0F, 12.0F});
     f.processor.processBlock(buffer, midi);
     CHECK(f.processor.previewPlaying());
-    click(f.find("stopKey"), {40.0F, 40.0F});
+    click(f.find("stopKey"), {18.0F, 12.0F});
     f.processor.processBlock(buffer, midi);
     CHECK_FALSE(f.processor.previewPlaying());
 }
 
-TEST_CASE("clicking sprinkle writes a new idea and the bubbles follow", "[editor]")
+TEST_CASE("clicking sprinkle writes a new idea and the cells follow", "[editor]")
 {
     Fixture f;
     const auto before = f.idea(4).seed;
@@ -337,17 +320,17 @@ TEST_CASE("clicking sprinkle writes a new idea and the bubbles follow", "[editor
         juce::StringArray all;
         for (int i = 0; i < 4; ++i)
         {
-            all.add(f.find(("bubble" + std::to_string(i)).c_str()).getTitle());
+            all.add(f.find(("cell" + std::to_string(i)).c_str()).getTitle());
         }
         return all.joinIntoString("|");
     };
-    const auto bubblesBefore = titles();
+    const auto cellsBefore = titles();
 
-    click(f.find("sprinkleKey"), {40.0F, 40.0F});
+    click(f.find("sprinkleKey"), {40.0F, 20.0F});
 
     REQUIRE(f.processor.idea() != nullptr);
     CHECK(f.processor.idea()->seed != before);
-    CHECK(titles() != bubblesBefore);
+    CHECK(titles() != cellsBefore);
 }
 
 TEST_CASE("a pressed key moves down and jumps when animation is off", "[editor]")
@@ -355,7 +338,7 @@ TEST_CASE("a pressed key moves down and jumps when animation is off", "[editor]"
     Fixture f;
     auto& key = f.find<md::ui::KeyButton>("playKey");
     key.setAnimated(false);
-    const auto at = juce::Point<float>(40.0F, 40.0F);
+    const auto at = juce::Point<float>(18.0F, 12.0F);
     CHECK(key.pressedAmount() == Approx(0.0F));
     juce::Component& component = key;
     component.mouseDown(mouseAt(component, at, at, false));
@@ -364,12 +347,12 @@ TEST_CASE("a pressed key moves down and jumps when animation is off", "[editor]"
     CHECK(key.pressedAmount() == Approx(0.0F));
 }
 
-TEST_CASE("clicking a bubble selects its chord and a lane click selects the lane", "[editor]")
+TEST_CASE("clicking a cell selects its chord and a lane click selects the lane", "[editor]")
 {
     Fixture f;
     f.idea(4);
     auto& screen = f.find<md::ui::ScreenComponent>("screen");
-    click(f.find("bubble2"), {40.0F, 40.0F});
+    click(f.find("cell2"), {40.0F, 40.0F});
     CHECK(screen.selection().kind == md::ui::Selection::Kind::chord);
     CHECK(screen.selection().index == 2);
     click(f.find("lane1"), {20.0F, 20.0F});
@@ -382,11 +365,11 @@ TEST_CASE("moving 4 px is a click and moving 5 px is a drag", "[editor]")
     Fixture f;
     f.idea(4);
     auto& screen = f.find<md::ui::ScreenComponent>("screen");
-    int bubbleDrags = 0;
+    int cellDrags = 0;
     int laneDrags = 0;
-    auto& bubble = f.find<md::ui::ChordBubble>("bubble1");
+    auto& cell = f.find<md::ui::ChordCell>("cell1");
     auto& lane = f.find<md::ui::LaneView>("lane2");
-    bubble.setOnDrag([&] { ++bubbleDrags; });
+    cell.setOnDrag([&] { ++cellDrags; });
     lane.setOnDrag([&] { ++laneDrags; });
 
     const auto down = juce::Point<float>(40.0F, 40.0F);
@@ -397,21 +380,21 @@ TEST_CASE("moving 4 px is a click and moving 5 px is a drag", "[editor]")
         c.mouseDrag(mouseAt(c, to, down, true));
         c.mouseUp(mouseAt(c, to, down, true));
     };
-    drag(bubble, 4.0F);
+    drag(cell, 4.0F);
     drag(lane, 4.0F);
-    CHECK(bubbleDrags == 0);
+    CHECK(cellDrags == 0);
     CHECK(laneDrags == 0);
     CHECK(screen.selection().kind == md::ui::Selection::Kind::lane);
 
     screen.setSelection({});
-    drag(bubble, 5.0F);
+    drag(cell, 5.0F);
     drag(lane, 5.0F);
-    CHECK(bubbleDrags == 1);
+    CHECK(cellDrags == 1);
     CHECK(laneDrags == 1);
     CHECK(screen.selection().kind == md::ui::Selection::Kind::none);
 }
 
-TEST_CASE("tab visits top line, bubbles, lanes, aura pad, fields, then keys", "[editor]")
+TEST_CASE("tab visits the header, cells, lanes, knobs, then keys", "[editor]")
 {
     Fixture f;
     f.idea(4);
@@ -424,13 +407,13 @@ TEST_CASE("tab visits top line, bubbles, lanes, aura pad, fields, then keys", "[
         current = traverser.getNextComponent(current);
     }
     const std::vector<std::string> expected{
-        "keyMenu", "styleMenu", "bubble0", "bubble1", "bubble2", "bubble3",
-        "lane0",   "level0",    "lane1",   "level1",  "lane2",   "level2",
-        "auraPad", "groove",    "flavour", "playKey", "stopKey", "sprinkleKey"};
+        "styleMenu",  "keyMenu",     "cell0",   "cell1",   "cell2",      "cell3",    "lane0",
+        "level0",     "lane1",       "level1",  "lane2",   "level2",     "moodKnob", "energyKnob",
+        "grooveKnob", "flavourKnob", "playKey", "stopKey", "sprinkleKey"};
     CHECK(order == expected);
 }
 
-TEST_CASE("space and enter each activate a key, bubble, lane and field row once", "[editor]")
+TEST_CASE("space and enter each activate a key, cell and lane once", "[editor]")
 {
     Fixture f;
     f.idea(4);
@@ -449,10 +432,10 @@ TEST_CASE("space and enter each activate a key, bubble, lane and field row once"
     CHECK(fires(key, space, count) == 1);
     CHECK(fires(key, enter, count) == 1);
 
-    auto& bubble = f.find<md::ui::ChordBubble>("bubble0");
-    bubble.onClick = [&] { ++count; };
-    CHECK(fires(bubble, space, count) == 1);
-    CHECK(fires(bubble, enter, count) == 1);
+    auto& cell = f.find<md::ui::ChordCell>("cell0");
+    cell.onClick = [&] { ++count; };
+    CHECK(fires(cell, space, count) == 1);
+    CHECK(fires(cell, enter, count) == 1);
 
     auto& screen = f.find<md::ui::ScreenComponent>("screen");
     auto& lane = f.find<md::ui::LaneView>("lane1");
@@ -462,14 +445,6 @@ TEST_CASE("space and enter each activate a key, bubble, lane and field row once"
         REQUIRE(lane.keyPressed(pressed));
         CHECK(screen.selection().kind == md::ui::Selection::Kind::lane);
         CHECK(screen.selection().index == 1);
-    }
-
-    auto& field = f.find("flavour");
-    for (const auto& pressed : {space, enter})
-    {
-        const auto before = param(f, "flavour");
-        REQUIRE(field.keyPressed(pressed));
-        CHECK(param(f, "flavour") != before);
     }
 }
 
@@ -482,9 +457,9 @@ TEST_CASE("a drag is never also a click, and a lost mouse-up does not break the 
     const auto statuses = std::make_shared<std::vector<std::optional<std::string>>>();
     screen.setOnStatus([statuses](const std::optional<std::string>& s) { statuses->push_back(s); });
     int drags = 0;
-    auto& bubble = f.find<md::ui::ChordBubble>("bubble1");
-    bubble.setOnDrag([&] { ++drags; });
-    juce::Component& component = bubble;
+    auto& cell = f.find<md::ui::ChordCell>("cell1");
+    cell.setOnDrag([&] { ++drags; });
+    juce::Component& component = cell;
 
     const auto down = juce::Point<float>(40.0F, 40.0F);
     const auto far = down.translated(10.0F, 0.0F);
@@ -530,7 +505,7 @@ TEST_CASE("a failed drag shows the write error and the next successful action cl
     REQUIRE(statuses->size() == 1);
     CHECK(statuses->back() == "couldn't write the midi file");
 
-    click(f.find("bubble0"), {40.0F, 40.0F});
+    click(f.find("cell0"), {40.0F, 40.0F});
     REQUIRE(statuses->size() == 2);
     CHECK_FALSE(statuses->back().has_value());
     folder.deleteRecursively();
@@ -541,16 +516,19 @@ TEST_CASE("every control has an accessible title", "[editor]")
     Fixture f;
     f.idea(4);
     f.refresh();
-    CHECK(f.find("bubble0").getTitle().startsWith("chord 1, "));
+    CHECK(f.find("cell0").getTitle().startsWith("chord 1, "));
     CHECK(f.find("lane0").getTitle().startsWith("chords lane, "));
     CHECK(f.find("lane1").getTitle().startsWith("bass lane, "));
     CHECK(f.find("lane2").getTitle().startsWith("melody lane, "));
     CHECK(f.find("level0").getTitle() == "chords level");
     CHECK(f.find("level1").getTitle() == "bass level");
     CHECK(f.find("level2").getTitle() == "melody level");
-    CHECK(f.find("auraPad").getTitle().startsWith("aura pad, mood "));
-    CHECK(f.find("groove").getTitle().startsWith("groove, "));
-    CHECK(f.find("flavour").getTitle().startsWith("flavour, "));
+    CHECK(f.find("moodKnob").getTitle() == "mood");
+    CHECK(f.find("energyKnob").getTitle() == "energy");
+    CHECK(f.find("grooveKnob").getTitle() == "groove");
+    CHECK(f.find("flavourKnob").getTitle() == "flavour");
+    CHECK(f.find("spellReadout").getTitle().startsWith("spellReadout, "));
+    CHECK(f.find("tempoReadout").getTitle() == "tempoReadout, 124.0");
     CHECK(f.find("playKey").getTitle() == "play the preview");
     CHECK(f.find("stopKey").getTitle() == "stop the preview");
     CHECK(f.find("sprinkleKey").getTitle() == "sprinkle a new idea");
@@ -576,17 +554,18 @@ TEST_CASE("each lane has a level slider attached to its parameter", "[editor]")
     }
 }
 
-TEST_CASE("a level slider sits under the label, ends before the roll and does not select the lane",
+TEST_CASE("a level slider sits under the label, inside its column, and does not select the lane",
           "[editor]")
 {
     Fixture f;
     f.idea(4);
     namespace lay = md::tokens::layout;
-    auto& lane = f.find("lane1");
+    auto& lane = f.find<md::ui::LaneView>("lane1");
     auto& slider = f.find("level1");
-    CHECK(slider.getBounds() == Rect(lay::laneLabelPad, lay::laneHeight - 12 - 6,
-                                     lay::rollX - lay::laneX - lay::laneLabelPad - 6, 12));
     CHECK(slider.getParentComponent() == &lane);
+    CHECK(slider.getRight() <= lane.labelBounds().getRight());
+    CHECK(slider.getRight() < lay::rollX - lay::laneX);
+    CHECK(slider.getY() >= lane.labelBounds().getBottom());
 
     // A press on the slider goes to the slider, never to the lane.
     auto& screen = f.find<md::ui::ScreenComponent>("screen");
@@ -594,6 +573,91 @@ TEST_CASE("a level slider sits under the label, ends before the roll and does no
     auto* const hit = lane.getComponentAt(lane.getLocalPoint(&slider, centre.toInt()));
     CHECK(hit == &slider);
     CHECK(screen.selection().kind == md::ui::Selection::Kind::none);
+}
+
+TEST_CASE("the bottom line shows an error, then the readout", "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    const auto folder = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                            .getChildFile("md-editor-" + juce::Uuid().toString());
+    REQUIRE(folder.create().wasOk());
+    auto& screen = f.find<md::ui::ScreenComponent>("screen");
+    screen.setDragFolder(folder.getChildFile("drag"));
+    auto& bottom = f.find<md::ui::Readout>("bottomLine");
+
+    auto& lane = f.find<md::ui::LaneView>("lane0");
+    juce::Component& component = lane;
+    const auto down = juce::Point<float>(40.0F, 20.0F);
+    component.mouseDown(mouseAt(component, down, down, false));
+    component.mouseDrag(mouseAt(component, down.translated(10.0F, 0.0F), down, true));
+    component.mouseUp(mouseAt(component, down, down, true));
+    f.refresh();
+    CHECK(bottom.getText() == "couldn't write the midi file");
+
+    click(f.find("cell0"), {40.0F, 40.0F});
+    f.refresh();
+    CHECK(bottom.getText().startsWith("STOPPED"));
+    folder.deleteRecursively();
+}
+
+TEST_CASE("the bottom line reads bar, selection and pins in capitals", "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    f.refresh();
+    CHECK(f.find<md::ui::Readout>("bottomLine").getText() ==
+          "STOPPED - SELECTED: NOTHING - NOTHING PINNED");
+    click(f.find("cell1"), {40.0F, 40.0F});
+    CHECK(f.find<md::ui::Readout>("bottomLine").getText() ==
+          "STOPPED - SELECTED: CHORD 2 - NOTHING PINNED");
+}
+
+TEST_CASE("a long pattern name ellipsizes inside the label column", "[editor]")
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    MagicDustProcessor processor{md::loadBundledBank(), kRandomSeed};
+    md::ui::LaneView lane(md::LaneId::chords, processor.params);
+    lane.setBounds(0, 0, 656, 64);
+    md::Lane data{.id = md::LaneId::chords, .pattern = std::string(60, 'w'), .events = {}};
+    lane.set(data, 8, std::nullopt, false);
+    CHECK(lane.labelBounds().getWidth() <= 96);
+
+    // Nothing is drawn between the label column and the roll.
+    lane.roll().setVisible(false);
+    const auto image = lane.createComponentSnapshot(lane.getLocalBounds(), true, 1.0F);
+    for (int x = 100; x < 104; ++x)
+    {
+        for (int y = 0; y < image.getHeight(); ++y)
+        {
+            REQUIRE(image.getPixelAt(x, y).getAlpha() == 0);
+        }
+    }
+}
+
+TEST_CASE("at 0.8x every child stays inside the editor", "[editor]")
+{
+    Fixture f;
+    f.idea(4);
+    f.refresh();
+    f.editor->setSize(832, 480);
+    const auto outside = [&f](auto&& self, juce::Component& parent) -> bool
+    {
+        for (auto* child : parent.getChildren())
+        {
+            const auto bounds = f.editor->getLocalArea(child, child->getLocalBounds());
+            if (child->isVisible() && !f.editor->getLocalBounds().contains(bounds))
+            {
+                return true;
+            }
+            if (self(self, *child))
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+    CHECK_FALSE(outside(outside, *f.editor));
 }
 
 TEST_CASE("opening and closing the editor leaks nothing", "[editor]")
@@ -688,7 +752,7 @@ TEST_CASE("full magic dust turns the instance main and the editor becomes the ma
     CHECK(f.processor.mode() == InstanceMode::main);
     dynamic_cast<MagicDustEditor&>(*f.editor).sync();
     CHECK(f.editor->getWidth() == 1040);
-    CHECK(f.editor->getHeight() == 740);
+    CHECK(f.editor->getHeight() == 600);
     CHECK(Fixture::search(*f.editor, "playKey") != nullptr);
     CHECK(Fixture::search(*f.editor, "senderMainKey") == nullptr);
 }
@@ -725,7 +789,7 @@ TEST_CASE("the editor swaps views, size and limits as the mode changes", "[edito
     }();
     std::unique_ptr<juce::AudioProcessorEditor> editor{main.createEditor()};
     auto& mine = dynamic_cast<MagicDustEditor&>(*editor);
-    checkWindow(*editor, 1040, 740);
+    checkWindow(*editor, 1040, 600);
 
     main.setStateInformation(senderState.getData(), static_cast<int>(senderState.getSize()));
     REQUIRE(main.mode() == InstanceMode::sender);
@@ -735,7 +799,7 @@ TEST_CASE("the editor swaps views, size and limits as the mode changes", "[edito
 
     main.becomeMain();
     mine.sync();
-    checkWindow(*editor, 1040, 740);
+    checkWindow(*editor, 1040, 600);
     CHECK(Fixture::search(*editor, "playKey") != nullptr);
 }
 
@@ -777,7 +841,7 @@ TEST_CASE("render the editor", "[.render]")
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
     const auto write = [&](const char* name, int width, float scale)
     {
-        f.editor->setSize(width, width * 740 / 1040);
+        f.editor->setSize(width, width * 600 / 1040);
         const auto image =
             f.editor->createComponentSnapshot(f.editor->getLocalBounds(), true, scale);
         juce::FileOutputStream stream(out.getChildFile(name));

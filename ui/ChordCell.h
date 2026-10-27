@@ -10,10 +10,10 @@
 namespace md::ui
 {
 
-class ChordBubble : public juce::Button
+class ChordCell : public juce::Button
 {
   public:
-    explicit ChordBubble(int slot);
+    explicit ChordCell(int slot);
 
     void set(const juce::String& name, const juce::String& feel, bool playing, bool selected);
     void paintButton(juce::Graphics& g, bool highlighted, bool down) override;
@@ -34,7 +34,7 @@ class ChordBubble : public juce::Button
     bool dragging_ = false;
     std::function<void()> onDrag_;
 
-    MD_COMPONENT_BOILERPLATE(ChordBubble)
+    MD_COMPONENT_BOILERPLATE(ChordCell)
 };
 
 } // namespace md::ui

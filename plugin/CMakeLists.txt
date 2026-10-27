@@ -51,8 +51,8 @@ juce_add_binary_data(MdFonts
 
 add_library(md_plugin_core STATIC PluginProcessor.cpp PluginEditor.cpp Playback.cpp
   AuditionSynth.cpp Link.cpp DragFiles.cpp
-  ${CMAKE_SOURCE_DIR}/ui/Fonts.cpp ${CMAKE_SOURCE_DIR}/ui/ChordBubble.cpp ${CMAKE_SOURCE_DIR}/ui/LaneView.cpp ${CMAKE_SOURCE_DIR}/ui/AuraPad.cpp
-  ${CMAKE_SOURCE_DIR}/ui/StatusFields.cpp ${CMAKE_SOURCE_DIR}/ui/Readout.cpp ${CMAKE_SOURCE_DIR}/ui/TopLine.cpp ${CMAKE_SOURCE_DIR}/ui/ScreenComponent.cpp
+  ${CMAKE_SOURCE_DIR}/ui/Fonts.cpp ${CMAKE_SOURCE_DIR}/ui/ChordCell.cpp ${CMAKE_SOURCE_DIR}/ui/LaneView.cpp
+  ${CMAKE_SOURCE_DIR}/ui/Faceplate.cpp ${CMAKE_SOURCE_DIR}/ui/Readout.cpp ${CMAKE_SOURCE_DIR}/ui/TopLine.cpp ${CMAKE_SOURCE_DIR}/ui/ScreenComponent.cpp
   ${CMAKE_SOURCE_DIR}/ui/KeyButton.cpp ${CMAKE_SOURCE_DIR}/ui/SprinkleKey.cpp
   ${CMAKE_SOURCE_DIR}/ui/BodyMaterial.cpp ${CMAKE_SOURCE_DIR}/ui/SenderEditor.cpp
   ${CMAKE_SOURCE_DIR}/ui/Knob.cpp)

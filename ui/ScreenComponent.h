@@ -12,12 +12,9 @@
 
 #include "md/types.hpp"
 #include "plugin/DragFiles.h"
-#include "ui/AuraPad.h"
-#include "ui/ChordBubble.h"
+#include "ui/ChordCell.h"
 #include "ui/LaneView.h"
 #include "ui/Readout.h"
-#include "ui/StatusFields.h"
-#include "ui/TopLine.h"
 
 class MagicDustProcessor;
 
@@ -38,7 +35,7 @@ struct Selection
     int index = 0;
 };
 
-// Paints the bezel and screen, and owns the top line, bubbles, lanes, aura pad, fields and readout.
+// The display: paints the bezel and cream window, and owns the chord cells, lanes and bottom line.
 class ScreenComponent : public juce::Component
 {
   public:
@@ -51,11 +48,14 @@ class ScreenComponent : public juce::Component
     void paint(juce::Graphics& g) override;
     void resized() override;
 
-    // Told the status line text a click or drag produced: an error, or nothing once it succeeds.
+    // Told the text a click or drag produced: an error, or nothing once it succeeds.
     void setOnStatus(std::function<void(std::optional<std::string>)> callback)
     {
         onStatus_ = std::move(callback);
     }
+
+    // Shows an error on the bottom line in place of the readout, or the readout again for none.
+    void setError(std::optional<std::string> error) { bottomLine_.setError(std::move(error)); }
 
     // Where dragged MIDI files are written; tests point it elsewhere.
     void setDragFolder(juce::File folder) { dragFolder_ = std::move(folder); }
@@ -65,12 +65,9 @@ class ScreenComponent : public juce::Component
     void report(std::optional<std::string> status);
 
     MagicDustProcessor& processor_;
-    TopLine topLine_;
-    std::array<ChordBubble, 4> bubbles_;
+    std::array<ChordCell, 4> cells_;
     std::array<LaneView, 3> lanes_;
-    AuraPad auraPad_;
-    StatusFields fields_;
-    Readout readout_;
+    Readout bottomLine_;
     Selection selection_;
     std::function<void(std::optional<std::string>)> onStatus_;
     juce::File dragFolder_ = md::defaultDragFolder();

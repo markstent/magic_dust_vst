@@ -89,14 +89,7 @@ inline constexpr float screenRadius = 20.0F;
 inline constexpr float bezelWidth = 7.0F;
 
 // Type sizes in px.
-inline constexpr float topLineSize = 13.0F;
-inline constexpr float bubbleNameSize = 19.0F;
-inline constexpr float bubbleNameLongSize = 16.0F;
-inline constexpr int bubbleNameLongOver = 5;
-inline constexpr float bubbleFeelSize = 10.0F;
-inline constexpr float laneLabelSize = 11.0F;
-inline constexpr float fieldSize = 13.0F;
-inline constexpr float readoutSize = 12.0F;
+inline constexpr float topLineSize = 13.0F; // popup menu text
 inline constexpr float statusLineSize = 11.0F;
 inline constexpr float keyLabelSize = 10.0F;
 inline constexpr float sprinkleTitleSize = 22.0F;
@@ -114,53 +107,99 @@ inline constexpr int dragThreshold = 4;
 namespace layout
 {
 inline constexpr int windowWidth = 1040;
-inline constexpr int windowHeight = 740;
+inline constexpr int windowHeight = 600;
 inline constexpr float minScale = 0.8F;
 inline constexpr float maxScale = 1.5F;
 
-inline const juce::Rectangle<int> screenOuter{245, 27, 546, 498};
-inline const juce::Rectangle<int> topLine{272, 50, 492, 20};
-inline const juce::Rectangle<int> statusLine{27, 547, 986, 16};
+// The faceplate.
+inline constexpr int cheekWidth = 26;
+inline constexpr std::array<int, 3> walnutStripes{3, 4, 2};
+inline constexpr float cheekShadowWidth = 3.0F;
+inline constexpr float screwSize = 13.0F;
+inline constexpr float screwInset = 8.0F; // from the face's edge
+inline constexpr float screwSlotWidth = 2.0F;
+inline constexpr float screwSlotAngle = 35.0F; // degrees
+inline constexpr int wordmarkX = 54;
+inline constexpr int headerCentreY = 44;
+inline constexpr float wordmarkFaceSize = 30.0F;
+inline constexpr float wordmarkFaceSpacing = 0.18F; // em
+inline constexpr float taglineSize = 11.0F;
+inline constexpr float taglineSpacing = 0.22F; // em
+inline constexpr int taglineGap = 18;
 
-inline constexpr int bubbleSize = 92;
-inline constexpr int bubbleY = 82;
-inline constexpr std::array<int, 4> bubbleX{278, 407, 537, 666};
-inline constexpr float bubbleRing = 2.0F;
-inline constexpr float playingGap = 4.0F; // the gap between the bubble and its gold ring
-inline constexpr float focusRingOffset = 3.0F;
-// The most the ring, focus ring or selected dot reach outside the bubble.
-inline constexpr int bubbleOverflow = 12;
-inline constexpr float selectedDotSize = 6.0F;
-inline constexpr float selectedDotGap = 6.0F;
-inline constexpr float bubbleLineGap = 2.0F;
+// The header readouts: the group's box, then each window and its legend within it.
+inline const juce::Rectangle<int> header{574, 24, 412, 40};
+inline constexpr int legendHeight = 12;
+inline constexpr int readoutY = 14; // from the top of the header box
+inline constexpr int readoutHeight = 26;
+inline constexpr std::array<int, 4> readoutX{0, 96, 232, 328};
+inline constexpr std::array<int, 4> readoutWidth{84, 124, 84, 84};
+inline constexpr float readoutBorder = 2.0F;
+inline constexpr float readoutRadius = 2.0F;
+inline constexpr float readoutTextSize = 15.0F;
+inline constexpr float readoutTextPad = 2.0F;
+inline constexpr float readoutGlow = 8.0F;
+inline constexpr float legendSize = 9.5F;
+inline constexpr float legendSpacing = 0.2F; // em
 
-inline constexpr int laneX = 272;
-inline constexpr int laneWidth = 492;
-inline constexpr int laneHeight = 62;
-inline constexpr std::array<int, 3> laneY{198, 264, 330};
-inline constexpr float laneRadius = 8.0F;
-inline constexpr int laneLabelPad = 6;
+// The display: the bezel box, and everything inside it in window space.
+inline const juce::Rectangle<int> display{54, 86, 672, 306};
+inline constexpr float displayBorder = 3.0F;
+inline constexpr float displayRadius = 5.0F;
+inline constexpr float displayGlow = 16.0F;
+
+inline constexpr int cellX = 166;
+inline constexpr int cellPitch = 137;
+inline constexpr int cellY = 98;
+inline constexpr int cellHeight = 48;
+inline constexpr float cellInset = 4.0F;
+inline constexpr float cellRadius = 3.0F;
+inline constexpr float cellOutline = 1.5F;
+inline constexpr float cellNameSize = 14.0F;
+inline constexpr float cellFeelSize = 10.0F;
+inline constexpr float cellFeelAlpha = 0.6F;
+inline constexpr float cellBarWidth = 40.0F;
+inline constexpr float cellBarHeight = 3.0F;
+
+inline constexpr int laneX = 62;
+inline constexpr int laneWidth = 656;
+inline constexpr int laneHeight = 64;
+inline constexpr std::array<int, 3> laneY{154, 222, 290};
+inline constexpr float laneRadius = 3.0F;
+inline constexpr float laneSelectedAlpha = 0.08F;
+inline constexpr int laneLabelPad = 4;
+inline constexpr int laneLabelWidth = 96;
+inline constexpr float laneNameSize = 10.0F;
+inline constexpr float laneNameSpacing = 0.14F; // em
+inline constexpr float lanePatternSize = 10.0F;
 // The level slider under the lane label: its hit area, its gap to the roll, and how far its
 // track's centre sits above the row's bottom edge.
 inline constexpr int laneLevelHeight = 12;
 inline constexpr int laneLevelRightGap = 6;
 inline constexpr int laneLevelCentreAboveBottom = 12;
 inline constexpr float laneLevelTrackHeight = 3.0F;
-inline constexpr int rollX = 344;
-inline constexpr int rollPadY = 3;
-inline constexpr int rollWidth = 414;
+inline constexpr int rollX = 166;
+inline constexpr int rollPadY = 4;
+inline constexpr int rollWidth = 548;
 inline constexpr int rollHeight = 56;
+inline constexpr float barLineAlpha = 0.18F;
 // Note height as a fraction of the roll height, per lane (chords, bass, melody).
 inline constexpr std::array<float, 3> noteHeightFraction{0.11F, 0.18F, 0.14F};
 inline constexpr int noteMinWidth = 2;
-inline constexpr float noteRadius = 3.0F;
-inline constexpr int playheadWidth = 2;
+inline constexpr float noteRadius = 1.0F;
+inline constexpr int playheadWidth = 1;
 
-inline const juce::Rectangle<int> auraPad{272, 432, 70, 70};
-inline constexpr float auraRadius = 8.0F;
-inline constexpr int auraBorder = 1;
-inline constexpr float auraStroke = 1.0F;
-inline constexpr float auraQuadrantSplit = 50.0F; // mood and energy each split the quadrants here
+inline const juce::Rectangle<int> bottomLine{66, 360, 648, 20};
+inline constexpr float bottomLineSize = 11.0F;
+
+// The knob group and its four knobs: the column centres and the face's top edge per row.
+inline const juce::Rectangle<int> knobGroup{750, 86, 236, 306};
+inline constexpr float knobGroupRadius = 4.0F;
+inline constexpr int knobWidth = 118;
+inline constexpr float knobDiameter = 56.0F;
+inline constexpr std::array<int, 2> knobColumnX{809, 927};
+inline constexpr std::array<int, 2> knobFaceY{116, 262};
+
 // The sparkle is drawn on a 24 x 24 grid: a start point, then four cubic curves of three points.
 inline constexpr float sparkleGrid = 24.0F;
 inline constexpr std::array<float, 2> sparkleStart{12.0F, 2.0F};
@@ -170,29 +209,12 @@ inline constexpr std::array<std::array<float, 6>, 4> sparkleCurves{{
     {11.4F, 16.8F, 7.2F, 12.6F, 2.0F, 12.0F},
     {7.2F, 11.4F, 11.4F, 7.2F, 12.0F, 2.0F},
 }};
-inline constexpr float auraSparkle = 20.0F;
-inline constexpr float auraInset = 0.08F;
 
-inline const juce::Rectangle<int> statusFields{358, 435, 206, 63};
-inline constexpr int fieldLine = 19;
-inline constexpr int fieldPitch = 22;
-inline const juce::Rectangle<int> readout{564, 437, 200, 60};
-inline constexpr int readoutLine = 18;
-inline constexpr int readoutPitch = 21;
-
-inline constexpr float chevronSize = 12.0F;
-inline constexpr float chevronGap = 4.0F;
-inline constexpr float chevronGrid = 24.0F; // the chevron is drawn on a 24 x 24 grid
-inline constexpr float chevronStroke = 1.0F;
-inline constexpr std::array<std::array<float, 2>, 3> chevronPoints{
-    {{6.0F, 9.0F}, {12.0F, 15.0F}, {18.0F, 9.0F}}};
-
-inline constexpr int keyY = 575;
-inline constexpr int keySize = 82;
-inline constexpr int playKeyX = 27;
-inline constexpr int stopKeyX = 121;
-inline constexpr int sprinkleKeyX = 227;
-inline constexpr int sprinkleKeyWidth = 176;
+inline constexpr int keySize = 82; // the sender screen's keys
+// The main view's keys, until the key row is restyled.
+inline const juce::Rectangle<int> playKey{450, 464, 36, 24};
+inline const juce::Rectangle<int> stopKey{498, 464, 36, 24};
+inline const juce::Rectangle<int> sprinkleKey{818, 454, 84, 44};
 inline constexpr float keyRadius = 12.0F;
 inline constexpr float keyPressDrop = 3.0F;
 inline constexpr float keyBaseDrop = 4.0F;        // the solid base below a key at rest
@@ -225,6 +247,7 @@ inline constexpr int senderMainKeyX = 321;
 inline constexpr int senderMainKeyWidth = 120;
 inline const juce::Rectangle<int> senderTitle{27, 27, 466, 29};
 inline const juce::Rectangle<int> senderStatus{27, 200, 466, 16};
+inline constexpr float focusRingOffset = 3.0F;
 inline constexpr float focusRingStroke = 2.0F; // the screen's focus outline, drawn just inside
 } // namespace layout
 

@@ -1,5 +1,7 @@
 #include "ui/Readout.h"
 
+#include <utility>
+
 #include "ui/Fonts.h"
 #include "ui/Tokens.h"
 
@@ -10,38 +12,33 @@ namespace t = md::tokens;
 
 void Readout::set(int bar, int bars, const juce::String& selected, const juce::String& pinned)
 {
-    if (bar == bar_ && bars == bars_ && selected == selected_ && pinned == pinned_)
+    const auto position = bar > 0 ? "bar " + juce::String(bar) + " of " + juce::String(bars)
+                                  : juce::String("stopped");
+    readout_ = (position + " - " + selected + " - " + pinned).toUpperCase();
+    update();
+}
+
+void Readout::setError(std::optional<std::string> error)
+{
+    error_ = std::move(error);
+    update();
+}
+
+void Readout::update()
+{
+    const auto text = error_ ? juce::String(*error_) : readout_;
+    if (text != text_)
     {
-        return;
+        text_ = text;
+        repaint();
     }
-    bar_ = bar;
-    bars_ = bars;
-    selected_ = selected;
-    pinned_ = pinned;
-    repaint();
 }
 
 void Readout::paint(juce::Graphics& g)
 {
-    g.setFont(font(Face::monoRegular, t::readoutSize));
-    const auto line = [this, &g](int index, const juce::String& text, juce::Colour colour)
-    {
-        g.setColour(colour);
-        g.drawText(text,
-                   juce::Rectangle<int>(0, index * t::layout::readoutPitch, getWidth(),
-                                        t::layout::readoutLine),
-                   juce::Justification::centredRight, false);
-    };
-    if (bar_ > 0)
-    {
-        line(0, "bar " + juce::String(bar_) + " of " + juce::String(bars_), t::gold);
-    }
-    else
-    {
-        line(0, "stopped", t::screenQuiet);
-    }
-    line(1, selected_, t::screenQuiet);
-    line(2, pinned_, t::screenQuiet);
+    g.setFont(font(Face::monoRegular, t::layout::bottomLineSize));
+    g.setColour(t::console::ink);
+    g.drawText(text_, getLocalBounds(), juce::Justification::centredLeft, true);
 }
 
 } // namespace md::ui

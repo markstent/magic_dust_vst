@@ -22,133 +22,93 @@ In the plugin, every note on the screen is drawn from the engine's real output (
 
 - Draw everything as vectors in `paint()` and a custom `LookAndFeel`.
   Never paste the reference images into the plugin.
-- The editor's logical size is 1040 x 740 px.
+- The editor's logical size is 1040 x 600 px.
   It is resizable from 80% to 150% with a fixed aspect ratio, using `setResizable`, `setResizeLimits` and the constrainer's `setFixedAspectRatio`.
   Scale the whole component tree with one transform so every measurement in this document stays true at every size.
-- Embed Space Grotesk (500 and 700) and Space Mono (400 and 700) as binary data and load them with `juce::Typeface::createSystemTypefaceFor`.
-  Both families use the SIL Open Font License; ship the licence text with the plugin.
+- Embed Space Grotesk (500 and 700), Space Mono (400 and 700) and Libre Baskerville Bold (the wordmark) as binary data and load them with `juce::Typeface::createSystemTypefaceFor`.
+  All of them use the SIL Open Font License; ship the licence text with the plugin.
 - Use shading only where this document lists it (see "Materials").
   Everything else is flat.
 - Match positions and sizes to within 1 px at 100% scale.
   The UI snapshot tests compare the JUCE editor with approved renders of the JUCE editor itself; use the reference PNGs for the human side-by-side review, because browser and JUCE text rendering differ slightly.
-- All text on the body and the screen is lowercase, except chord symbols such as `Am9`.
+- Panel legends and readouts are spaced capitals, and chord symbols such as `Am9` keep their case.
+  Accessible titles stay lowercase.
 - Never use the em dash character in any interface text.
 
 ## Layout
 
 All coordinates are in logical pixels, measured from the top-left corner of the window.
-They were measured from the reference HTML.
-
-![Annotated layout](visual/magic-dust-ui-annotated.png)
+The look is the studio console in `visual/studio-console-mockup.html`; the numbers below are the approved values.
 
 ### Zones
 
 | Zone | x | y | Width | Height | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Body | 0 | 0 | 1040 | 740 | 1 px border, 28 px corner radius, 26 px padding inside the border |
-| Top area | 27 | 27 | 986 | 498 | Three columns: 196, 546 and 200 px, with 22 px gaps |
-| Left column | 27 | 27 | 196 | 498 | Wordmark, grille and volume, 14 px gaps |
-| Wordmark | 27 | 27 | 196 | 46 | |
-| Speaker grille | 27 | 87 | 196 | 378 | Fills the space between wordmark and volume |
-| Volume | 27 | 479 | 196 | 46 | |
-| Screen, outer edge | 245 | 27 | 546 | 498 | Includes the 7 px bezel |
-| Screen content box | 272 | 50 | 492 | 452 | 16 px top and bottom padding, 20 px left and right, inside the bezel |
-| Top line | 272 | 50 | 492 | 20 | |
-| Chord bubbles row | 272 | 82 | 492 | 104 | Four 92 px bubbles, 6 px side padding, evenly spaced |
-| Lanes | 272 | 198 | 492 | 194 | Three rows of 62 px with 4 px gaps |
-| Status strip | 272 | 432 | 492 | 70 | Pinned to the bottom of the screen content box |
-| Encoder column | 813 | 27 | 200 | 498 | Four rows, 6 px top and bottom padding, evenly spaced |
-| Bottom area | 27 | 547 | 986 | 166 | Status line, 12 px gap, keys |
-| Status line | 27 | 547 | 986 | 16 | |
-| Keys row | 27 | 575 | 986 | 82 | |
+| Window | 0 | 0 | 1040 | 600 | |
+| Cheeks | 0 and 1014 | 0 | 26 | 600 | Walnut stripes |
+| Face | 26 | 0 | 988 | 600 | Metal gradient |
+| Header | 54 | 24 | 932 | 40 | Wordmark and tagline on the left, readout windows on the right |
+| Display bezel | 54 | 86 | 672 | 306 | |
+| Knob group | 750 | 86 | 236 | 306 | A 2 x 2 group |
 
 ### Positions inside the zones
 
 | Element | Position and size |
 | --- | --- |
-| Chord bubbles | 92 x 92 px at x = 278, 407, 537 and 666 (y = 82). The selected dot sits 6 px below each bubble. |
-| Lane rows | 492 x 62 px at y = 198, 264 and 330. Each has 3 px vertical and 6 px horizontal padding, an 8 px corner radius, a 56 px label column at x = 278, and a piano roll of 414 x 56 px at x = 344. |
-| Aura pad | 70 x 70 px at x = 272, y = 432. |
-| Status fields | Left edge at x = 358, three lines of 13 px text, 3 px apart. |
-| Readout | Right-aligned to x = 764, three lines of 12 px text, 3 px apart. |
-| Encoders | 78 x 78 px at x = 813, with rows at y = 33, 169, 305 and 441. The cap is 56 x 56 px, inset 10 px. Text starts 14 px to the right of the encoder. |
-| Keys | 82 x 82 px. Play at x = 27, stop 121, sprinkle 227 (176 px wide), pin 427, reroll 521, mute 615, swap 709, keep 815, bottle it 909, all at y = 575. Keys within a group are 12 px apart; groups are 24 px apart. |
-| Spells panel | 340 px wide, 14 px from the screen's left inner edge and 40 px below its top inner edge. |
-| Toast | Centred horizontally on the screen, 96 px above the screen's bottom inner edge. |
+| Screws | 13 px circles at (34, 8), (993, 8), (34, 579) and (993, 579). |
+| Wordmark | Starts at x = 54, centred on y = 44. The tagline starts 18 px after it. |
+| Readout legends | y = 24, 12 px tall, centred over each window. |
+| Spell, style, key and tempo windows | At y = 38, 26 px tall: x = 574 (84 wide), 670 (124), 806 (84) and 902 (84). |
+| Chord cells | 137 x 48 px at x = 166 + i * 137, y = 98. The cell is drawn inset by 4 px. |
+| Lane rows | 656 x 64 px at x = 62, y = 154, 222 and 290. The label column starts at x = 66 and is 96 px wide. The piano roll is 548 x 56 px at x = 166, 4 px below the row's top. |
+| Bottom line | 648 x 20 px at (66, 360). |
+| Knobs | Diameter 56 px. Column centres at x = 809 and 927. Faces at y = 116 to 172 (mood, energy) and y = 262 to 318 (groove, flavour). |
+| Keys | Play at (450, 464) and stop at (498, 464), 36 x 24 px. Sprinkle at (818, 454), 84 x 44 px. |
+| Spells panel | 340 px wide, 14 px from the display's left inner edge and 40 px below its top inner edge. |
+| Toast | Centred horizontally on the display, 96 px above its bottom inner edge. |
 
 ## Colour tokens
 
-Use these names in code (for example as constants in `ui/Tokens.h`) so the reference CSS and the plugin stay in step.
+Use these names in code (the `console` block of `ui/Tokens.h`).
+The sender screen and the keys still use the older tokens in the same file until they are restyled.
 
 | Token | Value | Used for |
 | --- | --- | --- |
-| `body` | `#DCDDE0` | Instrument body |
-| `body-edge` | `#B4B6BB` | Body outline |
-| `grille` | `#CFD0D4` | Speaker grille fill |
-| `grille-edge` | `#BFC1C6` | Speaker grille outline |
-| `grille-dot` | `#85878E` | Speaker grille holes |
-| `ink` | `#24252B` | Main engraved text and icons |
-| `ink-quiet` | `#5E6068` | Secondary engraved text |
-| `ink-value` | `#3B3D44` | Encoder values |
-| `ink-faint` | `#6A6C74` | Encoder hints |
-| `ink-status` | `#4A4C54` | Status line text |
-| `screen` | `#050507` | Screen background |
-| `bezel` | `#1B1C20` | Screen bezel |
-| `screen-ink` | `#F2F2F5` | Main screen text |
-| `screen-quiet` | `#8A8C96` | Secondary screen text |
-| `screen-axis` | `#15161B` | Centre line of each piano roll |
-| `screen-bar` | `#1A1B21` | Bar lines every two bars |
-| `screen-line` | `#2A2B32` | Aura pad frame and crosshair, panel borders |
-| `screen-selected` | `#121318` | Selected lane background |
-| `screen-panel` | `#0D0E12` | Spells panel background |
-| `spell-current` | `#1A1B22` | Current row in the spells panel |
-| `key-top` | `#F4F5F6` | Keycap gradient, top |
-| `key-bottom` | `#E3E4E7` | Keycap gradient, bottom |
-| `key-edge` | `#B4B6BB` | Keycap outline |
-| `key-base` | `#A9ABB0` | Keycap base (the solid shadow) |
-| `knurl-light` | `#CDCED2` | Encoder rim, light ridges |
-| `knurl-dark` | `#A5A7AC` | Encoder rim, dark ridges |
-| `knurl-edge` | `#8E9096` | Encoder rim outline |
-| `led-off` | `#C3C5CA` | Unlit LED |
-| `cyan` | `#5FE3F0` | Melody lane, melody notes, midi LED |
-| `violet` | `#A68BFF` | Chords lane, chord bubbles, chord notes, pin LED |
-| `violet-soft` | `#C9B8FF` | Feel words, chord names in the spells panel |
-| `violet-deep` | `#2B1F5C` | Feel word on a pinned bubble |
-| `magenta` | `#FF5CA8` | Bass lane, bass notes, mute LED |
-| `gold` | `#FFD166` | Sprinkle key, playhead, spell number, aura sparkle, toast, play and keep LEDs |
-| `gold-light` | `#FFE29A` | Sprinkle key gradient, top |
-| `gold-edge` | `#C9992F` | Sprinkle key outline |
-| `gold-base` | `#B88A2A` | Sprinkle key base |
-| `on-colour` | `#050507` | Text on any coloured fill |
-| `focus` | `#8C6CF5` | Keyboard focus ring on the body |
+| `face-top`, `face-bottom` | `#6F7A86`, `#5D6773` | Faceplate gradient |
+| `legend` | `#F3F1EA` | Legends, tick scales, the wordmark, focus ring on metal |
+| `display-centre`, `display-edge` | `#FBF0CF`, `#E5CF98` | Display and readout window gradient |
+| `bezel` | `#26292D` | Display and readout window border |
+| `ink` | `#2A2418` | Text, notes, bar lines, playhead and focus ring on cream |
+| `cap-chords`, `cap-bass`, `cap-melody` | `#7B6BD6`, `#D6527C`, `#3FB6C4` | Lane knob caps and pinned LEDs |
+| `led-on`, `led-off` | `#FFCF4A`, `#4E4A3C` | Amber LEDs |
+| `sprinkle-top`, `sprinkle-bottom` | `#D84A3A`, `#A8301F` | Sprinkle key |
+| `key-top`, `key-bottom`, `key-shadow` | `#F0ECE0`, `#C9C2AD`, `#2C2F33` | Other keys, with a 2 px shadow below |
+| `walnut-a`, `walnut-b`, `walnut-c` | `#3D2516`, `#4B2E1B`, `#35200F` | Cheek stripes |
+| `knob-light`, `knob-dark` | `#4B4B4B`, `#141414` | Knob body gradient |
 
-The four dust colours form one spectrum in this order: cyan, violet, magenta, gold.
-They appear only as light (on the screen, in LEDs) and as encoder caps.
+Other fixed colours: the tagline is `#DFE3E8`, and the screws run from `#E2E2E2` to `#6D6D6D` with a `#444444` slot.
 
 ## Typography
 
 | Role | Font | Size | Weight | Colour |
 | --- | --- | --- | --- | --- |
-| Wordmark "magic dust" | Space Grotesk | 27 px, letter spacing -0.5 px, line height 1.05 | 700 | `ink` |
-| Wordmark subline "md-mini, idea instrument" | Space Mono | 11 px | 400 | `ink-quiet` |
-| Volume name | Space Grotesk | 14 px | 700 | `ink` |
-| Volume hint "preview only" | Space Mono | 11 px | 400 | `ink-quiet` |
-| Screen top line | Space Mono | 13 px | 400 | Spell number `gold`; key, tempo and style `screen-quiet` |
-| Chord name in a bubble | Space Grotesk | 19 px, or 16 px when longer than 5 characters | 700 | `screen-ink`; `on-colour` when pinned |
-| Feel word in a bubble | Space Mono | 10 px | 400 | `violet-soft`; `violet-deep` when pinned |
-| Lane label | Space Mono | 11 px | 400 | Lane colour; `screen-ink` when selected |
-| Status fields | Space Mono | 13 px | 400 | Field name `screen-quiet`, value `screen-ink`, chevron `gold` |
-| Readout | Space Mono | 12 px | 400 | `screen-quiet`; the bar position is `gold` while playing |
-| Spells panel title | Space Mono | 11 px | 400 | `screen-quiet` |
-| Spells panel rows | Space Mono | 12 px | 400 | Seed and "kept" `gold`, chord names `violet-soft` |
-| Toast | Space Mono | 12 px | 700 | `on-colour` on `gold` |
-| Encoder name | Space Grotesk | 17 px | 700 | `ink` |
-| Encoder value | Space Mono | 11 px | 400 | `ink-value` |
-| Encoder hint | Space Mono | 10 px | 400 | `ink-faint` |
-| Status line | Space Mono | 11 px | 400 | `ink-status` |
+| Wordmark "MAGIC DUST" | Libre Baskerville | 30 px, letter spacing 0.18 em | Bold | `legend` |
+| Tagline "HOUSE MUSIC IDEA ENGINE" | Space Grotesk | 11 px, letter spacing 0.22 em | 500 | `#DFE3E8` |
+| Readout legends | Space Grotesk | 9.5 px, letter spacing 0.2 em | 500 | `legend` |
+| Readout windows | Space Mono | 15 px | 700 | `ink` |
+| Chord name in a cell | Space Mono | 14 px | 700 | `ink` |
+| Feel word in a cell | Space Mono | 10 px | 400 | `ink` at 60% |
+| Lane name | Space Grotesk | 10 px, letter spacing 0.14 em, capitals | 700 | `ink` |
+| Pattern name | Space Mono | 10 px, capitals | 400 | `ink` |
+| Bottom line | Space Mono | 11 px | 400 | `ink` |
+| Knob legend | Space Grotesk | 10 px, letter spacing 0.12 em | 700 | `legend` |
+| Knob words | Space Grotesk | 8 px | 500 | `legend` |
 | Key label | Space Mono | 10 px | 400 | `ink` |
 | Sprinkle title | Space Grotesk | 22 px, line height 1 | 700 | `#12101F` |
 | Sprinkle subline "new idea" | Space Mono | 10 px | 400 | `#12101F` |
+| Spells panel and toast | Space Mono | 12 px | 400 and 700 | Set in the spells task |
+
+Text that does not fit its box ends in an ellipsis.
 
 ## Materials
 
@@ -156,97 +116,89 @@ These are the only places shading is allowed.
 
 | Material | Recipe |
 | --- | --- |
-| Body | Fill `body`. Brushed texture: horizontal 1 px lines of white at 9% opacity every 3 px, with black at 2.5% opacity between them. Inner top highlight: 1 px white at 75% opacity. Border 1 px `body-edge`. Corner radius 28 px. |
-| Speaker grille | Fill `grille`, border 1 px `grille-edge`, corner radius 16 px. Round holes of 1.7 px radius in `grille-dot` on a 12 px grid, offset 6 px from the top-left. |
-| Screen | Fill `screen`, 7 px `bezel` border, corner radius 20 px (outer edge). |
-| Encoder rim | Knurled ring: 72 alternating wedges of `knurl-light` and `knurl-dark` (36 of each), each 5 degrees wide. Border 1 px `knurl-edge`. Drop shadow 0 5 px 8 px black at 20%. |
-| Encoder cap | 56 px circle, radial gradient with the highlight at 38% across and 32% down. Chords `#C9B8FF` to `#A68BFF`, bass `#FF9CCB` to `#FF5CA8`, melody `#B2F4FA` to `#4FD3E0`, aura `#FFE8AD` to `#F5C14F`; the second colour is reached at 68% of the radius. Inner shadow 0 -3 px 4 px black at 18% along the bottom. |
-| Encoder pointer | 6 px dot in `#F7F7F9`, centred 8 px below the top of the cap, rotating about the cap's centre from -135 to +135 degrees. |
-| Volume knob | 46 px knurled rim with 60 alternating wedges of 6 degrees each, a 30 px cap with a radial gradient from `#FAFAFB` to `#D9DADD`, and a 4 px `ink` dot. |
-| Keycap | 82 x 82 px, corner radius 12 px, vertical gradient `key-top` to `key-bottom`, border 1 px `key-edge`. Base: a solid 4 px offset in `key-base` below the key, plus a soft shadow 0 6 px 10 px black at 12%. |
-| Keycap, pressed | Moves down 3 px; the solid base shrinks to 1 px and the soft shadow to 0 2 px 4 px. |
-| Sprinkle key | 176 x 82 px, vertical gradient `gold-light` to `gold`, border 1 px `gold-edge`, solid base `gold-base`, soft shadow 0 6 px 12 px black at 14%. |
+| Faceplate | Vertical gradient `face-top` to `face-bottom` over the face (x = 26 to 1014). |
+| Walnut cheeks | Vertical stripes 3, 4 and 2 px wide, repeating `walnut-a`, `walnut-b` and `walnut-c`, with a 3 px inner shadow (black at 50% fading to clear) on the face side. |
+| Screws | Radial gradient from `#E2E2E2` to `#6D6D6D`, highlight at 35% across and 30% down, with a 2 px slot in `#444444` at 35 degrees. |
+| Cream window | A `bezel` border (3 px on the display, 2 px on readout windows), a radial cream gradient from `display-centre` to `display-edge` inside it, and an inner glow along the inside edge. The display has a 5 px radius and the readout windows 2 px. |
+| Knob | See the knob control in `ui/Knob.cpp`: black body with a radial gradient from `knob-light` to `knob-dark`, a cap disc at 52% of the diameter, and an off-white pointer. |
+| Keycap | 82 x 82 px, corner radius 12 px, vertical gradient, border and a solid base below. Restyled to the console keys in the keys task. |
 | LED | 7 px circle. Off: `led-off`. On: the LED's colour plus a 6 px glow in the same colour. |
 
 ## Components
 
-The numbers match `visual/magic-dust-ui-annotated.png`.
+The numbers match the order of the console's parts, left to right and top to bottom.
 
 ### 1. Wordmark
 
-- "magic dust" with the subline "md-mini, idea instrument" beneath it.
-- Not interactive.
+- "MAGIC DUST" in the serif face, with the tagline "HOUSE MUSIC IDEA ENGINE" after it.
+- Not interactive yet (the about panel comes later).
 
 ### 2. Speaker grille
 
-- Decorative.
-- While the preview plays, it brightens by 8% and back once per beat, following the host tempo (484 ms per beat at 124 BPM).
+- Removed in the console look.
 
 ### 3. Volume
 
 - Sets the audition synth's output level only; it never affects the MIDI.
-- Drag up or down to turn it; double-click resets it to 80%.
+- Moves to a knob at the bottom right in the keys and volume task.
 
-### 4. Screen top line
+### 4. Header readouts
 
-- The spell number (the current idea's seed) is a button in `gold` with a small down chevron.
-  Clicking it opens and closes the spells panel.
-- Key, tempo and style sit on the right in `screen-quiet`.
-  Key and style are buttons that open menus; the style menu ends with "manage bank".
-  Tempo is read from Live and is not editable.
+- Four cream windows, each with a legend above: "SPELL", "STYLE", "KEY" and "TEMPO".
+- Spell shows the idea's seed as four digits, for example "0417".
+  It is not clickable yet.
+- Style and key are buttons that open menus.
+  Key reads as, for example, "A MIN".
+- Tempo shows the host tempo with one decimal, or "124.0" when the host sends none.
+  It is read-only.
 
-### 5. Chord bubbles
+### 5. Chord cells
 
 | State | Look |
 | --- | --- |
-| Default | 2 px `violet` ring, transparent fill, name in `screen-ink`, feel word in `violet-soft` |
-| Pinned | Filled `violet`, name in `on-colour`, feel word in `violet-deep` |
-| Playing | A 2 px `gold` ring outside the bubble, separated by a 4 px `screen` gap |
-| Selected | A 6 px `screen-ink` dot centred 6 px below the bubble |
-| Focused | 2 px `gold` focus outline, 3 px outside the bubble |
+| Default | Name in `ink`, feel word below it in `ink` at 60% |
+| Playing | A 3 px tall, 40 px wide `ink` bar at the bottom of the cell |
+| Selected | A 1.5 px `ink` outline, 3 px radius |
+| Focused | A 2 px `ink` focus ring just outside the cell |
 
-- Click: select the bubble and audition its chord.
-- Drag (more than 4 px of movement): drag that chord into Ableton as a MIDI clip.
-- When a chord changes, its name pops in (see "Motion").
+- A pinned cell (an `ink` fill with cream text) arrives with pinning.
+- Click: select the cell and audition its chord.
+- Drag (more than 4 px of movement): drag that chord into your daw as a MIDI clip.
 
 ### 6. Lanes
 
-- Three rows: chords (`violet`), bass (`magenta`) and melody (`cyan`).
-- Each row has a 56 px label and a 414 x 56 px piano roll with a centre line in `screen-axis`, bar lines every two bars in `screen-bar`, and a 2 px `gold` playhead while playing.
-- Notes are rounded rectangles (3 px radius) in the lane colour.
+- Three rows: chords, bass and melody.
+- Each row has a 96 px label column and a 548 x 56 px piano roll with a 1 px bar line at every bar in `ink` at 18%, and a 1 px `ink` playhead while playing.
+- The label shows the lane name in capitals, with the pattern name below it, ending in an ellipsis if it is too long.
+- Notes are `ink` rectangles with a 1 px radius.
   Horizontal position and width come from the note's start and length across the 8 bars.
   Vertical position comes from pitch, with the highest pitch at the top: chords span MIDI 48 to 79, bass 28 to 48, and melody 60 to 84.
-- Level slider: each row has a small slider for that lane's built-in sound, under the label.
-  It is 12 px tall and starts at x = 6 px in the row, as wide as the label column minus that 6 px start and a 6 px gap before the roll.
+- Level slider: each row has a small slider for that lane's built-in sound, under the label and inside the label column.
   Its track is 3 px tall and fully rounded, with its centre 12 px above the row's bottom edge.
-  The track is `screen-line`, filled from the left to the value in the lane colour, with no thumb.
-  Double-click resets it to full, and it shows the usual focus ring when focused.
+  It is filled from the left to the value in the lane's cap colour, with no thumb.
+  Double-click resets it to full.
   Its accessible title is "chords level", "bass level" or "melody level", and its value reads as a percent.
-- Selected: the row background becomes `screen-selected` and the label turns `screen-ink`.
-- Muted: the label drops to 45% opacity and the piano roll to 30%.
+- Selected: an `ink` band at 8% behind the row.
+- Muted: drawn at 35% (arrives with muting).
 - Click: select the lane.
-  Drag (more than 4 px of movement): drag the lane into Ableton as a MIDI clip.
+  Drag (more than 4 px of movement): drag the lane into your daw as a MIDI clip.
 
-### 7. Aura pad
+### 7. Mood and energy knobs
 
-- 70 x 70 px frame and crosshair in `screen-line`, with a 20 px `gold` sparkle.
-- Left to right is mood (darker to brighter); bottom to top is energy (calm to wild).
-  The sparkle's centre stays at least 8% in from each edge.
-- Click or drag anywhere on the pad to move the sparkle.
-  Unpinned parts regenerate 150 ms after movement stops.
+- Continuous knobs from 0 to 100, "MOOD" (dark to bright) and "ENERGY" (low to high), on the mood and energy parameters.
+- Unpinned parts regenerate 150 ms after the value stops changing.
 
-### 8. Status fields
+### 8. Groove and flavour knobs
 
-- "aura" shows the current quadrant and is not clickable: midnight rave (darker and wild), starburst (brighter and wild), moonlight (darker and calm), daydream (brighter and calm).
-- "groove" cycles through straight, swing 54%, uk shuffle 58% and heavy 62% on click; the scroll wheel steps forwards and back.
-- "flavour" cycles through simple, soulful and jazzy on click and regenerates unpinned chords.
-- Each clickable field ends with a `gold` chevron.
+- Stepped knobs with one printed word per position.
+- "GROOVE": "STR", "54", "58" and "62".
+- "FLAVOUR": "SIMPLE", "SOULFUL" and "JAZZY".
+  Changing it regenerates unpinned chords.
 
-### 9. Readout
+### 9. Bottom line
 
-- Line 1: "stopped", or "bar 3 of 8" in `gold` while playing.
-- Line 2: "selected: chord 2" or "selected: bass".
-- Line 3: "nothing pinned", or "pinned: chord 1, bass".
+- One line along the bottom of the display: "BAR 3 OF 8 - SELECTED: CHORD 2 - NOTHING PINNED", or "STOPPED - ..." when stopped.
+- While there is an error, the line shows the error instead, and the readout returns once it clears.
 
 ### 10. Lane encoders
 
@@ -370,14 +322,13 @@ A "motion" setting turns every animation off, and the plugin also turns them off
 
 | Reference class | JUCE component | Notes |
 | --- | --- | --- |
-| `md-body` | `MagicDustEditor` (the `AudioProcessorEditor`) | Paints the body, owns the scale transform |
-| `md-left` | `LeftPanel` | Wordmark, `GrilleComponent`, `VolumeKnob` |
-| `md-screen` | `ScreenComponent` | Paints bezel and screen; owns the children below |
-| `md-topline` | `TopLine` | `SpellButton`, `KeyMenuButton`, tempo label, `StyleMenuButton` |
-| `md-bubble` | `ChordBubble` (x4) | Custom `juce::Button`; starts an external drag after 4 px of movement |
+| `md-body` | `MagicDustEditor` (the `AudioProcessorEditor`) | Owns the scale transform; its main view paints the faceplate (`paintFaceplate`) |
+| `md-screen` | `ScreenComponent` | The display: paints the bezel and cream window; owns the cells, lanes and bottom line |
+| `md-topline` | `TopLine` | Four `ReadoutWindow`s: spell, style, key and tempo |
+| `md-bubble` | `ChordCell` (x4) | Custom `juce::Button`; starts an external drag after 4 px of movement |
 | `md-lane` | `LaneView` (x3) | Custom component with a `PianoRoll` child; starts an external drag after 4 px of movement |
-| `md-aura` | `AuraPad` | Custom component |
-| `md-fields`, `md-readout` | `StatusFields`, `Readout` | |
+| `md-knob` | `Knob` (x4 for mood, energy, groove and flavour) | Subclass of `juce::Slider` |
+| `md-readout` | `Readout` | The display's bottom line |
 | `md-spells` | `SpellsPanel` | Child of the screen, not a separate window |
 | `md-toast` | `Toast` | Child of the screen; hidden by a timer |
 | `md-encoder` | `Encoder` (x4) | Subclass of `juce::Slider` in `RotaryVerticalDrag` mode with custom drawing; a click without drag is the push |

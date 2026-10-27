@@ -54,6 +54,7 @@ class LaneView : public juce::Component
     void set(const md::Lane& lane, int bars, std::optional<float> playhead, bool selected);
     [[nodiscard]] PianoRoll& roll() { return roll_; }
     [[nodiscard]] juce::Slider& levelSlider() { return level_; }
+    [[nodiscard]] juce::Rectangle<int> labelBounds() const;
     void paint(juce::Graphics& g) override;
     void resized() override;
     void mouseDown(const juce::MouseEvent& e) override;
@@ -73,6 +74,7 @@ class LaneView : public juce::Component
     PianoRoll roll_;
     juce::Slider level_{juce::Slider::LinearHorizontal, juce::Slider::NoTextBox};
     juce::SliderParameterAttachment levelAttachment_;
+    juce::String pattern_;
     bool selected_ = false;
     bool dragging_ = false;
     std::function<void()> onClick_;
