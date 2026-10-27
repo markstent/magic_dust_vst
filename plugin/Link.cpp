@@ -55,6 +55,10 @@ void Link::publish(const void* owner, std::shared_ptr<const md::PlaybackPattern>
 
 const md::PlaybackPattern* Link::current(const void* owner) const
 {
+    if (owner == nullptr)
+    {
+        return nullptr;
+    }
     for (const Slot& slot : slots_)
     {
         if (slot.owner.load() == owner)

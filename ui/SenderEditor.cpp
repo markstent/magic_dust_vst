@@ -5,6 +5,7 @@
 #include "plugin/PluginProcessor.h"
 #include "ui/BodyMaterial.h"
 #include "ui/Fonts.h"
+#include "ui/LaneView.h"
 #include "ui/Tokens.h"
 
 namespace md::ui
@@ -17,9 +18,6 @@ namespace
 
 constexpr std::array<md::LaneId, 3> kLanes{md::LaneId::chords, md::LaneId::bass,
                                            md::LaneId::melody};
-constexpr std::array<const char*, 3> kLaneNames{"chords", "bass", "melody"};
-
-const std::array<juce::Colour, 3> kLaneColours{t::violet, t::magenta, t::cyan};
 
 std::size_t laneIndex(md::LaneId lane) { return static_cast<std::size_t>(lane); }
 
@@ -38,9 +36,10 @@ void LabelKey::paintContent(juce::Graphics& g, juce::Rectangle<float> face) cons
 }
 
 SenderBody::SenderBody(MagicDustProcessor& processor)
-    : processor_(processor), laneKeys_{LabelKey(kLaneNames.at(0), kLaneColours.at(0)),
-                                       LabelKey(kLaneNames.at(1), kLaneColours.at(1)),
-                                       LabelKey(kLaneNames.at(2), kLaneColours.at(2))},
+    : processor_(processor),
+      laneKeys_{LabelKey(laneLook(kLanes.at(0)).label, laneLook(kLanes.at(0)).colour),
+                LabelKey(laneLook(kLanes.at(1)).label, laneLook(kLanes.at(1)).colour),
+                LabelKey(laneLook(kLanes.at(2)).label, laneLook(kLanes.at(2)).colour)},
       mainKey_("full magic dust", std::nullopt)
 {
     setBounds(0, 0, t::layout::senderWidth, t::layout::senderHeight);
@@ -48,8 +47,8 @@ SenderBody::SenderBody(MagicDustProcessor& processor)
     for (std::size_t i = 0; i < laneKeys_.size(); ++i)
     {
         auto& key = laneKeys_.at(i);
-        key.setComponentID(juce::String("senderKey-") + kLaneNames.at(i));
-        key.setTitle(juce::String("send ") + kLaneNames.at(i));
+        key.setComponentID(juce::String("senderKey-") + laneLook(kLanes.at(i)).label);
+        key.setTitle(juce::String("send ") + laneLook(kLanes.at(i)).label);
         key.setExplicitFocusOrder(order++);
         key.setBounds(t::layout::senderKeyX + (static_cast<int>(i) * t::layout::senderKeyPitch),
                       t::layout::senderKeyY, t::layout::keySize, t::layout::keySize);
@@ -79,7 +78,8 @@ void SenderBody::refresh()
     }
     const auto status =
         MagicDustProcessor::senderLinked()
-            ? juce::String("sending ") + kLaneNames.at(selected) + " from magic dust"
+            ? juce::String("sending ") + laneLook(processor_.senderLane()).label +
+                  " from magic dust"
             : juce::String("no magic dust found - load magic dust on another track first");
     if (status != status_)
     {
