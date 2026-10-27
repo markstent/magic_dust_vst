@@ -116,17 +116,19 @@ ChordSymbol applyFlavour(const Key& key, std::optional<Mode> borrowedFrom, const
         }
         return plain;
     }
-    auto scale = scalePitchClasses(key);
-    if (borrowedFrom)
-    {
-        const auto borrowed = scalePitchClasses({.root = key.root, .mode = *borrowedFrom});
-        scale.insert(scale.end(), borrowed.begin(), borrowed.end());
-    }
+    const auto scale = scalePitchClasses(key);
+    const auto borrowedScale = borrowedFrom
+                                   ? scalePitchClasses({.root = key.root, .mode = *borrowedFrom})
+                                   : std::vector<int>{};
     const auto allowed = [&](Quality quality)
     {
         const auto pcs = chordPitchClasses(key, {.degree = chord.degree, .quality = quality});
-        return std::ranges::all_of(pcs, [&](int pc)
-                                   { return std::ranges::find(scale, pc) != scale.end(); });
+        const auto within = [&pcs](const std::vector<int>& notes)
+        {
+            return std::ranges::all_of(pcs, [&notes](int pc)
+                                       { return std::ranges::find(notes, pc) != notes.end(); });
+        };
+        return within(scale) || (borrowedFrom && within(borrowedScale));
     };
     const auto next = [&](Quality quality) -> std::optional<Quality>
     {
@@ -170,6 +172,13 @@ constexpr int kVerifiedWeightFactor = 2;
 constexpr int kVelocityBase = 80;
 constexpr int kVelocitySpread = 30;
 constexpr int kHumanizeRange = 13;
+
+std::optional<Mode> borrowedFor(const Idea& idea)
+{
+    std::vector<ChordSymbol> symbols;
+    std::ranges::transform(idea.progression, std::back_inserter(symbols), &PlacedChord::symbol);
+    return checkProgression(idea.key.mode, symbols).borrowedFrom;
+}
 
 void checkSettings(const Settings& settings, std::uint32_t seed)
 {
@@ -352,19 +361,13 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
     idea.entryId = entry.id;
     idea.parallel = entry.parallel;
     idea.progression = detail::placeProgression(progression, settings.bars);
-    std::vector<ChordSymbol> placedSymbols;
-    std::ranges::transform(idea.progression, std::back_inserter(placedSymbols),
-                           &PlacedChord::symbol);
-    idea.borrowedFrom = checkProgression(idea.key.mode, placedSymbols).borrowedFrom;
+    idea.borrowedFrom = borrowedFor(idea);
     for (PlacedChord& chord : idea.progression)
     {
         chord.symbol =
             detail::applyFlavour(idea.key, idea.borrowedFrom, chord.symbol, settings.flavour);
     }
-    placedSymbols.clear();
-    std::ranges::transform(idea.progression, std::back_inserter(placedSymbols),
-                           &PlacedChord::symbol);
-    idea.borrowedFrom = checkProgression(idea.key.mode, placedSymbols).borrowedFrom;
+    idea.borrowedFrom = borrowedFor(idea);
     detail::voiceChords(entry, idea.key, idea.progression);
 
     Pcg32 rhythmRng(laneSeeds.chords, detail::kChordCell);

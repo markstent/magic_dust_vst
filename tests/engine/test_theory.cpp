@@ -4,6 +4,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
+#include <optional>
 #include <vector>
 
 using namespace md;
@@ -197,4 +198,25 @@ TEST_CASE("dom13 has its own intervals, name and pitch classes", "[theory][flavo
     const ChordSymbol dom13{.degree = 5, .quality = Quality::dom13};
     CHECK(chordName(key, dom13) == "E13");
     CHECK(chordPitchClasses(key, dom13) == Ints{1, 2, 4, 6, 8, 11});
+}
+
+TEST_CASE("flavour climbs on the borrowed scale and stops at its edge", "[theory][flavour]")
+{
+    const Key dorian{.root = 9, .mode = Mode::dorian};
+    const Key mixolydian{.root = 9, .mode = Mode::mixolydian};
+    const Key aeolian{.root = 9, .mode = Mode::aeolian};
+    const auto chord = [](int degree, Quality quality)
+    { return ChordSymbol{.degree = degree, .quality = quality}; };
+    const auto jazzy = [](const Key& key, std::optional<Mode> borrowed, const ChordSymbol& c)
+    { return detail::applyFlavour(key, borrowed, c, Flavour::jazzy); };
+
+    // Dm7 and Dm9 hold F natural, which only A aeolian has.
+    CHECK(jazzy(dorian, Mode::aeolian, chord(4, Quality::min)) == chord(4, Quality::min9));
+    CHECK(jazzy(dorian, std::nullopt, chord(4, Quality::min)) == chord(4, Quality::min));
+    // Bm7 fits dorian, Bm9 needs C# which neither scale has.
+    CHECK(jazzy(dorian, Mode::aeolian, chord(2, Quality::min)) == chord(2, Quality::min7));
+
+    CHECK(jazzy(aeolian, std::nullopt, chord(3, Quality::maj)) == chord(3, Quality::maj9));
+    CHECK(jazzy(mixolydian, std::nullopt, chord(1, Quality::dom9)) == chord(1, Quality::dom13));
+    CHECK(jazzy(mixolydian, std::nullopt, chord(1, Quality::dom7)) == chord(1, Quality::dom13));
 }
