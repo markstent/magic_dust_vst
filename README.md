@@ -54,7 +54,7 @@ You need:
 - [CMake](https://cmake.org) 3.25 or newer and [Ninja](https://ninja-build.org), for example `brew install cmake ninja`.
 - An internet connection for the first build, which downloads JUCE (9.0.4), Catch2 and nlohmann/json for you.
 
-Then run these from the project folder in Terminal:
+Then run these in Terminal:
 
 ```
 git clone https://github.com/markstent/magic_dust_vst.git
@@ -78,7 +78,7 @@ Restart your daw, or rescan its plug-ins, so it finds Magic Dust.
 ## Quick start
 
 1. Make a MIDI or instrument track in your daw and load Magic Dust on it.
-2. Press the play key under the screen to hear the first idea.
+2. Press PLAY, bottom right, to hear the first idea.
    Press your daw's own play and Magic Dust follows it.
 3. Press the red sprinkle key for a new idea.
    Every press gives a different one.
@@ -108,7 +108,7 @@ The same ideas work in any daw.
    Groove steps from straight through three swing settings.
    Flavour steps through simple, soulful and jazzy.
    Soulful is the chords as written, simple is plainer and jazzy is richer.
-   Sprinkle again after a change to hear the new setting.
+   A moment after you let go of mood, energy or flavour, the current idea is rewritten to match, and any part you are not changing stays put.
 5. **Balance and mute.**
    Each part has a level knob.
    Double-click a level knob to put it back to full.
@@ -174,7 +174,7 @@ The same ideas work in any daw.
 ## Tips
 
 - Sprinkle often. Every press is a new idea.
-- Drag the whole idea out as MIDI before you move on, so you can change the sounds later.
+- Drag the lanes you like out as MIDI before you sprinkle again, so you can change the sounds later.
 - Muting a part also stops its MIDI out, so a sender goes quiet too.
 - Flavour changes the chords, so try jazzy on a soulful idea and simple on a festival one.
 
@@ -182,11 +182,12 @@ The same ideas work in any daw.
 
 These are planned and not built yet:
 
-- Pin a chord and reroll the rest.
-- Swap and keep.
-- "Bottle it", to save an idea.
-- A list of past ideas.
-- Pattern knobs.
+- Pin a chord or a part, and reroll the rest.
+- Swap a chord for the next best fit.
+- Keep an idea in your favourites.
+- "Bottle it": drag the whole idea out in one go.
+- A list of your recent ideas.
+- A pattern knob for each part.
 
 The full product spec is in [`docs/spec/`](docs/spec/).
 Decisions that depart from it are in [`docs/DECISIONS.md`](docs/DECISIONS.md).
