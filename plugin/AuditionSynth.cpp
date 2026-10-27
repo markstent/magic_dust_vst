@@ -19,18 +19,38 @@ void AuditionSynth::prepare(double sampleRate)
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): interface fixed by the brief
 void AuditionSynth::noteOn(int note, int velocity)
 {
+    if (velocity == 0)
+    {
+        noteOff(note);
+        return;
+    }
     const auto pool = std::span(voices_).first(static_cast<std::size_t>(recipe_.voices));
-    const auto free = std::ranges::find_if(pool, [](const Voice& v) { return !v.active; });
-    Voice& v = free != pool.end()
-                   ? *free
-                   : *std::ranges::min_element(pool, [](const Voice& a, const Voice& b)
-                                               { return a.age < b.age; });
-    v = {};
+    // A retriggered note reuses its voice, and a stolen voice keeps its envelope and phase, so
+    // neither clicks. Stealing prefers a releasing voice, then the oldest.
+    auto target =
+        std::ranges::find_if(pool, [note](const Voice& v) { return v.active && v.note == note; });
+    if (target == pool.end())
+    {
+        target = std::ranges::find_if(pool, [](const Voice& v) { return !v.active; });
+    }
+    if (target == pool.end())
+    {
+        target = std::ranges::min_element(
+            pool, [](const Voice& a, const Voice& b)
+            { return a.releasing != b.releasing ? a.releasing : a.age < b.age; });
+    }
+    Voice& v = *target;
+    if (!v.active)
+    {
+        v = {};
+    }
     v.active = true;
+    v.releasing = false;
     v.note = note;
     v.age = ++noteCounter_;
     v.frequency = juce::MidiMessage::getMidiNoteInHertz(note);
     v.velocity = static_cast<float>(velocity) / 127.0F;
+    v.partialCount = 0;
     for (std::size_t k = 0; k < recipe_.partials.size(); ++k)
     {
         if (v.frequency * static_cast<double>(k + 1) < sampleRate_ / 2)

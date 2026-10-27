@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstdint>
@@ -8,6 +9,9 @@
 
 namespace md
 {
+
+// The most voices any recipe may ask for.
+inline constexpr int kMaxAuditionVoices = 8;
 
 // partials[k] is the amplitude of harmonic k + 1.
 struct VoiceRecipe
@@ -39,6 +43,10 @@ inline constexpr VoiceRecipe kSoftLead{
     .gain = 0.15F,
     .voices = 2};
 
+static_assert(kOrgan.voices >= 1 && kOrgan.voices <= kMaxAuditionVoices);
+static_assert(kSubBass.voices >= 1 && kSubBass.voices <= kMaxAuditionVoices);
+static_assert(kSoftLead.voices >= 1 && kSoftLead.voices <= kMaxAuditionVoices);
+
 // One built-in sound. Notes take effect at the next render call. noteOn, noteOff and render never
 // allocate after prepare.
 class AuditionSynth
@@ -52,16 +60,15 @@ class AuditionSynth
     ~AuditionSynth() = default;
 
     void prepare(double sampleRate);
+    // A velocity of 0 is a note-off.
     void noteOn(int note, int velocity);
     void noteOff(int note);
     void allNotesOff();
-    // Adds into the buffer.
+    // Adds into the buffer; start and num must lie within it.
     void render(juce::AudioBuffer<float>& buffer, int start, int num);
-    void setLevel(float level) { level_.store(level); }
+    void setLevel(float level) { level_.store(std::clamp(level, 0.0F, 1.0F)); }
 
   private:
-    static constexpr std::size_t kMaxVoices = 8;
-
     struct Voice
     {
         bool active = false;
@@ -84,7 +91,7 @@ class AuditionSynth
     std::atomic<float> level_{0.8F};
     double sampleRate_ = 48000.0;
     std::uint64_t noteCounter_ = 0;
-    std::array<Voice, kMaxVoices> voices_{};
+    std::array<Voice, kMaxAuditionVoices> voices_{};
 };
 
 } // namespace md
