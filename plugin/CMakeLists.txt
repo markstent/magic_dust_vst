@@ -66,7 +66,7 @@ md_target_defaults(md_plugin_core)
 
 juce_add_plugin(MagicDust
   PRODUCT_NAME "Magic Dust"
-  COMPANY_NAME "Mark Stent"
+  COMPANY_NAME "Mark Stent Digital"
   BUNDLE_ID com.markstent.magicdust
   PLUGIN_MANUFACTURER_CODE Mdus
   PLUGIN_CODE Mdst
