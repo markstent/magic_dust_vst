@@ -29,6 +29,7 @@ class KeyButton : public juce::Button, private juce::Timer
               std::optional<juce::Colour> led);
 
     void setLit(bool lit);
+    [[nodiscard]] bool isLit() const { return lit_; }
     // Off, the key and its LED jump instead of animating.
     void setAnimated(bool animated);
     // 0 at rest, 1 fully pressed.

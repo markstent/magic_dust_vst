@@ -309,6 +309,19 @@ Rerolling or swapping a pinned item changes nothing and shows "unpin it first" (
 - Bottle it: drag from this key to drop the whole idea into Ableton.
   A plain click shows the toast "drag me into ableton: chords, bass and melody".
 
+### Sender screen
+
+- Shown by any Magic Dust instance that sends one lane to another track (see `docs/DECISIONS.md`).
+  It is 520 x 240 px, on the body material, and scales and resizes like the main window.
+- Title "magic dust sender" at 27, 27: the wordmark style (Space Grotesk 700, 27 px, letter spacing -0.5 px, `ink`).
+- Keycaps "chords", "bass" and "melody" at y 100, 82 px wide, 12 px apart, starting at x 27.
+  Each has an LED in its lane colour (chords `violet`, bass `magenta`, melody `cyan`), lit on the lane being sent.
+  Clicking a key selects that lane.
+- A fourth keycap "full magic dust", 120 px wide, 24 px to the right of the third, at x 321.
+  Clicking it turns the instance into a full Magic Dust and the window becomes the main window.
+- All four keys use the keycap material; the label is Space Mono 10 px, `ink`, centred.
+- Status text at 27, 200, Space Mono 11 px, `ink-status`: "sending bass from magic dust" (the chosen lane), or "no magic dust found - load magic dust on another track first" when there is no main instance to follow.
+
 ### Spells panel
 
 - Opens below the spell number, over the bubbles.

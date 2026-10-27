@@ -7,6 +7,7 @@
 
 #include "PluginProcessor.h"
 #include "plugin/DragFiles.h"
+#include "ui/BodyMaterial.h"
 #include "ui/Fonts.h"
 #include "ui/KeyButton.h"
 #include "ui/ScreenComponent.h"
@@ -70,22 +71,7 @@ class MagicDustEditor::Body : public juce::Component
 
     void paint(juce::Graphics& g) override
     {
-        const auto outer = getLocalBounds().toFloat();
-        const auto inner = outer.reduced(t::bodyBorder);
-        const auto radius = t::bodyRadius - t::bodyBorder;
-
-        g.setColour(t::bodyEdge);
-        g.fillRoundedRectangle(outer, t::bodyRadius);
-        g.setColour(t::body);
-        g.fillRoundedRectangle(inner, radius);
-
-        juce::Path padding;
-        padding.addRoundedRectangle(inner, radius);
-        g.saveState();
-        g.reduceClipRegion(padding, {});
-        paintBrushing(g, inner);
-        paintHighlight(g, inner, radius);
-        g.restoreState();
+        md::ui::paintBody(g, getLocalBounds().toFloat());
 
         if (error_)
         {
@@ -135,31 +121,6 @@ class MagicDustEditor::Body : public juce::Component
         }
     }
 
-    // Repeating from the bottom edge: 1 px white, then 2 px black.
-    static void paintBrushing(juce::Graphics& g, juce::Rectangle<float> inner)
-    {
-        const auto left = static_cast<int>(inner.getX());
-        const auto width = static_cast<int>(inner.getWidth());
-        for (int bottom = static_cast<int>(inner.getBottom()); bottom > 0; bottom -= t::brushPeriod)
-        {
-            g.setColour(juce::Colours::white.withAlpha(t::brushWhiteAlpha));
-            g.fillRect(left, bottom - 1, width, 1);
-            g.setColour(juce::Colours::black.withAlpha(t::brushBlackAlpha));
-            g.fillRect(left, bottom - t::brushPeriod, width, t::brushPeriod - 1);
-        }
-    }
-
-    // An inset 1 px white line along the top edge: the padding box minus itself moved down 1 px.
-    static void paintHighlight(juce::Graphics& g, juce::Rectangle<float> inner, float radius)
-    {
-        juce::Path crescents;
-        crescents.setUsingNonZeroWinding(false);
-        crescents.addRoundedRectangle(inner, radius);
-        crescents.addRoundedRectangle(inner.translated(0.0F, 1.0F), radius);
-        g.setColour(juce::Colours::white.withAlpha(t::highlightAlpha));
-        g.fillPath(crescents);
-    }
-
     MagicDustProcessor& processor_;
     md::ui::ScreenComponent screen_;
     md::ui::KeyButton playKey_;
@@ -170,30 +131,91 @@ class MagicDustEditor::Body : public juce::Component
 };
 
 MagicDustEditor::MagicDustEditor(MagicDustProcessor& owner)
-    : AudioProcessorEditor(owner), body_(std::make_unique<Body>(owner))
+    : AudioProcessorEditor(owner), processor_(owner)
 {
-    body_->setLookAndFeel(&lookAndFeel_);
-    addAndMakeVisible(*body_);
-
-    const auto width = static_cast<int>(t::layout::windowWidth * t::layout::minScale);
-    const auto height = static_cast<int>(t::layout::windowHeight * t::layout::minScale);
     setResizable(true, false);
-    setResizeLimits(width, height, static_cast<int>(t::layout::windowWidth * t::layout::maxScale),
-                    static_cast<int>(t::layout::windowHeight * t::layout::maxScale));
-    getConstrainer()->setFixedAspectRatio(static_cast<double>(t::layout::windowWidth) /
-                                          t::layout::windowHeight);
-    setSize(t::layout::windowWidth, t::layout::windowHeight);
+    showView();
     startTimerHz(30);
 }
 
-MagicDustEditor::~MagicDustEditor() { body_->setLookAndFeel(nullptr); }
+MagicDustEditor::~MagicDustEditor()
+{
+    if (body_ != nullptr)
+    {
+        body_->setLookAndFeel(nullptr);
+    }
+}
+
+// Builds the view for the instance's mode, and sizes and limits the window to suit it.
+void MagicDustEditor::showView()
+{
+    const auto sender = processor_.mode() == InstanceMode::sender;
+    if (body_ != nullptr)
+    {
+        body_->setLookAndFeel(nullptr);
+    }
+    body_.reset();
+    sender_.reset();
+    if (sender)
+    {
+        sender_ = std::make_unique<md::ui::SenderBody>(processor_);
+        addAndMakeVisible(*sender_);
+    }
+    else
+    {
+        body_ = std::make_unique<Body>(processor_);
+        body_->setLookAndFeel(&lookAndFeel_);
+        addAndMakeVisible(*body_);
+    }
+
+    const auto width = sender ? t::layout::senderWidth : t::layout::windowWidth;
+    const auto height = sender ? t::layout::senderHeight : t::layout::windowHeight;
+    setResizeLimits(static_cast<int>(static_cast<float>(width) * t::layout::minScale),
+                    static_cast<int>(static_cast<float>(height) * t::layout::minScale),
+                    static_cast<int>(static_cast<float>(width) * t::layout::maxScale),
+                    static_cast<int>(static_cast<float>(height) * t::layout::maxScale));
+    getConstrainer()->setFixedAspectRatio(static_cast<double>(width) / height);
+    setSize(width, height);
+    updateScale();
+}
+
+void MagicDustEditor::sync()
+{
+    if ((processor_.mode() == InstanceMode::sender) != (sender_ != nullptr))
+    {
+        showView();
+    }
+}
 
 void MagicDustEditor::paint(juce::Graphics& g) { g.fillAll(t::body); }
 
-void MagicDustEditor::resized()
+void MagicDustEditor::resized() { updateScale(); }
+
+// The view is laid out at its logical size; the editor scales it as a whole.
+void MagicDustEditor::updateScale()
 {
-    body_->setTransform(juce::AffineTransform::scale(static_cast<float>(getWidth()) /
-                                                     static_cast<float>(t::layout::windowWidth)));
+    const auto logicalWidth = sender_ != nullptr ? t::layout::senderWidth : t::layout::windowWidth;
+    const auto transform = juce::AffineTransform::scale(static_cast<float>(getWidth()) /
+                                                        static_cast<float>(logicalWidth));
+    if (sender_ != nullptr)
+    {
+        sender_->setTransform(transform);
+    }
+    else if (body_ != nullptr)
+    {
+        body_->setTransform(transform);
+    }
 }
 
-void MagicDustEditor::timerCallback() { body_->refresh(); }
+void MagicDustEditor::timerCallback()
+{
+    sync();
+    if (sender_ != nullptr)
+    {
+        sender_->refresh();
+    }
+    else
+    {
+        body_->refresh();
+    }
+}

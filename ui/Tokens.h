@@ -73,6 +73,8 @@ inline constexpr float readoutSize = 12.0F;
 inline constexpr float statusLineSize = 11.0F;
 inline constexpr float keyLabelSize = 10.0F;
 inline constexpr float sprinkleTitleSize = 22.0F;
+inline constexpr float wordmarkSize = 27.0F;
+inline constexpr float wordmarkSpacing = -0.5F; // px between letters
 
 // Motion, in ms.
 inline constexpr double keyPressMs = 80.0;
@@ -180,6 +182,16 @@ inline constexpr float ledGlow = 6.0F;
 inline constexpr float sprinkleIconSize = 28.0F;
 inline constexpr float sprinkleIconGap = 10.0F;
 inline constexpr float sprinkleLabelGap = 4.0F;
+// The sender screen (visual spec, "Sender screen").
+inline constexpr int senderWidth = 520;
+inline constexpr int senderHeight = 240;
+inline constexpr int senderKeyX = 27;
+inline constexpr int senderKeyY = 100;
+inline constexpr int senderKeyPitch = 94; // a key's width plus the 12 px gap
+inline constexpr int senderMainKeyX = 321;
+inline constexpr int senderMainKeyWidth = 120;
+inline const juce::Rectangle<int> senderTitle{27, 27, 466, 29};
+inline const juce::Rectangle<int> senderStatus{27, 200, 466, 16};
 inline constexpr float focusRingStroke = 2.0F; // the screen's focus outline, drawn just inside
 } // namespace layout
 

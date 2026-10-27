@@ -106,3 +106,73 @@ These steps are for Ableton Live 12.
 6. Find Magic Dust in the Plug-Ins browser and drag it onto the track.
 
 Other daws need the same rescan before they show Magic Dust.
+
+## Phase 2 in your daw
+
+These steps are for Ableton Live 12.
+Build first with `cmake --build --preset dev` and rescan your plug-ins as above.
+
+### Loading Magic Dust and sprinkling
+
+1. Make a MIDI track and drag Magic Dust onto it.
+2. Press play (the key under the screen) to hear the idea.
+   Press your daw's own play instead and Magic Dust follows it.
+3. Press sprinkle for a new idea.
+   Every press gives a different one.
+
+### Turning flavour, aura and groove
+
+1. Click the flavour field to step through simple, soulful and jazzy.
+   Soulful is the chords as written, simple is plainer and jazzy is richer.
+2. Drag on the aura pad.
+   Left to right is mood, bottom to top is energy.
+3. Click the groove field to step through the grooves, or scroll over it.
+4. After each change, sprinkle again and listen to whether the idea matches what you set.
+
+### Dragging an idea out
+
+1. Drag a chord bubble onto a MIDI track.
+   You get that one chord.
+2. Drag a lane onto a MIDI track.
+   You get that lane.
+3. Drag from the files `md-cli` wrote (see "Hearing ideas from md-cli") the file without a lane name, for example `uk-funky-1.mid`, onto an empty area of your daw.
+   This file holds chords, bass and melody together.
+4. Write down whether your daw split it into three tracks, kept it as one track, or refused it.
+   This answers the open question about "bottle it".
+
+### Sending a lane to your own instrument
+
+Use the VST3 version of Magic Dust here.
+The AU version cannot send MIDI to other tracks in Ableton Live, so the VST3 is the one to load.
+
+1. Load Magic Dust on a MIDI track.
+   This is the main one, with the full screen.
+2. Make a second MIDI track and load Magic Dust on it too.
+   It opens as "magic dust sender".
+3. Click the lane you want to send: chords, bass or melody.
+   The light on the key shows your pick, and the status line says "sending bass from magic dust" (or the lane you picked).
+   If it says "no magic dust found", load Magic Dust on another track first.
+4. Make a third track and load your own instrument on it.
+5. On that instrument track, set MIDI From to the sender track.
+6. Set the second chooser under it to Magic Dust.
+7. Set Monitor to In.
+8. Press play in your daw.
+   The sender plays only while your daw plays, and it stays in time with the main Magic Dust.
+   The sender itself makes no sound.
+9. Click "full magic dust" on a sender to turn it into a full Magic Dust of its own with its own idea.
+
+### The listening review
+
+1. Sprinkle 20 ideas in each of the families: uk funky, mk dub, soulful, bassline, festival and ny groove.
+2. Drag the ones you like into clips in your daw.
+3. Rate every idea keep, close or skip.
+4. The target is at least 1 keep in every 3 ideas.
+   Write down the ones that miss, with the style and seed, so they can be fixed.
+
+### The golden before and after files
+
+If the music has changed, run `scripts/update-golden.sh` from the project folder.
+It puts the old files in `build/golden-review/before/` and the new files in `build/golden-review/after/`, and lists the cases that changed.
+Drag the same case from both folders into your daw and listen to the before, then the after.
+If you like the after, commit `tests/golden`.
+If not, run `git checkout tests/golden` and report it.

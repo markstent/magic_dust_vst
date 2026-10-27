@@ -5,6 +5,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include "ui/MdLookAndFeel.h"
+#include "ui/SenderEditor.h"
 
 class MagicDustProcessor;
 
@@ -21,13 +22,21 @@ class MagicDustEditor : public juce::AudioProcessorEditor, private juce::Timer
     void paint(juce::Graphics& g) override;
     void resized() override;
 
+    // Swaps the main view and the sender view when the instance's mode has changed.
+    void sync();
+
   private:
     class Body;
 
     void timerCallback() override;
+    void showView();
+    void updateScale();
+
+    MagicDustProcessor& processor_;
 
     md::ui::MdLookAndFeel lookAndFeel_;
     std::unique_ptr<Body> body_;
+    std::unique_ptr<md::ui::SenderBody> sender_;
 
     JUCE_LEAK_DETECTOR(MagicDustEditor)
 };

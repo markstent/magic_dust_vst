@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -12,6 +13,7 @@
 
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
+#include "plugin/PluginEditor.h"
 #include "plugin/PluginProcessor.h"
 #include "ui/AuraPad.h"
 #include "ui/ChordBubble.h"
@@ -19,6 +21,7 @@
 #include "ui/KeyButton.h"
 #include "ui/LaneView.h"
 #include "ui/ScreenComponent.h"
+#include "ui/SenderEditor.h"
 #include "ui/StatusFields.h"
 #include "ui/TopLine.h"
 
@@ -572,6 +575,89 @@ TEST_CASE("opening and closing the editor leaks nothing", "[editor]")
     CHECK(processor.getActiveEditor() == nullptr);
 }
 
+// A second instance while a main instance is alive becomes a sender and opens the sender screen.
+struct SenderFixture
+{
+    juce::ScopedJuceInitialiser_GUI gui;
+    std::unique_ptr<MagicDustProcessor> main = std::make_unique<MagicDustProcessor>();
+    MagicDustProcessor processor;
+    std::unique_ptr<juce::AudioProcessorEditor> editor{processor.createEditor()};
+
+    SenderFixture() { REQUIRE(processor.mode() == InstanceMode::sender); }
+
+    md::ui::LabelKey& key(const char* id) const
+    {
+        auto* found = dynamic_cast<md::ui::LabelKey*>(Fixture::search(*editor, id));
+        REQUIRE(found != nullptr);
+        return *found;
+    }
+
+    md::ui::SenderBody& body() const
+    {
+        for (auto* child : editor->getChildren())
+        {
+            if (auto* sender = dynamic_cast<md::ui::SenderBody*>(child))
+            {
+                return *sender;
+            }
+        }
+        FAIL("no sender screen");
+        throw std::logic_error("unreachable");
+    }
+};
+
+TEST_CASE("a sender opens the sender screen at 520 x 240", "[editor][sender]")
+{
+    SenderFixture f;
+    CHECK(f.editor->getWidth() == 520);
+    CHECK(f.editor->getHeight() == 240);
+    const auto bounds = [&f](const char* id)
+    {
+        auto& c = f.key(id);
+        return f.editor->getLocalArea(&c, c.getLocalBounds());
+    };
+    CHECK(bounds("senderKey-chords") == Rect{27, 100, 82, 82});
+    CHECK(bounds("senderKey-bass") == Rect{121, 100, 82, 82});
+    CHECK(bounds("senderKey-melody") == Rect{215, 100, 82, 82});
+    CHECK(bounds("senderMainKey") == Rect{321, 100, 120, 82});
+}
+
+TEST_CASE("clicking a lane key picks the lane and lights only its LED", "[editor][sender]")
+{
+    SenderFixture f;
+    f.key("senderKey-melody").setAnimated(false);
+    click(f.key("senderKey-melody"), {40.0F, 40.0F});
+    CHECK(f.processor.senderLane() == md::LaneId::melody);
+    CHECK(f.key("senderKey-melody").isLit());
+    CHECK_FALSE(f.key("senderKey-chords").isLit());
+    CHECK_FALSE(f.key("senderKey-bass").isLit());
+    CHECK(f.body().status() == "sending melody from magic dust");
+}
+
+TEST_CASE("the sender status follows whether a main instance exists", "[editor][sender]")
+{
+    SenderFixture f;
+    CHECK(MagicDustProcessor::senderLinked());
+    CHECK(f.body().status().startsWith("sending "));
+    f.main = nullptr;
+    CHECK_FALSE(MagicDustProcessor::senderLinked());
+    f.body().refresh();
+    CHECK(f.body().status() == "no magic dust found - load magic dust on another track first");
+}
+
+TEST_CASE("full magic dust turns the instance main and the editor becomes the main editor",
+          "[editor][sender]")
+{
+    SenderFixture f;
+    click(f.key("senderMainKey"), {40.0F, 40.0F});
+    CHECK(f.processor.mode() == InstanceMode::main);
+    dynamic_cast<MagicDustEditor&>(*f.editor).sync();
+    CHECK(f.editor->getWidth() == 1040);
+    CHECK(f.editor->getHeight() == 740);
+    CHECK(Fixture::search(*f.editor, "playKey") != nullptr);
+    CHECK(Fixture::search(*f.editor, "senderMainKey") == nullptr);
+}
+
 // Renders the editor to PNGs in $MD_RENDER_DIR for the side-by-side review; does nothing when
 // the variable is not set.
 TEST_CASE("render the editor", "[.render]")
@@ -600,4 +686,33 @@ TEST_CASE("render the editor", "[.render]")
     write("editor-100.png", 1040, 1.0F);
     write("editor-150.png", 1560, 1.0F);
     write("editor-200.png", 1040, 2.0F);
+}
+
+// Renders the sender screen to PNGs in $MD_RENDER_DIR; does nothing when the variable is not set.
+TEST_CASE("render the sender editor", "[.render]")
+{
+    const char* dir = std::getenv("MD_RENDER_DIR");
+    if (dir == nullptr)
+    {
+        return;
+    }
+    SenderFixture f;
+    f.key("senderKey-bass").setAnimated(false);
+    f.processor.setSenderLane(md::LaneId::bass);
+    f.body().refresh();
+    const juce::File out(dir);
+    out.createDirectory();
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+    const auto write = [&](const char* name, float scale)
+    {
+        const auto image =
+            f.editor->createComponentSnapshot(f.editor->getLocalBounds(), true, scale);
+        juce::FileOutputStream stream(out.getChildFile(name));
+        REQUIRE(stream.openedOk());
+        stream.setPosition(0);
+        stream.truncate();
+        REQUIRE(juce::PNGImageFormat().writeImageToStream(image, stream));
+    };
+    write("sender-100.png", 1.0F);
+    write("sender-200.png", 2.0F);
 }

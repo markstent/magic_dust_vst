@@ -52,7 +52,8 @@ add_library(md_plugin_core STATIC PluginProcessor.cpp PluginEditor.cpp Playback.
   AuditionSynth.cpp Link.cpp DragFiles.cpp
   ${CMAKE_SOURCE_DIR}/ui/Fonts.cpp ${CMAKE_SOURCE_DIR}/ui/ChordBubble.cpp ${CMAKE_SOURCE_DIR}/ui/LaneView.cpp ${CMAKE_SOURCE_DIR}/ui/AuraPad.cpp
   ${CMAKE_SOURCE_DIR}/ui/StatusFields.cpp ${CMAKE_SOURCE_DIR}/ui/Readout.cpp ${CMAKE_SOURCE_DIR}/ui/TopLine.cpp ${CMAKE_SOURCE_DIR}/ui/ScreenComponent.cpp
-  ${CMAKE_SOURCE_DIR}/ui/KeyButton.cpp ${CMAKE_SOURCE_DIR}/ui/SprinkleKey.cpp)
+  ${CMAKE_SOURCE_DIR}/ui/KeyButton.cpp ${CMAKE_SOURCE_DIR}/ui/SprinkleKey.cpp
+  ${CMAKE_SOURCE_DIR}/ui/BodyMaterial.cpp ${CMAKE_SOURCE_DIR}/ui/SenderEditor.cpp)
 target_include_directories(md_plugin_core PUBLIC ${CMAKE_SOURCE_DIR})
 target_link_libraries(md_plugin_core
   PUBLIC md_juce_headers md_engine md_bank md_midiexport
