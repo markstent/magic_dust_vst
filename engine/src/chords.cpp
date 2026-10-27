@@ -162,11 +162,8 @@ int cost(const Voicing& v, const Voicing* previous)
         return std::abs(v.back() - kFirstChordTop);
     }
     int total = std::abs(v.back() - previous->back());
-    for (std::size_t i = 0; i < std::min(v.size(), previous->size()); ++i)
-    {
-        const int move = std::abs(v.at(i) - previous->at(i));
-        total += (2 * move) + (move > kMaxVoiceMove ? kLeapPenalty : 0);
-    }
+    forEachVoicePair(v, *previous, [&total](std::size_t, int move)
+                     { total += (2 * move) + (move > kMaxVoiceMove ? kLeapPenalty : 0); });
     return total;
 }
 
@@ -224,39 +221,7 @@ std::optional<Voicing> parallelVoicing(const Voicing& shape, int rootMove, TopRa
     }
     return best;
 }
-} // namespace
 
-std::vector<PlacedChord> placeProgression(const Progression& progression, int bars)
-{
-    std::vector<PlacedChord> placed;
-    const std::size_t count = progression.chords.size();
-    if (count == 0 || progression.barsPerChord.size() != count ||
-        std::ranges::any_of(progression.barsPerChord, [](int bars) { return bars < 1; }))
-    {
-        throw std::logic_error("progression needs chords and at least one bar for each");
-    }
-    for (std::size_t i = 0; placed.empty() || placed.back().startBar + placed.back().bars < bars;
-         ++i)
-    {
-        const int startBar = placed.empty() ? 0 : placed.back().startBar + placed.back().bars;
-        const PlacedChord chord{
-            .symbol = progression.chords.at(i % count),
-            .feel = "",
-            .startBar = startBar,
-            .bars = std::min(progression.barsPerChord.at(i % count), bars - startBar),
-            .voicing = {},
-        };
-        placed.push_back(chord);
-    }
-    for (std::size_t slot = 0; slot < placed.size(); ++slot)
-    {
-        placed.at(slot).feel = feelWord(placed.at(slot).symbol, slot, placed.size());
-    }
-    return placed;
-}
-
-namespace
-{
 // Voices every chord in the shape, with close position for a chord the shape cannot voice. A strict
 // pass gives up (false) when a chord can only leap; the plain close pass throws instead.
 bool voiceAll(const StyleEntry& entry, VoicingStyle style, bool strict, const Key& key,
@@ -301,10 +266,39 @@ bool voiceAll(const StyleEntry& entry, VoicingStyle style, bool strict, const Ke
 }
 } // namespace
 
+std::vector<PlacedChord> placeProgression(const Progression& progression, int bars)
+{
+    std::vector<PlacedChord> placed;
+    const std::size_t count = progression.chords.size();
+    if (count == 0 || progression.barsPerChord.size() != count ||
+        std::ranges::any_of(progression.barsPerChord, [](int bars) { return bars < 1; }))
+    {
+        throw std::logic_error("progression needs chords and at least one bar for each");
+    }
+    for (std::size_t i = 0; placed.empty() || placed.back().startBar + placed.back().bars < bars;
+         ++i)
+    {
+        const int startBar = placed.empty() ? 0 : placed.back().startBar + placed.back().bars;
+        const PlacedChord chord{
+            .symbol = progression.chords.at(i % count),
+            .feel = "",
+            .startBar = startBar,
+            .bars = std::min(progression.barsPerChord.at(i % count), bars - startBar),
+            .voicing = {},
+        };
+        placed.push_back(chord);
+    }
+    for (std::size_t slot = 0; slot < placed.size(); ++slot)
+    {
+        placed.at(slot).feel = feelWord(placed.at(slot).symbol, slot, placed.size());
+    }
+    return placed;
+}
+
 void voiceChords(const StyleEntry& entry, const Key& key, std::vector<PlacedChord>& chords)
 {
-    const bool shaped = entry.voicingStyle != VoicingStyle::close;
-    if (!shaped || !voiceAll(entry, entry.voicingStyle, true, key, chords))
+    const bool hasShape = entry.voicingStyle != VoicingStyle::close;
+    if (!hasShape || !voiceAll(entry, entry.voicingStyle, true, key, chords))
     {
         voiceAll(entry, VoicingStyle::close, false, key, chords);
     }

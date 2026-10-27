@@ -819,3 +819,34 @@ TEST_CASE("piano spread voicings put the root at the bottom", "[generate][voicin
     }
     REQUIRE(rooted * 4 >= total * 3);
 }
+
+TEST_CASE("consecutive top notes move at most 7 semitones", "[generate][voicing]")
+{
+    for (const StyleEntry& entry : bank().entries)
+    {
+        for (std::uint32_t seed = 0; seed < 100; ++seed)
+        {
+            const Idea idea = generate(makeBank({entry}), settingsOf(entry), seed);
+            for (std::size_t i = 1; i < idea.progression.size() && !idea.parallel; ++i)
+            {
+                REQUIRE(std::abs(idea.progression.at(i).voicing.back() -
+                                 idea.progression.at(i - 1).voicing.back()) <= kMaxVoiceMove);
+            }
+        }
+    }
+}
+
+TEST_CASE("a progression a shape can only leap through is voiced in close position",
+          "[generate][voicing]")
+{
+    const auto it = std::ranges::find(bank().entries, "soulful-starter-01", &StyleEntry::id);
+    REQUIRE(it != bank().entries.end());
+    const Settings settings = settingsFor(Style::soulful, 1);
+    const Idea spread = generate(bankOf(*it, VoicingStyle::pianoSpread), settings, 1);
+    const Idea close = generate(bankOf(*it, VoicingStyle::close), settings, 1);
+    REQUIRE(spread.progression.size() == close.progression.size());
+    for (std::size_t i = 0; i < close.progression.size(); ++i)
+    {
+        REQUIRE(spread.progression.at(i).voicing == close.progression.at(i).voicing);
+    }
+}

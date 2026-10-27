@@ -51,19 +51,21 @@ void checkVoicings(const Idea& idea, Lines& lines)
         {
             lines.push_back(name + " is muddy");
         }
-        if (i == 0 || idea.parallel)
+        const Voicing& previous = idea.progression.at(i == 0 ? 0 : i - 1).voicing;
+        if (i == 0 || idea.parallel || v.empty() || previous.empty())
         {
             continue;
         }
-        const Voicing& previous = idea.progression.at(i - 1).voicing;
-        for (std::size_t voice = 0; voice < std::min(v.size(), previous.size()); ++voice)
-        {
-            if (std::abs(v.at(voice) - previous.at(voice)) > kMaxVoiceMove)
-            {
-                lines.push_back(name + " moves voice " + std::to_string(voice + 1) +
-                                " more than 7 semitones");
-            }
-        }
+        detail::forEachVoicePair(v, previous,
+                                 [&](std::size_t voice, int move)
+                                 {
+                                     if (move > kMaxVoiceMove)
+                                     {
+                                         lines.push_back(name + " moves voice " +
+                                                         std::to_string(voice + 1) +
+                                                         " more than 7 semitones");
+                                     }
+                                 });
     }
 }
 

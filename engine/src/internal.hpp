@@ -4,7 +4,10 @@
 #include "md/style.hpp"
 #include "md/types.hpp"
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <optional>
 #include <span>
 #include <vector>
@@ -45,6 +48,19 @@ std::vector<int> allowedPitchClasses(const std::vector<int>& pcs);
 // True when a voicing has an interval below a perfect 4th under MIDI 52 (which rules out 3rds
 // under 48 too).
 bool isMuddy(const Voicing& voicing);
+
+// Calls f(voice, move) for each pair of voices between two voicings: the top voices pair with each
+// other and the rest pair from the bottom, min(size) - 1 of them; a larger chord's extra voices are
+// unpaired. voice is the index in a; move is the distance in semitones.
+template <class F> void forEachVoicePair(const Voicing& a, const Voicing& b, const F& f)
+{
+    const std::size_t paired = std::min(a.size(), b.size()) - 1;
+    for (std::size_t i = 0; i < paired; ++i)
+    {
+        f(i, std::abs(a.at(i) - b.at(i)));
+    }
+    f(a.size() - 1, std::abs(a.back() - b.back()));
+}
 
 // Ends each note at the next onset and at endTick, and drops notes left shorter than 1 tick.
 // For monophonic lanes whose events are sorted by start.

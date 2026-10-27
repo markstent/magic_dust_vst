@@ -275,3 +275,18 @@ TEST_CASE("a chord with no bars is one violation", "[validate]")
     idea.progression.insert(idea.progression.begin() + 2, empty);
     requireOneViolation(idea);
 }
+
+TEST_CASE("a top voice leap over 7 between a 4 and a 5 note chord is one violation", "[validate]")
+{
+    Idea idea = validIdea(9);
+    const int low = idea.progression.at(0).voicing.front();
+    const Voicing voicing = {low, low + 3, low + 7, low + 12, low + 19};
+    idea.progression.at(3).voicing = voicing;
+    auto& events = idea.lanes.at(0).events;
+    events.resize(12);
+    for (const int pitch : voicing)
+    {
+        events.push_back(note(pitch, 6 * kTicksPerBar, kTicksPerQuarter));
+    }
+    requireOneViolation(idea);
+}
