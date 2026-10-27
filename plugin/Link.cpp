@@ -69,6 +69,30 @@ const md::PlaybackPattern* Link::current(const void* owner) const
     return nullptr;
 }
 
+void Link::setMutes(const void* owner, unsigned mask)
+{
+    for (Slot& slot : slots_)
+    {
+        if (slot.owner.load() == owner)
+        {
+            slot.mutes.store(mask);
+            return;
+        }
+    }
+}
+
+unsigned Link::mutes(const void* owner) const
+{
+    for (const Slot& slot : slots_)
+    {
+        if (slot.owner.load() == owner)
+        {
+            return slot.mutes.load();
+        }
+    }
+    return 0;
+}
+
 void Link::retire(std::chrono::steady_clock::time_point now)
 {
     const std::scoped_lock lock(mutex_);
@@ -109,6 +133,7 @@ void Link::remove(const void* owner)
     {
         slot->owner.store(nullptr);
         slot->pattern.store(nullptr);
+        slot->mutes.store(0);
         retireLocked(std::move(slot->keep));
         slot->keep.reset();
     }

@@ -45,6 +45,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout makeLayout()
         layout.add(std::make_unique<juce::AudioParameterFloat>(
             ParameterID{id, 1}, juce::String(id).replace("Level", " level"), 0.0F, 1.0F, 1.0F));
     }
+    for (const char* id : {"chordsMute", "bassMute", "melodyMute"})
+    {
+        layout.add(std::make_unique<juce::AudioParameterBool>(
+            ParameterID{id, 1}, juce::String(id).replace("Mute", " mute"), false));
+    }
     return layout;
 }
 
@@ -124,7 +129,9 @@ MagicDustProcessor::MagicDustProcessor(std::optional<md::Bank> bank,
       volume_(params.getRawParameterValue("volume")),
       chordsLevel_(params.getRawParameterValue("chordsLevel")),
       bassLevel_(params.getRawParameterValue("bassLevel")),
-      melodyLevel_(params.getRawParameterValue("melodyLevel"))
+      melodyLevel_(params.getRawParameterValue("melodyLevel")),
+      mutes_{params.getRawParameterValue("chordsMute"), params.getRawParameterValue("bassMute"),
+             params.getRawParameterValue("melodyMute")}
 {
     Link& link = Link::instance();
     const bool sender = link.oldestMain() != nullptr;
@@ -402,7 +409,7 @@ void MagicDustProcessor::endAudition()
 
 bool MagicDustProcessor::emitMidi(const md::PlayEvent& e, juce::MidiBuffer& midi, int offset)
 {
-    if (!e.on && !sounding_.holds(e))
+    if (e.on ? (mutedMask_ & (1U << (e.channel % 16U))) != 0U : !sounding_.holds(e))
     {
         return false;
     }
@@ -473,6 +480,7 @@ void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
     }
     lastSource_ = t.source;
     lastPattern_ = pattern;
+    updateMutes(midi, sender);
 
     if (sender)
     {
@@ -487,6 +495,41 @@ void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
     expectedPpq_ = t.ppq + md::ppqForSamples(numSamples, t.bpm, sampleRate_);
     previewPlaying_.store(t.source != Source::none);
     previewPpq_.store(t.ppq);
+}
+
+// A muted lane plays nothing: lanes that just went quiet release at once, and emitMidi drops the
+// note starts after that. A sender follows the mute state of the main instance it plays for.
+void MagicDustProcessor::updateMutes(juce::MidiBuffer& midi, bool sender)
+{
+    Link& link = Link::instance();
+    unsigned mask = 0;
+    if (sender)
+    {
+        mask = link.mutes(link.oldestMain());
+    }
+    else
+    {
+        for (unsigned lane = 0; lane < 3; ++lane)
+        {
+            if (laneMuted(static_cast<md::LaneId>(lane)))
+            {
+                mask |= 1U << lane;
+            }
+        }
+        link.setMutes(this, mask);
+    }
+    const unsigned fresh = mask & ~mutedMask_;
+    mutedMask_ = mask;
+    for (unsigned lane = 0; lane < 3; ++lane)
+    {
+        if ((fresh & (1U << lane)) != 0U)
+        {
+            sounding_.releaseChannel(static_cast<std::uint8_t>(lane),
+                                     [&midi](std::uint8_t channel, std::uint8_t note)
+                                     { addMidi(midi, false, channel, note, 0, 0); });
+            voiceFor(static_cast<int>(lane)).allNotesOff();
+        }
+    }
 }
 
 // A sender plays only its lane's notes on that lane's channel, with no sound of its own.

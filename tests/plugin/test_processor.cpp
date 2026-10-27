@@ -1,6 +1,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <memory>
@@ -362,6 +363,113 @@ TEST_CASE("lane levels round trip, and a state without them loads 1.0")
     CHECK(level(fresh, "chordsLevel") == Catch::Approx(1.0F));
     CHECK(level(fresh, "bassLevel") == Catch::Approx(1.0F));
     CHECK(level(fresh, "melodyLevel") == Catch::Approx(1.0F));
+}
+
+namespace
+{
+
+constexpr int kBassChannel = 1;
+
+bool hasChannel(const std::vector<Ev>& events, int channel)
+{
+    return std::ranges::any_of(events, [channel](const Ev& e) { return e.channel == channel; });
+}
+
+} // namespace
+
+TEST_CASE("a muted lane plays no midi and no built-in sound while the other lanes play on")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    const double bassLevelOff = playedEnergy("bassLevel", 0.0F);
+    MagicDustProcessor processor;
+    setSeed(processor, 48213);
+    setLevel(processor, "bassMute", 1.0F);
+    processor.prepareToPlay(kRate, kBlock);
+    FakeHead head;
+    processor.setPlayHead(&head);
+    const Run run = runBlocks(processor, head, 187);
+    CHECK_FALSE(hasChannel(run.events, kBassChannel));
+    CHECK(hasChannel(run.events, 0));
+    CHECK(hasChannel(run.events, 2));
+    CHECK(run.energy > 0.0);
+    CHECK(run.energy == Catch::Approx(bassLevelOff).epsilon(0.0001));
+}
+
+TEST_CASE("muting mid-note releases the note at once and unmuting waits for the next note start")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    setSeed(processor, 48213);
+    processor.prepareToPlay(kRate, kBlock);
+    FakeHead head;
+    processor.setPlayHead(&head);
+
+    // The held bass note, once one is sounding; chords hold lower-numbered channel entries first.
+    const auto bassNote = [](const std::vector<Ev>& events) -> std::optional<int>
+    {
+        for (const auto& [channel, note] : sounding(events))
+        {
+            if (channel == kBassChannel)
+            {
+                return note;
+            }
+        }
+        return std::nullopt;
+    };
+    std::vector<Ev> before;
+    while (!bassNote(before))
+    {
+        const Run r = runBlocks(processor, head, 1);
+        before.insert(before.end(), r.events.begin(), r.events.end());
+        REQUIRE(head.ppq < 64.0);
+    }
+    const auto heldNote = bassNote(before);
+    REQUIRE(heldNote.has_value());
+    const int held = heldNote.value_or(0);
+
+    setLevel(processor, "bassMute", 1.0F);
+    const Run muted = runBlocks(processor, head, 1);
+    CHECK(std::ranges::find(muted.events, Ev{kBassChannel, held, false}) != muted.events.end());
+
+    setLevel(processor, "bassMute", 0.0F);
+    const Run resumed = runBlocks(processor, head, 187);
+    const auto firstBass =
+        std::ranges::find_if(resumed.events, [](const Ev& e) { return e.channel == kBassChannel; });
+    REQUIRE(firstBass != resumed.events.end());
+    CHECK(firstBass->on);
+}
+
+TEST_CASE("lane mutes round trip, and a state saved without them loads all off")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    setLevel(processor, "bassMute", 1.0F);
+    setLevel(processor, "melodyMute", 1.0F);
+    juce::MemoryBlock state;
+    processor.getStateInformation(state);
+    MagicDustProcessor fresh;
+    fresh.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+    CHECK_FALSE(fresh.laneMuted(md::LaneId::chords));
+    CHECK(fresh.laneMuted(md::LaneId::bass));
+    CHECK(fresh.laneMuted(md::LaneId::melody));
+
+    auto saved =
+        juce::AudioProcessor::getXmlFromBinary(state.getData(), static_cast<int>(state.getSize()));
+    REQUIRE(saved != nullptr);
+    auto* params = saved->getChildByName(fresh.params.state.getType());
+    REQUIRE(params != nullptr);
+    for (const char* id : {"chordsMute", "bassMute", "melodyMute"})
+    {
+        if (auto* child = params->getChildByAttribute("id", id))
+        {
+            params->removeChildElement(child, true);
+        }
+    }
+    juce::MemoryBlock old;
+    juce::AudioProcessor::copyXmlToBinary(*saved, old);
+    fresh.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+    CHECK_FALSE(fresh.laneMuted(md::LaneId::bass));
+    CHECK_FALSE(fresh.laneMuted(md::LaneId::melody));
 }
 
 TEST_CASE("stopping the host releases every sounding note")

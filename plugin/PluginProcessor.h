@@ -70,6 +70,11 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     [[nodiscard]] std::optional<double> hostBpm() const;
     void auditionChord(std::size_t slot);
     [[nodiscard]] InstanceMode mode() const { return mode_.load(); }
+    [[nodiscard]] bool laneMuted(md::LaneId lane) const
+    {
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access): 3 lanes
+        return mutes_[static_cast<std::size_t>(lane)]->load() >= 0.5F;
+    }
     [[nodiscard]] md::LaneId senderLane() const { return senderLane_.load(); }
     void setSenderLane(md::LaneId lane);
     // Turns a sender into a main instance with an idea of its own.
@@ -117,6 +122,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     void senderBlock(juce::MidiBuffer& midi, int numSamples, const md::PlaybackPattern* pattern,
                      const Transport& t);
     void muteSentLanes();
+    void updateMutes(juce::MidiBuffer& midi, bool sender);
     void startAudition(double bpm);
     void endAudition();
     void renderVoices(juce::AudioBuffer<float>& buffer, int start, int num);
@@ -130,6 +136,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     const std::atomic<float>* chordsLevel_;
     const std::atomic<float>* bassLevel_;
     const std::atomic<float>* melodyLevel_;
+    std::array<const std::atomic<float>*, 3> mutes_;
     std::atomic<InstanceMode> mode_{InstanceMode::main};
     std::atomic<md::LaneId> senderLane_{md::LaneId::chords};
     std::optional<md::Idea> idea_;
@@ -158,6 +165,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     md::SoundingNotes sounding_;
     const md::PlaybackPattern* lastPattern_ = nullptr;
     Source lastSource_ = Source::none;
+    unsigned mutedMask_ = 0;         // lane bits, this block; a sender follows its main instance
     std::array<bool, 3> laneSent_{}; // a sender plays the lane, so the built-in sound is muted
     double expectedPpq_ = 0.0;
     double bpm_ = md::kDefaultTempo;

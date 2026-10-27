@@ -174,6 +174,36 @@ TEST_CASE("a bass sender plays exactly the main idea's bass on channel 2 and is 
     CHECK(run.energy == 0.0);
 }
 
+TEST_CASE("a sender plays nothing while its main has that lane muted and resumes after")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor main;
+    MagicDustProcessor chords;
+    MagicDustProcessor bass;
+    bass.setSenderLane(md::LaneId::bass);
+    FakeHead head;
+    prepare(bass, head);
+    prepare(main, head);
+    auto* mute = main.params.getParameter("bassMute");
+
+    mute->setValueNotifyingHost(1.0F);
+    const double startPpq = head.ppq;
+    // The main instance publishes its mutes from its own audio thread; run it first, as a host
+    // does.
+    juce::AudioBuffer<float> mainBuffer(2, kBlock);
+    juce::MidiBuffer mainMidi;
+    mainMidi.ensureSize(16384);
+    main.processBlock(mainBuffer, mainMidi);
+    head.ppq = startPpq;
+    const Run quiet = runBlocks(bass, head, 100);
+    CHECK(quiet.events.empty());
+
+    mute->setValueNotifyingHost(0.0F);
+    main.processBlock(mainBuffer, mainMidi);
+    const Run resumed = runBlocks(bass, head, 100);
+    CHECK_FALSE(resumed.events.empty());
+}
+
 TEST_CASE("a sender ignores the internal clock and plays only with the host")
 {
     const juce::ScopedJuceInitialiser_GUI juceInit;

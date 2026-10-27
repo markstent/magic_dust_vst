@@ -32,12 +32,17 @@ class Link
     void addSender(md::LaneId lane);
     void removeSender(md::LaneId lane);
     [[nodiscard]] int sendersFor(md::LaneId lane) const;
+    // Lane mute bits (bit = lane) of a published main instance, so its senders can follow. Both
+    // are lock-free; a main that has published nothing reads as unmuted.
+    void setMutes(const void* owner, unsigned mask);
+    [[nodiscard]] unsigned mutes(const void* owner) const;
 
   private:
     struct Slot
     {
         std::atomic<const void*> owner{nullptr};
         std::atomic<const md::PlaybackPattern*> pattern{nullptr};
+        std::atomic<unsigned> mutes{0};
         std::shared_ptr<const md::PlaybackPattern> keep;
     };
     struct Retired

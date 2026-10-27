@@ -67,6 +67,20 @@ class SoundingNotes
         }
     }
 
+    // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward): a callback invoked many times
+    template <class F> void releaseChannel(std::uint8_t channel, F&& emitOff)
+    {
+        std::bitset<128>& notes = held_[channel % 16];
+        for (std::uint8_t note = 0; note < 128; ++note)
+        {
+            if (notes[note])
+            {
+                emitOff(channel, note);
+            }
+        }
+        notes.reset();
+    }
+
     // NOLINTEND(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access)
 
   private:
