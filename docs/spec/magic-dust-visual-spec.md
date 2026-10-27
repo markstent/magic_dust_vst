@@ -23,7 +23,7 @@ In the plugin, every note on the screen is drawn from the engine's real output (
 
 - Draw everything as vectors in `paint()` and a custom `LookAndFeel`.
   Never paste the reference images into the plugin.
-- The editor's logical size is 1040 x 580 px.
+- The editor's logical size is 1040 x 600 px.
   It is resizable from 80% to 150% with a fixed aspect ratio, using `setResizable`, `setResizeLimits` and the constrainer's `setFixedAspectRatio`.
   Scale the whole component tree with one transform so every measurement in this document stays true at every size.
 - Embed Space Grotesk (500 and 700), Space Mono (400 and 700) and Libre Baskerville Bold (the wordmark) as binary data and load them with `juce::Typeface::createSystemTypefaceFor`.
@@ -45,19 +45,19 @@ The look is the studio console in `visual/studio-console-mockup.html`; the numbe
 
 | Zone | x | y | Width | Height | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Window | 0 | 0 | 1040 | 580 | |
-| Cheeks | 0 and 1014 | 0 | 26 | 580 | Walnut stripes |
-| Face | 26 | 0 | 988 | 580 | Metal gradient |
+| Window | 0 | 0 | 1040 | 600 | |
+| Cheeks | 0 and 1014 | 0 | 26 | 600 | Walnut stripes |
+| Face | 26 | 0 | 988 | 600 | Metal gradient |
 | Header | 54 | 24 | 932 | 40 | Wordmark and tagline on the left, readout windows on the right |
 | Display bezel | 54 | 86 | 932 | 250 | The full content width |
 | Knob panel | 54 | 350 | 932 | 104 | Seven knobs and the volume knob in one row |
-| Key row | 54 | 462 | 932 | 82 | Mute keys on the left, play, stop and sprinkle on the right |
+| Key row | 54 | 462 | 932 | 112 | Mute keys on the left with an octave rocker under each, play, stop and sprinkle on the right |
 
 ### Positions inside the zones
 
 | Element | Position and size |
 | --- | --- |
-| Screws | 13 px circles at (34, 8), (993, 8), (34, 559) and (993, 559). |
+| Screws | 13 px circles at (34, 8), (993, 8), (34, 579) and (993, 579). |
 | Wordmark | Starts at x = 54, centred on y = 44. The tagline starts 18 px after it. |
 | Readout legends | y = 24, 12 px tall, centred over each window. |
 | Idea, style, key and tempo windows | At y = 38, 26 px tall: x = 574 (84 wide), 670 (124), 806 (84) and 902 (84). |
@@ -69,6 +69,7 @@ The look is the studio console in `visual/studio-console-mockup.html`; the numbe
 | Level knobs | Faces 34 px across, centred at x = 640, 726 and 812 on y = 418. |
 | Volume knob | Face 40 px across, centred at (936, 412). |
 | Keys | 78 x 54 px with their top at y = 470. Mute keys at x = 74, 166 and 258. Play at x = 632 and stop at x = 724. Sprinkle is 170 x 54 at x = 816. Every legend sits 8 px below its key. |
+| Octave rockers | One per mute key, top at y = 550, 20 px tall and 78 px wide, starting at the mute key's x. See "Octave rockers". |
 | Spells panel | 340 px wide, 14 px from the display's left inner edge and 40 px below its top inner edge. |
 | Toast | Centred horizontally on the display, 96 px above its bottom inner edge. |
 
@@ -217,6 +218,21 @@ The numbers match the order of the console's parts, left to right and top to bot
 - A muted lane plays nothing: no built-in sound and no MIDI out.
   A sender follows the main instance, so it goes quiet too.
 
+#### Octave rockers
+
+- One rocker sits under each mute key's legend, so the bottom keys line up: the mute, play, stop and sprinkle keys all keep their tops at y = 470, and the legends CHORDS, BASS, MELODY, PLAY, STOP and NEW IDEA share one baseline.
+- A rocker is 78 x 20 px with its top at y = 550 and its left edge at the mute key's x, left to right: a 22 x 20 down key, a 2 px gap, a 30 x 20 cream readout window, a 2 px gap and a 22 x 20 up key.
+- The keys use the dark key material with a small `legend` triangle about 8 px wide, pointing down or up.
+- The window uses the cream readout material with Space Mono Bold 11 px `ink` text: "-2", "-1", "0", "+1" or "+2".
+- A short legend "OCT" in the key legend style sits to the left of the first rocker, centred on x = 58 and on the rocker row.
+- The down key is disabled at -2 and the up key at +2: drawn at 40% and not clickable.
+- Accessible titles are "chords octave down", "chords octave up" and "chords octave, -1" for the window, and likewise for bass and melody.
+- Each key is focusable and Enter presses it.
+  The focus order runs from each mute key to its down key, then its up key.
+- The rocker sets `chordsOctave`, `bassOctave` or `melodyOctave`, from -2 to +2 and 0 by default.
+  A part's notes move 12 semitones per step in its built-in sound, its MIDI out (senders follow) and the MIDI dragged out.
+  The display keeps drawing the notes as written.
+
 ### 10. Volume
 
 - A knob with a 40 px face centred at (936, 412), with the legend "VOLUME" and the end words "MIN" and "MAX".
@@ -319,7 +335,7 @@ A "motion" setting turns every animation off, and the plugin also turns them off
 
 ## Accessibility
 
-- Every interactive element is keyboard-focusable in this order: the wordmark, the style and key windows, the chord cells, the lanes, the mood, energy, groove and flavour knobs, the three level knobs, the volume knob, the three mute keys, play, stop, then sprinkle.
+- Every interactive element is keyboard-focusable in this order: the wordmark, the style and key windows, the chord cells, the lanes, the mood, energy, groove and flavour knobs, the three level knobs, the volume knob, the three mute keys each followed by its octave down and up keys, play, stop, then sprinkle.
   The sender view's order is its three lane keys, then "full magic dust".
 - Focus ring: 2 px `ink` on cream surfaces, 2 px `legend` on the metal faceplate.
 - Every control has an accessible title through `juce::AccessibilityHandler`, for example "chord 1, Am9, home", "mood", "chords level", "play the preview" and "about magic dust".

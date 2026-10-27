@@ -438,6 +438,9 @@ Keeping `engine`, `bank` and `midiexport` free of JUCE means all the music logic
   A built-in voice plays at the preview volume times its lane level.
   The levels never change the MIDI out.
   Three more mute each lane: chords mute, bass mute and melody mute, off by default.
+  Three more set the octave of each part: chords octave, bass octave and melody octave, each from -2 to +2 and 0 by default.
+  A part's notes move 12 semitones per step in its built-in sound, its MIDI out and the MIDI dragged out, and a note that would leave MIDI's 0 to 127 is dropped.
+  A sender follows its main instance's octave for its lane.
   A muted lane plays nothing, neither its built-in sound nor its MIDI out, and a sender follows the main instance's mutes.
 - **Live response.**
   Groove changes apply instantly (swing only).

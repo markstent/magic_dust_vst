@@ -32,6 +32,7 @@ It comes as an Audio Unit (AU) and a VST3 plugin, and it is open source under AG
 - Key and style menus on the top line.
 - Mood, energy, groove and flavour knobs shape each idea.
 - A level knob and a mute key for each part, and a master volume.
+- An octave rocker for each part, from 2 octaves down to 2 up, for the built-in sound, MIDI out and dragged MIDI.
 - Play, stop and the spacebar, to hear the idea with the built-in organ, sub bass and pluck sounds.
 - Drag a single chord, or a whole lane, into your daw as a MIDI clip.
 - MIDI out on channels 1 to 3: chords on 1, bass on 2, melody on 3.
@@ -122,7 +123,8 @@ The same ideas work in any daw.
 7. **Drag chords and lanes into Live.**
    Drag a chord cell onto a MIDI track to get that one chord.
    Drag a lane onto a MIDI track to get that lane.
-   The level knobs do not change the MIDI you drag out.
+   The level knobs do not change the MIDI you drag out, but the octave rockers do.
+   Lanes dropped at the same bar play in time with each other.
 8. **Send a part to your own synth.**
    Live merges the MIDI from one plugin onto one channel, so each part you want to send needs its own Magic Dust.
    Use the VST3 version for this.
@@ -164,6 +166,7 @@ The same ideas work in any daw.
 | CHORDS, BASS and MELODY LEVEL | Level of that part's built-in sound. Double-click to reset to full. |
 | VOLUME | Master volume of the built-in sounds. |
 | MUTE keys | Silence a part, both its built-in sound and its MIDI out. |
+| OCT rockers | Move a part down or up in octaves, from -2 to +2. The built-in sound, the MIDI out and the MIDI you drag all follow. |
 | PLAY | Plays the idea with the built-in sounds. |
 | STOP | Stops the preview. It does not stop your daw. |
 | SPRINKLE | Writes a new idea. |

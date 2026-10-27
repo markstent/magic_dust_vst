@@ -150,6 +150,16 @@ Build first with `cmake --build --preset dev` and rescan your plug-ins as above.
 4. Press the keys again and hear each lane come back at its next note.
 5. Check the level knobs did not move.
 
+### Moving a part by octaves
+
+1. Press play.
+2. Press the down key of the rocker under the BASS mute key.
+   The window reads -1 and the bass drops an octave, the sub bass sounding lower while the chords and melody stay put.
+3. Press it again for -2, where the down key dims and stops answering, then press the up key to climb back.
+4. With a bass sender loaded on another track and your own instrument on it, check the instrument follows the new octave.
+5. Press the down key to -1, then drag the bass lane onto a MIDI track and check its notes sit an octave below the ones you hear at 0.
+6. Check the display's rows did not move.
+
 ### Dragging an idea out
 
 1. Drag a chord cell onto a MIDI track.
