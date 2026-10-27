@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <iterator>
 #include <numeric>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -82,6 +83,84 @@ void clampMonophonic(std::vector<NoteEvent>& events, int endTick)
         events.at(i).length = std::min(events.at(i).length, limit - events.at(i).start);
     }
     std::erase_if(events, [](const NoteEvent& e) { return e.length < 1; });
+}
+
+ChordSymbol applyFlavour(const Key& key, std::optional<Mode> borrowedFrom, const ChordSymbol& chord,
+                         Flavour flavour)
+{
+    if (flavour == Flavour::soulful)
+    {
+        return chord;
+    }
+    if (flavour == Flavour::simple)
+    {
+        ChordSymbol plain = chord;
+        switch (chord.quality)
+        {
+        case Quality::min9:
+        case Quality::min11:
+            plain.quality = Quality::min7;
+            break;
+        case Quality::maj9:
+            plain.quality = Quality::maj7;
+            break;
+        case Quality::dom9:
+        case Quality::dom13:
+            plain.quality = Quality::dom7;
+            break;
+        case Quality::add9:
+            plain.quality = Quality::maj;
+            break;
+        default:
+            break;
+        }
+        return plain;
+    }
+    auto scale = scalePitchClasses(key);
+    if (borrowedFrom)
+    {
+        const auto borrowed = scalePitchClasses({.root = key.root, .mode = *borrowedFrom});
+        scale.insert(scale.end(), borrowed.begin(), borrowed.end());
+    }
+    const auto allowed = [&](Quality quality)
+    {
+        const auto pcs = chordPitchClasses(key, {.degree = chord.degree, .quality = quality});
+        return std::ranges::all_of(pcs, [&](int pc)
+                                   { return std::ranges::find(scale, pc) != scale.end(); });
+    };
+    const auto next = [&](Quality quality) -> std::optional<Quality>
+    {
+        switch (quality)
+        {
+        case Quality::min:
+            return Quality::min7;
+        case Quality::min7:
+            return Quality::min9;
+        case Quality::min9:
+            return Quality::min11;
+        case Quality::maj:
+            return allowed(Quality::maj7) ? Quality::maj7 : Quality::dom7;
+        case Quality::maj7:
+            return Quality::maj9;
+        case Quality::dom7:
+            return Quality::dom9;
+        case Quality::dom9:
+            return Quality::dom13;
+        default:
+            return std::nullopt;
+        }
+    };
+    ChordSymbol result = chord;
+    for (int steps = 2; steps > 0; --steps)
+    {
+        const auto step = next(result.quality);
+        if (!step || !allowed(*step))
+        {
+            break;
+        }
+        result.quality = *step;
+    }
+    return result;
 }
 } // namespace detail
 
@@ -274,6 +353,15 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
     idea.parallel = entry.parallel;
     idea.progression = detail::placeProgression(progression, settings.bars);
     std::vector<ChordSymbol> placedSymbols;
+    std::ranges::transform(idea.progression, std::back_inserter(placedSymbols),
+                           &PlacedChord::symbol);
+    idea.borrowedFrom = checkProgression(idea.key.mode, placedSymbols).borrowedFrom;
+    for (PlacedChord& chord : idea.progression)
+    {
+        chord.symbol =
+            detail::applyFlavour(idea.key, idea.borrowedFrom, chord.symbol, settings.flavour);
+    }
+    placedSymbols.clear();
     std::ranges::transform(idea.progression, std::back_inserter(placedSymbols),
                            &PlacedChord::symbol);
     idea.borrowedFrom = checkProgression(idea.key.mode, placedSymbols).borrowedFrom;

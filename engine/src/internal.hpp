@@ -5,6 +5,7 @@
 #include "md/types.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -48,6 +49,12 @@ bool isMuddy(const Voicing& voicing);
 // Ends each note at the next onset and at endTick, and drops notes left shorter than 1 tick.
 // For monophonic lanes whose events are sorted by start.
 void clampMonophonic(std::vector<NoteEvent>& events, int endTick);
+
+// Soulful keeps the written chord. Simple steps it down to a triad or 7th (add9 to maj). Jazzy
+// climbs up to two steps (min to min11, maj to maj9 or via dom7, dom7 to dom13), each needing every
+// note in the key's scale or the borrowed mode's; sus4 and six never change.
+ChordSymbol applyFlavour(const Key& key, std::optional<Mode> borrowedFrom, const ChordSymbol& chord,
+                         Flavour flavour);
 
 // Tiles the progression's chords from bar 0 and truncates the last at bars. Voicings stay empty.
 std::vector<PlacedChord> placeProgression(const Progression& progression, int bars);

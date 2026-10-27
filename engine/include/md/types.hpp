@@ -36,6 +36,7 @@ enum class Quality : std::uint8_t
     maj9,
     dom7,
     dom9,
+    dom13,
     sus4,
     six,
     add9,

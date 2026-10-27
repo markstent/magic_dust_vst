@@ -661,3 +661,61 @@ TEST_CASE("an idea code recreates byte-identical MIDI", "[generate][ideacode]")
         }
     }
 }
+
+TEST_CASE("soulful flavour is the default and keeps the written chords", "[generate][flavour]")
+{
+    const auto bytes = [](const Idea& idea)
+    { return writeMidiFile(ideaTracks(idea), 124, ideaLengthTicks(idea)); };
+    REQUIRE(Settings{}.flavour == Flavour::soulful);
+    Settings settings = settingsFor(Style::ukFunky, 3);
+    settings.flavour = Flavour::soulful;
+    const Settings defaults = settingsFor(Style::ukFunky, 3);
+    REQUIRE(bytes(generate(bank(), settings, 7)) == bytes(generate(bank(), defaults, 7)));
+}
+
+TEST_CASE("simple flavour has no chord above a 7th", "[generate][flavour]")
+{
+    for (const Style style : kStyles)
+    {
+        for (std::uint32_t seed = 0; seed < 50; ++seed)
+        {
+            Settings settings = settingsFor(style, static_cast<int>(seed));
+            settings.flavour = Flavour::simple;
+            const Idea idea = generate(bank(), settings, seed);
+            REQUIRE(validate(idea).empty());
+            for (const PlacedChord& chord : idea.progression)
+            {
+                const Quality q = chord.symbol.quality;
+                REQUIRE(q != Quality::min9);
+                REQUIRE(q != Quality::min11);
+                REQUIRE(q != Quality::maj9);
+                REQUIRE(q != Quality::dom9);
+                REQUIRE(q != Quality::dom13);
+                REQUIRE(q != Quality::add9);
+            }
+        }
+    }
+}
+
+TEST_CASE("jazzy flavour changes chord qualities and stays valid", "[generate][flavour]")
+{
+    bool changed = false;
+    for (const Style style : kStyles)
+    {
+        for (std::uint32_t seed = 0; seed < 50; ++seed)
+        {
+            Settings settings = settingsFor(style, static_cast<int>(seed));
+            settings.flavour = Flavour::soulful;
+            const Idea plain = generate(bank(), settings, seed);
+            settings.flavour = Flavour::jazzy;
+            const Idea jazzy = generate(bank(), settings, seed);
+            REQUIRE(validate(jazzy).empty());
+            for (std::size_t i = 0; i < plain.progression.size(); ++i)
+            {
+                changed = changed || plain.progression.at(i).symbol.quality !=
+                                         jazzy.progression.at(i).symbol.quality;
+            }
+        }
+    }
+    REQUIRE(changed);
+}

@@ -111,6 +111,8 @@ std::string_view qualitySuffix(Quality quality)
         return "7";
     case Quality::dom9:
         return "9";
+    case Quality::dom13:
+        return "13";
     case Quality::sus4:
         return "sus4";
     case Quality::six:
@@ -195,6 +197,8 @@ std::vector<int> chordIntervals(Quality quality)
         return {0, 4, 7, 10};
     case Quality::dom9:
         return {0, 4, 7, 10, 14};
+    case Quality::dom13:
+        return {0, 4, 7, 10, 14, 21};
     case Quality::sus4:
         return {0, 5, 7};
     case Quality::six:

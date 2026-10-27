@@ -81,7 +81,8 @@ Every idea gives four files, for example for `uk-funky-1.mid`:
 The same seed and settings always give the same idea.
 Change the seed (0 to 99999) for a new idea.
 Run `build/dev/tools/md-cli/md-cli --help` to see the other options: key, bars, mood, energy, groove, flavour and tempo.
-Flavour is accepted but changes nothing yet; it starts to matter in Phase 2.
+Flavour is soulful by default, which keeps the chords as written; simple is plainer (triads and 7ths) and jazzy is richer (9ths, 11ths and 13ths where they stay in key).
+For example, `build/dev/tools/md-cli/md-cli --flavour jazzy` makes a richer version of the same idea.
 
 ### Dragging the files into your daw
 

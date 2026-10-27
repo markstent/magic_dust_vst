@@ -32,7 +32,7 @@ constexpr std::string_view kUsage =
     "  --mood     0 to 100 (default 30)\n"
     "  --energy   0 to 100 (default 50)\n"
     "  --groove   straight, swing, uk-shuffle, heavy\n"
-    "  --flavour  simple, soulful, jazzy (no effect until Phase 2)\n"
+    "  --flavour  simple, soulful (default), jazzy\n"
     "  --tempo    60 to 200 (default 124)\n"
     "  --help     show this text\n";
 
