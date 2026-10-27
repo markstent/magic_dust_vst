@@ -244,7 +244,7 @@ TEST_CASE("a progression longer than the idea is truncated", "[generate]")
     }
 }
 
-TEST_CASE("every voicing is four notes in range and not muddy", "[generate]")
+TEST_CASE("every voicing is four or five notes in range and not muddy", "[generate]")
 {
     for (const Idea& idea : allIdeas())
     {
@@ -252,7 +252,7 @@ TEST_CASE("every voicing is four notes in range and not muddy", "[generate]")
         for (const PlacedChord& chord : idea.progression)
         {
             const Voicing& v = chord.voicing;
-            REQUIRE(v.size() == 4);
+            REQUIRE((v.size() == 4 || v.size() == 5));
             REQUIRE(std::ranges::is_sorted(v));
             REQUIRE(v.front() >= kChordLow);
             REQUIRE(v.back() <= kChordHigh);
@@ -718,4 +718,104 @@ TEST_CASE("jazzy flavour changes chord qualities and stays valid", "[generate][f
         }
     }
     REQUIRE(changed);
+}
+
+namespace
+{
+Bank bankOf(const StyleEntry& entry, VoicingStyle style)
+{
+    StyleEntry copy = entry;
+    copy.voicingStyle = style;
+    return makeBank({copy});
+}
+
+const StyleEntry& entryWithStyle(VoicingStyle style)
+{
+    const auto it = std::ranges::find(bank().entries, style, &StyleEntry::voicingStyle);
+    REQUIRE(it != bank().entries.end());
+    return *it;
+}
+
+Settings settingsOf(const StyleEntry& entry)
+{
+    Settings settings;
+    settings.style = static_cast<Style>(static_cast<int>(entry.family) + 1);
+    return settings;
+}
+
+int spread(const Voicing& v) { return v.back() - v.front(); }
+} // namespace
+
+TEST_CASE("every bundled entry's voicings validate for seeds 0 to 99", "[generate][voicing]")
+{
+    for (const StyleEntry& entry : bank().entries)
+    {
+        const Bank single = makeBank({entry});
+        for (std::uint32_t seed = 0; seed < 100; ++seed)
+        {
+            REQUIRE(validate(generate(single, settingsOf(entry), seed)).empty());
+        }
+    }
+}
+
+TEST_CASE("every voicing shape validates on every entry", "[generate][voicing]")
+{
+    for (const VoicingStyle style : {VoicingStyle::close, VoicingStyle::drop2,
+                                     VoicingStyle::organStab, VoicingStyle::pianoSpread})
+    {
+        for (const StyleEntry& entry : bank().entries)
+        {
+            const Bank single = bankOf(entry, style);
+            for (std::uint32_t seed = 0; seed < 100; ++seed)
+            {
+                REQUIRE(validate(generate(single, settingsOf(entry), seed)).empty());
+            }
+        }
+    }
+}
+
+TEST_CASE("drop 2 voicings are wider than the close voicing of the same chord",
+          "[generate][voicing]")
+{
+    const StyleEntry& entry = entryWithStyle(VoicingStyle::drop2);
+    const Idea dropped = generate(bankOf(entry, VoicingStyle::drop2), settingsOf(entry), 0);
+    const Idea close = generate(bankOf(entry, VoicingStyle::close), settingsOf(entry), 0);
+    REQUIRE(dropped.progression.size() == close.progression.size());
+    for (std::size_t i = 0; i < close.progression.size(); ++i)
+    {
+        REQUIRE(spread(dropped.progression.at(i).voicing) >
+                spread(close.progression.at(i).voicing));
+    }
+}
+
+TEST_CASE("organ stab voicings double the lowest note up an octave", "[generate][voicing]")
+{
+    const StyleEntry& entry = entryWithStyle(VoicingStyle::organStab);
+    bool five = false;
+    for (std::uint32_t seed = 0; seed < 100; ++seed)
+    {
+        const Idea idea = generate(makeBank({entry}), settingsOf(entry), seed);
+        for (const PlacedChord& chord : idea.progression)
+        {
+            five = five || chord.voicing.size() == 5;
+        }
+    }
+    REQUIRE(five);
+}
+
+TEST_CASE("piano spread voicings put the root at the bottom", "[generate][voicing]")
+{
+    const StyleEntry& entry = entryWithStyle(VoicingStyle::pianoSpread);
+    int rooted = 0;
+    int total = 0;
+    for (std::uint32_t seed = 0; seed < 100; ++seed)
+    {
+        const Idea idea = generate(makeBank({entry}), settingsOf(entry), seed);
+        for (const PlacedChord& chord : idea.progression)
+        {
+            ++total;
+            rooted += chord.voicing.front() % 12 == chordRootPc(idea.key, chord.symbol) ? 1 : 0;
+        }
+    }
+    REQUIRE(rooted * 4 >= total * 3);
 }
