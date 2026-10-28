@@ -40,6 +40,13 @@ constexpr std::uint32_t kMelodyWalk = 2;
 constexpr std::uint32_t kMelodyPluck = 3;
 constexpr std::uint32_t kMelodyHumanize = 4;
 
+// An inclusive pitch range.
+struct PitchRange
+{
+    int low;
+    int high;
+};
+
 // Odd sixteenth steps land late: start = pairStart + 480 * swingPermille / 1000.
 int swung(int start, int swingPermille);
 

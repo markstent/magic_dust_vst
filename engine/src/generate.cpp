@@ -304,7 +304,6 @@ Lane makeLane(LaneId id, std::uint64_t seed, std::string pattern, std::vector<No
         .id = id,
         .pattern = std::move(pattern),
         .events = std::move(events),
-        .pinned = false,
         .muted = false,
         .seed = seed,
     };
@@ -425,13 +424,7 @@ void keepChords(Idea& idea, const Idea& previous, const StyleEntry& entry, int s
 }
 
 // A previous lane moved by the key shift, each note an octave back into range where it left it.
-struct PitchRange
-{
-    int low;
-    int high;
-};
-
-Lane keptLane(const Lane& previous, int shift, PitchRange range)
+Lane keptLane(const Lane& previous, int shift, detail::PitchRange range)
 {
     Lane lane = previous;
     lane.muted = false;
@@ -482,7 +475,6 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
     const StyleEntry* keptEntry = pins.chords ? findEntry(bank, previous.entryId) : nullptr;
     // A bank without the previous entry cannot keep its chords.
     pins.chords = keptEntry != nullptr;
-    const bool keepAny = pins.chords || pins.bass || pins.melody;
     const bool keepAll = pins.chords && pins.bass && pins.melody;
     const int shift = keyShift(previous.key.root, settings.keyRoot);
     const StyleEntry& entry = pins.chords ? *keptEntry : pickEntry(bank, settings.style, laneSeeds);
@@ -531,12 +523,6 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
                                     std::string(melodyModeName(entry.melodyModes.front())),
                                     detail::melodyEvents(entry, idea, laneSeeds.melody),
                                     detail::kMelodyHumanize, settings.energy);
-    }
-    if (keepAny)
-    {
-        idea.lanes.at(0).pinned = pins.chords;
-        idea.lanes.at(1).pinned = pins.bass;
-        idea.lanes.at(2).pinned = pins.melody;
     }
 
     const auto violations = validate(idea);

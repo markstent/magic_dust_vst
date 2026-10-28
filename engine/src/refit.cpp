@@ -14,16 +14,11 @@ namespace md
 {
 namespace
 {
-struct PitchRange
-{
-    int low;
-    int high;
-};
-
 // The nearest pitch in the range to high that passes valid: a chord tone of the sounding chord
 // first, the lower on a tie; a scale tone only when no chord tone passes.
 template <class Valid>
-int nearestValidPitch(const Idea& idea, const NoteEvent& e, PitchRange range, const Valid& valid)
+int nearestValidPitch(const Idea& idea, const NoteEvent& e, detail::PitchRange range,
+                      const Valid& valid)
 {
     const auto sounding = detail::soundingPcsAt(idea, e.start);
     int best = e.pitch;

@@ -193,7 +193,6 @@ TEST_CASE("a bass sender plays the main's pinned bass after the main sprinkles")
     const Run run = runBlocks(bass, head, blocks);
 
     const double endPpq = md::ppqForSamples(blocks * kBlock, 120.0, kRate);
-    CHECK(main.idea()->lanes.at(1).pinned);
     CHECK(run.events == laneEventsUpTo(*main.idea(), kBassChannel, endPpq));
     CHECK_FALSE(run.events.empty());
     CHECK(main.idea()->lanes.at(1).events.size() == pinned.size());

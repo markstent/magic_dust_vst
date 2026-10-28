@@ -53,7 +53,7 @@ Bytes writeOne(std::vector<NoteEvent> notes, int tempo = 120, int total = 3840)
 
 Lane makeLane(LaneId id, NoteEvent event, bool muted)
 {
-    return {.id = id, .pattern = "", .events = {event}, .pinned = false, .muted = muted, .seed = 0};
+    return {.id = id, .pattern = "", .events = {event}, .muted = muted, .seed = 0};
 }
 
 PlacedChord placed(int degree, int startBar)

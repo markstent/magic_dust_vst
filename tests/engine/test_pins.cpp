@@ -124,7 +124,6 @@ TEST_CASE("with no pins the new overload equals the old one", "[pins]")
         for (const LaneId id : {LaneId::chords, LaneId::bass, LaneId::melody})
         {
             CHECK(sameLane(a, b, id));
-            CHECK(laneOf(b, id).pinned == false);
         }
         CHECK(a.seed == b.seed);
         CHECK(a.key.mode == b.key.mode);
@@ -141,7 +140,6 @@ TEST_CASE("pinned chords survive sprinkle and bass and melody are rewritten", "[
         const Idea result = next(settings, seed + kNextSeedOffset, previous, {.chords = true});
         CHECK(sameProgression(previous, result));
         CHECK(sameLane(previous, result, LaneId::chords));
-        CHECK(laneOf(result, LaneId::chords).pinned);
         CHECK(validate(result).empty());
         if (!sameLane(previous, result, LaneId::bass) &&
             !sameLane(previous, result, LaneId::melody))
@@ -176,7 +174,6 @@ TEST_CASE("a pinned bass keeps its starts and lengths and is refitted", "[pins]"
         const Idea result = next(settings, seed + kNextSeedOffset, previous, {.bass = true});
         CHECK(sameStartsAndLengths(previous, result, LaneId::bass));
         CHECK(validate(result).empty());
-        CHECK(laneOf(result, LaneId::bass).pinned);
         CHECK(laneOf(result, LaneId::bass).seed == laneOf(previous, LaneId::bass).seed);
         if (!samePitches(previous, result, LaneId::bass))
         {
@@ -210,7 +207,6 @@ TEST_CASE("a pinned melody keeps its starts and lengths and is refitted", "[pins
         const Idea result = next(settings, seed + kNextSeedOffset, previous, {.melody = true});
         CHECK(sameStartsAndLengths(previous, result, LaneId::melody));
         CHECK(validate(result).empty());
-        CHECK(laneOf(result, LaneId::melody).pinned);
         if (!samePitches(previous, result, LaneId::melody))
         {
             CHECK(laneOf(result, LaneId::melody).refitted);
@@ -285,7 +281,6 @@ TEST_CASE("a bar count change ignores the pins", "[pins]")
         for (const LaneId id : {LaneId::chords, LaneId::bass, LaneId::melody})
         {
             CHECK(sameLane(plain, result, id));
-            CHECK_FALSE(laneOf(result, id).pinned);
         }
     }
 }
@@ -300,7 +295,6 @@ TEST_CASE("an empty previous idea ignores the pins", "[pins]")
     for (const LaneId id : {LaneId::chords, LaneId::bass, LaneId::melody})
     {
         CHECK(sameLane(plain, result, id));
-        CHECK_FALSE(laneOf(result, id).pinned);
     }
 }
 

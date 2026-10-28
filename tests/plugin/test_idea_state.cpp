@@ -25,8 +25,7 @@ bool sameIdea(const md::Idea& a, const md::Idea& b)
     const auto sameLane = [](const md::Lane& x, const md::Lane& y)
     {
         return x.id == y.id && x.pattern == y.pattern && x.events == y.events &&
-               x.pinned == y.pinned && x.muted == y.muted && x.seed == y.seed &&
-               x.refitted == y.refitted;
+               x.muted == y.muted && x.seed == y.seed && x.refitted == y.refitted;
     };
     const auto sameChord = [](const md::PlacedChord& x, const md::PlacedChord& y)
     {

@@ -89,7 +89,6 @@ juce::ValueTree laneToTree(const md::Lane& lane)
         flat.insert(flat.end(), {e.pitch, e.start, e.length, e.velocity});
     }
     t.setProperty("events", joinInts(flat), nullptr);
-    t.setProperty("pinned", lane.pinned ? 1 : 0, nullptr);
     t.setProperty("muted", lane.muted ? 1 : 0, nullptr);
     t.setProperty("seed", juce::String(lane.seed), nullptr);
     t.setProperty("refitted", lane.refitted ? 1 : 0, nullptr);
@@ -100,19 +99,17 @@ std::optional<md::Lane> laneFromTree(const juce::ValueTree& t)
 {
     const auto id = intIn(t, "id", 0, 2);
     const auto events = splitInts(t.getProperty("events").toString());
-    const auto pinned = boolOf(t, "pinned");
     const auto muted = boolOf(t, "muted");
     const auto seed = seedOf(t, "seed");
     const auto refitted = boolOf(t, "refitted");
-    if (!id || !events || events->size() % kEventInts != 0 || !pinned || !muted || !seed ||
-        !refitted || !t.hasProperty("pattern"))
+    if (!id || !events || events->size() % kEventInts != 0 || !muted || !seed || !refitted ||
+        !t.hasProperty("pattern"))
     {
         return std::nullopt;
     }
     md::Lane lane{.id = static_cast<md::LaneId>(*id),
                   .pattern = t.getProperty("pattern").toString().toStdString(),
                   .events = {},
-                  .pinned = *pinned,
                   .muted = *muted,
                   .seed = *seed,
                   .refitted = *refitted};
