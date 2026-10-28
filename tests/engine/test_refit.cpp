@@ -1,11 +1,14 @@
 #include "md/generate.hpp"
 
+#include "internal.hpp"
 #include "md/bank.hpp"
+#include "md/ranges.hpp"
 #include "md/types.hpp"
 #include "md/validate.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -101,4 +104,32 @@ TEST_CASE("the refit is deterministic and settles", "[refit]")
     refitBass(second);
     CHECK(bassLane(first).events == bassLane(second).events);
     CHECK_FALSE(refitBass(first));
+}
+
+TEST_CASE("a chord tone wins over a nearer scale tone", "[refit]")
+{
+    for (std::uint32_t seed = 1; seed < 60; ++seed)
+    {
+        Settings settings = settingsFor(Style::ukFunky);
+        settings.keyRoot = static_cast<int>(seed % 12);
+        Idea idea = generate(bank(), settings, seed);
+        const NoteEvent top{
+            .pitch = kBassHigh, .start = 2 * kTicksPerSixteenth, .length = 100, .velocity = 90};
+        const auto sounding = detail::soundingPcsAt(idea, top.start);
+        if (std::ranges::find(sounding, top.pitch % 12) != sounding.end() ||
+            !detail::bassPitchOk(idea, top, {}))
+        {
+            continue;
+        }
+        bassLane(idea).events = {{.pitch = kBassHigh + 12,
+                                  .start = top.start,
+                                  .length = top.length,
+                                  .velocity = top.velocity}};
+        REQUIRE(refitBass(idea));
+        const int pitch = bassLane(idea).events.front().pitch;
+        CHECK(std::ranges::find(sounding, pitch % 12) != sounding.end());
+        CHECK(pitch < kBassHigh);
+        return;
+    }
+    FAIL("no seed puts a scale tone at the top of the range");
 }
