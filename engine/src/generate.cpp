@@ -379,13 +379,15 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
     Pcg32 rhythmRng(laneSeeds.chords, detail::kChordCell);
     const RhythmCell& chordCell = entry.chordRhythms.at(
         rhythmRng.below(static_cast<std::uint32_t>(entry.chordRhythms.size())));
-    const BassPattern bassPattern = detail::bassPatternFor(entry);
+    Pcg32 bassPatternRng(laneSeeds.bass, detail::kBassPattern);
+    const BassPattern bassPattern = detail::bassPatternFor(entry, settings.energy, bassPatternRng);
     idea.lanes.at(0) = makeLane(LaneId::chords, laneSeeds.chords, chordCell.id,
                                 detail::chordEvents(idea.progression, chordCell, settings),
                                 detail::kChordHumanize, settings.energy);
     idea.lanes.at(1) =
         makeLane(LaneId::bass, laneSeeds.bass, std::string(bassPatternName(bassPattern)),
-                 detail::bassEvents(idea, bassPattern), detail::kBassHumanize, settings.energy);
+                 detail::bassEvents(idea, bassPattern, laneSeeds.bass), detail::kBassHumanize,
+                 settings.energy);
     idea.lanes.at(2) = makeLane(LaneId::melody, laneSeeds.melody,
                                 std::string(melodyModeName(entry.melodyModes.front())),
                                 detail::melodyEvents(entry, idea, laneSeeds.melody),

@@ -16,7 +16,7 @@ namespace md::detail
 {
 // Every random draw is Pcg32(<lane seed>, slot) with one fixed slot per use:
 //   chords: 0 entry, 1 progression, 2 chord rhythm cell, 3 velocity humanize
-//   bass:   0 velocity humanize
+//   bass:   0 velocity humanize, 1 pattern choice, 2 pitch variation
 //   melody: 0 rhythm cell A, 1 rhythm cell B, 2 pitch walk, 3 pluck tones, 4 velocity humanize
 // Entry, progression, mode and chord-cell choices belong to the chords lane.
 constexpr std::uint32_t kChordEntry = 0;
@@ -24,6 +24,8 @@ constexpr std::uint32_t kChordProgression = 1;
 constexpr std::uint32_t kChordCell = 2;
 constexpr std::uint32_t kChordHumanize = 3;
 constexpr std::uint32_t kBassHumanize = 0;
+constexpr std::uint32_t kBassPattern = 1;
+constexpr std::uint32_t kBassPitch = 2;
 constexpr std::uint32_t kMelodyCellA = 0;
 constexpr std::uint32_t kMelodyCellB = 1;
 constexpr std::uint32_t kMelodyWalk = 2;
@@ -81,8 +83,11 @@ void voiceChords(const StyleEntry& entry, const Key& key, std::vector<PlacedChor
 std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const RhythmCell& cell,
                                    const Settings& settings);
 
-BassPattern bassPatternFor(const StyleEntry& entry);
-std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern);
+// The entry's allowed patterns run sparse to busy and the energy picks along them (slot 1). Riff
+// and call-and-response are not built yet and play as offbeat.
+BassPattern bassPatternFor(const StyleEntry& entry, int energy, Pcg32& rng);
+// Pitch variation draws from Pcg32(bassSeed, kBassPitch).
+std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern, std::uint64_t bassSeed);
 
 // 1 to 3 of the allowed tones nearest the centre, cycled by the pluck.
 // Throws std::logic_error when no tone is allowed.

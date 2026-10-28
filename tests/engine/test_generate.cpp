@@ -908,3 +908,109 @@ TEST_CASE("every lane's notes stay inside the idea, from tick 0 to its length at
         }
     }
 }
+
+namespace
+{
+Idea bassWith(const std::vector<BassPattern>& patterns, const Settings& settings,
+              std::uint32_t seed)
+{
+    const Bank only = bankWith([&](StyleEntry& entry) { entry.bassPatterns = patterns; });
+    return generate(only, settings, seed);
+}
+
+Settings energySettings(int energy)
+{
+    Settings settings;
+    settings.energy = energy;
+    return settings;
+}
+
+int countPattern(const std::vector<BassPattern>& patterns, int energy, const char* name)
+{
+    int count = 0;
+    for (std::uint32_t seed = 1; seed <= 200; ++seed)
+    {
+        count +=
+            bassWith(patterns, energySettings(energy), seed).lanes.at(1).pattern == name ? 1 : 0;
+    }
+    return count;
+}
+
+std::vector<int> bassPitches(const Idea& idea)
+{
+    std::vector<int> pitches;
+    for (const NoteEvent& e : idea.lanes.at(1).events)
+    {
+        pitches.push_back(e.pitch);
+    }
+    return pitches;
+}
+} // namespace
+
+TEST_CASE("energy chooses the bass pattern", "[generate][bass]")
+{
+    const std::vector<BassPattern> both = {BassPattern::rollingOffbeat, BassPattern::offbeat};
+    REQUIRE(countPattern(both, 0, "offbeat") >= 160);
+    REQUIRE(countPattern(both, 100, "rolling-offbeat") >= 160);
+}
+
+TEST_CASE("an entry with one bass pattern always gets it", "[generate][bass]")
+{
+    REQUIRE(countPattern({BassPattern::garageSkip}, 50, "garage-skip") == 200);
+}
+
+TEST_CASE("riff and call-and-response entries play offbeat until those patterns exist",
+          "[generate][bass]")
+{
+    REQUIRE(countPattern({BassPattern::riff}, 80, "offbeat") == 200);
+    REQUIRE(countPattern({BassPattern::callResponse}, 20, "offbeat") == 200);
+    REQUIRE(countPattern({BassPattern::riff, BassPattern::offbeat}, 100, "offbeat") == 200);
+}
+
+TEST_CASE("the bass seed varies pitch and nothing else", "[generate][bass][seeds]")
+{
+    const Bank rolling =
+        bankWith([](StyleEntry& entry) { entry.bassPatterns = {BassPattern::rollingOffbeat}; });
+    int differing = 0;
+    for (std::uint32_t seed = 1; seed <= 200; ++seed)
+    {
+        const LaneSeeds base = defaultLaneSeeds(seed);
+        LaneSeeds other = base;
+        other.bass += 1;
+        const Idea a = generate(rolling, Settings{}, seed, base);
+        const Idea b = generate(rolling, Settings{}, seed, other);
+        REQUIRE(laneBytes(a, LaneId::chords) == laneBytes(b, LaneId::chords));
+        REQUIRE(laneBytes(a, LaneId::melody) == laneBytes(b, LaneId::melody));
+        differing += bassPitches(a) != bassPitches(b) ? 1 : 0;
+    }
+    REQUIRE(differing >= 180);
+}
+
+TEST_CASE("pitch variation spares sustained and pedal and keeps each chord's first hit on the root",
+          "[generate][bass]")
+{
+    for (std::uint32_t seed = 1; seed <= 50; ++seed)
+    {
+        const Idea pedal = bassWith({BassPattern::pedal}, energySettings(50), seed);
+        const auto held = bassPitches(pedal);
+        REQUIRE(std::ranges::adjacent_find(held, std::not_equal_to<>{}) == held.end());
+        const Idea sustained = bassWith({BassPattern::sustained}, energySettings(50), seed);
+        for (const NoteEvent& e : sustained.lanes.at(1).events)
+        {
+            REQUIRE(e.pitch % 12 == chordRootPc(sustained.key, chordAt(sustained, e.start).symbol));
+            REQUIRE(e.pitch <= 44);
+        }
+        const Idea idea = bassWith({BassPattern::rollingOffbeat}, energySettings(50), seed);
+        const PlacedChord* previous = nullptr;
+        for (const NoteEvent& e : idea.lanes.at(1).events)
+        {
+            const PlacedChord& chord = chordAt(idea, e.start);
+            if (&chord != previous)
+            {
+                REQUIRE(e.pitch % 12 == chordRootPc(idea.key, chord.symbol));
+                REQUIRE(e.pitch <= 44);
+                previous = &chord;
+            }
+        }
+    }
+}

@@ -1,12 +1,16 @@
 #include "internal.hpp"
 
+#include "md/pcg32.hpp"
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <span>
+#include <vector>
 
 namespace md::detail
 {
@@ -100,32 +104,103 @@ int pitchFor(Role role, int root)
     }
     return root;
 }
-} // namespace
 
-BassPattern bassPatternFor(const StyleEntry& entry)
+// Sparse to busy.
+int densityRank(BassPattern pattern)
 {
-    const auto it = std::ranges::find_if(
-        entry.bassPatterns, [](BassPattern pattern)
-        { return pattern != BassPattern::riff && pattern != BassPattern::callResponse; });
-    // The riff and call-and-response patterns arrive in a later phase.
-    return it == entry.bassPatterns.end() ? BassPattern::offbeat : *it;
+    switch (pattern)
+    {
+    case BassPattern::sustained:
+        return 0;
+    case BassPattern::pedal:
+        return 1;
+    case BassPattern::offbeat:
+        return 2;
+    case BassPattern::callResponse:
+        return 3;
+    case BassPattern::garageSkip:
+        return 4;
+    case BassPattern::octaveBounce:
+        return 5;
+    case BassPattern::riff:
+        return 6;
+    case BassPattern::rollingOffbeat:
+        break;
+    }
+    return 7;
 }
 
-std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern)
+bool variesPitch(BassPattern pattern)
 {
+    return pattern == BassPattern::rollingOffbeat || pattern == BassPattern::offbeat ||
+           pattern == BassPattern::garageSkip || pattern == BassPattern::callResponse;
+}
+
+// The chord's fifth (5 or b5 above its root) in range, up from the root when that fits.
+int chordFifth(const ChordSymbol& chord, int root)
+{
+    const std::vector<int> intervals = chordIntervals(chord.quality);
+    const auto it = std::ranges::find_if(intervals, [](int i) { return i == 6 || i == 7; });
+    const int fifth = it == intervals.end() ? 0 : *it;
+    return root + fifth <= kBassHigh ? root + fifth : root + fifth - 12;
+}
+
+// Root 60%, octave 25%, fifth 15%.
+int variedPitch(const ChordSymbol& chord, int root, Pcg32& rng)
+{
+    const std::uint32_t roll = rng.below(100);
+    int pitch = root;
+    if (roll >= 85)
+    {
+        pitch = chordFifth(chord, root);
+    }
+    else if (roll >= 60)
+    {
+        pitch = root + 12 <= kBassHigh ? root + 12 : root - 12;
+    }
+    return pitch >= kBassLow && pitch <= kBassHigh ? pitch : root;
+}
+} // namespace
+
+BassPattern bassPatternFor(const StyleEntry& entry, int energy, Pcg32& rng)
+{
+    std::vector<BassPattern> allowed = entry.bassPatterns;
+    std::ranges::stable_sort(allowed, {}, densityRank);
+    const int n = static_cast<int>(allowed.size());
+    std::vector<int> weights;
+    for (int k = 0; k < n; ++k)
+    {
+        // 1 + 4 * max(0, 1 - 2 * |k / (n - 1) - energy / 100|), scaled by 100 * (n - 1).
+        const int scale = 100 * std::max(n - 1, 1);
+        const int distance = std::abs((100 * k) - (energy * (n - 1)));
+        weights.push_back(scale + (4 * std::max(0, scale - (2 * distance))));
+    }
+    const BassPattern chosen = allowed.at(rng.pickWeighted(weights));
+    // The riff and call-and-response patterns arrive in a later phase.
+    return chosen == BassPattern::riff || chosen == BassPattern::callResponse ? BassPattern::offbeat
+                                                                              : chosen;
+}
+
+std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern, std::uint64_t bassSeed)
+{
+    Pcg32 pitchRng(bassSeed, kBassPitch);
+    const PlacedChord* previous = nullptr;
     const int swing = swingPermille(idea.settings.groove);
     std::vector<NoteEvent> events;
     for (int bar = 0; bar < idea.settings.bars; ++bar)
     {
+        const PlacedChord& chord = chordAt(idea.progression, bar * kTicksPerBar);
         const int rootPc =
-            pattern == BassPattern::pedal
-                ? idea.key.root
-                : chordRootPc(idea.key, chordAt(idea.progression, bar * kTicksPerBar).symbol);
+            pattern == BassPattern::pedal ? idea.key.root : chordRootPc(idea.key, chord.symbol);
         const int root = rootNote(rootPc);
         for (const Slot& slot : slotsFor(pattern))
         {
+            const bool varies =
+                variesPitch(pattern) && slot.role == Role::root && &chord == previous;
+            previous = &chord;
             const NoteEvent note{
-                .pitch = pitchFor(slot.role, root),
+                .pitch =
+                    varies ? variedPitch(chord.symbol, root, pitchRng) : pitchFor(slot.role, root),
                 .start = swung((bar * kTicksPerBar) + (slot.step * kTicksPerSixteenth), swing),
                 .length = slot.length * kTicksPerSixteenth,
                 .velocity = 0,
