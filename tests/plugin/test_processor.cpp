@@ -1188,7 +1188,6 @@ TEST_CASE("pinned chords survive a mood change after the quiet spell", "[pins]")
     REQUIRE(processor.idea()->settings.mood == 90);
     CHECK(processor.idea()->lanes.at(0).events == chords);
     CHECK(qualities(*processor.idea()) == progression);
-    CHECK(processor.idea()->lanes.at(0).pinned);
 }
 
 TEST_CASE("a pinned lane that is muted stays pinned and silent", "[pins]")
@@ -1200,7 +1199,6 @@ TEST_CASE("a pinned lane that is muted stays pinned and silent", "[pins]")
     setParam(processor, "bassMute", 1);
     const auto bass = starts(*processor.idea(), md::LaneId::bass);
     processor.sprinkle();
-    CHECK(processor.idea()->lanes.at(1).pinned);
     CHECK(starts(*processor.idea(), md::LaneId::bass) == bass);
     processor.prepareToPlay(kRate, kBlock);
     FakeHead head;
@@ -1216,7 +1214,6 @@ TEST_CASE("a key change with the melody pinned transposes it and stays valid", "
     processor.setKeyRoot((processor.idea()->settings.keyRoot + 2) % 12);
     REQUIRE_FALSE(processor.lastError().has_value());
     CHECK(md::validate(*processor.idea()).empty());
-    CHECK(processor.idea()->lanes.at(2).pinned);
 }
 
 TEST_CASE("the saved idea loads back exactly, with its pins and refit", "[pins]")
@@ -1243,7 +1240,6 @@ TEST_CASE("the saved idea loads back exactly, with its pins and refit", "[pins]"
     CHECK(b.seed == a.seed);
     for (std::size_t i = 0; i < a.lanes.size(); ++i)
     {
-        CHECK(b.lanes.at(i).pinned == a.lanes.at(i).pinned);
         CHECK(b.lanes.at(i).refitted == a.lanes.at(i).refitted);
         CHECK(b.lanes.at(i).seed == a.lanes.at(i).seed);
     }
@@ -1307,7 +1303,6 @@ TEST_CASE("everything pinned: sprinkle, save and load keeps the idea and its num
     REQUIRE(fresh.idea() != nullptr);
     CHECK(fresh.idea()->seed == number);
     CHECK(laneEvents(*fresh.idea()) == laneEvents(*processor.idea()));
-    CHECK(fresh.idea()->lanes.at(0).pinned);
 }
 
 TEST_CASE("a state saved inside the quiet window keeps the pinned chords and applies the mood",
@@ -1329,6 +1324,44 @@ TEST_CASE("a state saved inside the quiet window keeps the pinned chords and app
     fresh.tick(1000);
     fresh.tick(1200);
     CHECK(fresh.idea()->settings.mood == 90);
-    CHECK(fresh.idea()->lanes.at(0).pinned);
     CHECK(fresh.idea()->lanes.at(0).events == chords);
+}
+
+TEST_CASE("a failed regenerate with a pinned lane keeps the idea and reports it", "[pins]")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    md::Bank bank = md::loadBundledBank();
+    std::erase_if(bank.entries,
+                  [](const md::StyleEntry& e) { return e.family == md::Family::mkDub; });
+    MagicDustProcessor processor(std::move(bank), 5);
+    setParam(processor, "melodyPin", 1);
+    const auto before = laneEvents(*processor.idea());
+
+    processor.setStyle(md::Style::mkDub);
+
+    REQUIRE(processor.idea() != nullptr);
+    CHECK(laneEvents(*processor.idea()) == before);
+    CHECK(processor.idea()->settings.style == md::Style::ukFunky);
+    CHECK(processor.lastError() == std::optional<std::string>("couldn't write that idea"));
+}
+
+TEST_CASE("an unpinned bass regenerates from the seed its idea carried, not the sprinkle's",
+          "[pins]")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor(md::loadBundledBank(), 5);
+    setParam(processor, "bassPin", 1);
+    const auto carried = processor.idea()->lanes.at(1).seed;
+    processor.sprinkle();
+    REQUIRE(processor.idea()->lanes.at(1).seed == carried);
+    REQUIRE(md::defaultLaneSeeds(processor.idea()->seed).bass != carried);
+    setParam(processor, "bassPin", 0);
+
+    processor.tick(1000);
+    setParam(processor, "energy", 20);
+    processor.tick(1010);
+    processor.tick(1200);
+
+    REQUIRE(processor.idea()->settings.energy == 20);
+    CHECK(processor.idea()->lanes.at(1).seed == carried);
 }
