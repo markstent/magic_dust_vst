@@ -82,6 +82,11 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
         // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-avoid-unchecked-container-access): 3 lanes
         return mutes_[static_cast<std::size_t>(lane)]->load() >= 0.5F;
     }
+    [[nodiscard]] md::Pins pins() const
+    {
+        const auto on = [this](std::size_t lane) { return pins_.at(lane)->load() >= 0.5F; };
+        return {.chords = on(0), .bass = on(1), .melody = on(2)};
+    }
     // The part's octave step, -2 to 2.
     [[nodiscard]] int octave(md::LaneId lane) const
     {
@@ -125,8 +130,12 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     void timerCallback() override;
     void transportKey(Key key);
     [[nodiscard]] md::Settings currentSettings() const;
-    bool regenerate(std::uint32_t seed, const md::LaneSeeds& laneSeeds);
+    // Keeps the pinned lanes of the current idea, unless keepPins is false (a loaded state).
+    bool regenerate(std::uint32_t seed, const md::LaneSeeds& laneSeeds, bool keepPins = true);
     bool regenerate() { return regenerate(seed_, laneSeeds_); }
+    // Makes an idea the current one and publishes it.
+    void adopt(md::Idea idea, std::uint32_t seed, const md::LaneSeeds& laneSeeds);
+    [[nodiscard]] bool usableSaved(const md::Idea& saved, std::uint32_t seed) const;
 
     Transport readTransport();
     void releaseAllNotes(juce::MidiBuffer& midi);
@@ -157,6 +166,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     const std::atomic<float>* melodyLevel_;
     std::array<const std::atomic<float>*, 3> mutes_;
     std::array<const std::atomic<float>*, 3> octaves_;
+    std::array<const std::atomic<float>*, 3> pins_;
     std::atomic<InstanceMode> mode_{InstanceMode::main};
     std::atomic<md::LaneId> senderLane_{md::LaneId::chords};
     std::optional<md::Idea> idea_;

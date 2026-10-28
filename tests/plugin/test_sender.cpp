@@ -175,6 +175,30 @@ TEST_CASE("a bass sender plays exactly the main idea's bass on channel 2 and is 
     CHECK(run.energy == 0.0);
 }
 
+TEST_CASE("a bass sender plays the main's pinned bass after the main sprinkles")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor main;
+    auto* pin = main.params.getParameter("bassPin");
+    pin->setValueNotifyingHost(1.0F);
+    const auto pinned = main.idea()->lanes.at(1).events;
+    MagicDustProcessor chords;
+    MagicDustProcessor bass;
+    bass.setSenderLane(md::LaneId::bass);
+    main.sprinkle();
+    FakeHead head;
+    prepare(bass, head);
+
+    constexpr int blocks = 187;
+    const Run run = runBlocks(bass, head, blocks);
+
+    const double endPpq = md::ppqForSamples(blocks * kBlock, 120.0, kRate);
+    CHECK(main.idea()->lanes.at(1).pinned);
+    CHECK(run.events == laneEventsUpTo(*main.idea(), kBassChannel, endPpq));
+    CHECK_FALSE(run.events.empty());
+    CHECK(main.idea()->lanes.at(1).events.size() == pinned.size());
+}
+
 TEST_CASE("a sender plays nothing while its main has that lane muted and resumes after")
 {
     const juce::ScopedJuceInitialiser_GUI juceInit;

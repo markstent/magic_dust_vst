@@ -19,6 +19,7 @@
 #include "AllocationGuard.h"
 #include "SeedHelper.h"
 #include "md/bank.hpp"
+#include "md/validate.hpp"
 #include "plugin/Link.h"
 #include "plugin/Playback.h"
 #include "plugin/PluginProcessor.h"
@@ -1135,4 +1136,153 @@ TEST_CASE("play and stop raise the follow notice, not the preview, while the hos
     CHECK_FALSE(processor.followNotice());
     processor.processBlock(buffer, midi);
     CHECK(processor.previewPlaying());
+}
+
+namespace
+{
+
+std::vector<int> starts(const md::Idea& idea, md::LaneId lane)
+{
+    std::vector<int> out;
+    for (const md::NoteEvent& e : idea.lanes.at(static_cast<std::size_t>(lane)).events)
+    {
+        out.push_back(e.start);
+    }
+    return out;
+}
+
+} // namespace
+
+TEST_CASE("a pinned bass keeps its starts through sprinkles and the chords change", "[pins]")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor(md::loadBundledBank(), 5);
+    setParam(processor, "bassPin", 1);
+    const auto bassStarts = starts(*processor.idea(), md::LaneId::bass);
+    int chordsChanged = 0;
+    constexpr int sprinkles = 10;
+    for (int i = 0; i < sprinkles; ++i)
+    {
+        const auto before = qualities(*processor.idea());
+        processor.sprinkle();
+        REQUIRE_FALSE(processor.lastError().has_value());
+        CHECK(starts(*processor.idea(), md::LaneId::bass) == bassStarts);
+        chordsChanged += before != qualities(*processor.idea()) ? 1 : 0;
+    }
+    CHECK(chordsChanged >= 9);
+}
+
+TEST_CASE("pinned chords survive a mood change after the quiet spell", "[pins]")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor(md::loadBundledBank(), 5);
+    setSeed(processor, 48213);
+    setParam(processor, "chordsPin", 1);
+    const auto chords = processor.idea()->lanes.at(0).events;
+    const auto progression = qualities(*processor.idea());
+
+    processor.tick(1000);
+    setParam(processor, "mood", 90);
+    processor.tick(1010);
+    processor.tick(1200);
+    REQUIRE(processor.idea()->settings.mood == 90);
+    CHECK(processor.idea()->lanes.at(0).events == chords);
+    CHECK(qualities(*processor.idea()) == progression);
+    CHECK(processor.idea()->lanes.at(0).pinned);
+}
+
+TEST_CASE("a pinned lane that is muted stays pinned and silent", "[pins]")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor(md::loadBundledBank(), 5);
+    setSeed(processor, 48213);
+    setParam(processor, "bassPin", 1);
+    setParam(processor, "bassMute", 1);
+    const auto bass = starts(*processor.idea(), md::LaneId::bass);
+    processor.sprinkle();
+    CHECK(processor.idea()->lanes.at(1).pinned);
+    CHECK(starts(*processor.idea(), md::LaneId::bass) == bass);
+    processor.prepareToPlay(kRate, kBlock);
+    FakeHead head;
+    processor.setPlayHead(&head);
+    CHECK_FALSE(hasChannel(runBlocks(processor, head, 187).events, kBassChannel));
+}
+
+TEST_CASE("a key change with the melody pinned transposes it and stays valid", "[pins]")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor(md::loadBundledBank(), 5);
+    setParam(processor, "melodyPin", 1);
+    processor.setKeyRoot((processor.idea()->settings.keyRoot + 2) % 12);
+    REQUIRE_FALSE(processor.lastError().has_value());
+    CHECK(md::validate(*processor.idea()).empty());
+    CHECK(processor.idea()->lanes.at(2).pinned);
+}
+
+TEST_CASE("the saved idea loads back exactly, with its pins and refit", "[pins]")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor(md::loadBundledBank(), 5);
+    setParam(processor, "bassPin", 1);
+    setParam(processor, "melodyPin", 1);
+    processor.setKeyRoot((processor.idea()->settings.keyRoot + 5) % 12);
+    processor.sprinkle();
+    REQUIRE_FALSE(processor.lastError().has_value());
+
+    juce::MemoryBlock state;
+    processor.getStateInformation(state);
+    MagicDustProcessor fresh(md::loadBundledBank(), 99);
+    fresh.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+
+    REQUIRE(fresh.idea() != nullptr);
+    const md::Idea& a = *processor.idea();
+    const md::Idea& b = *fresh.idea();
+    CHECK(laneEvents(b) == laneEvents(a));
+    CHECK(qualities(b) == qualities(a));
+    CHECK(b.entryId == a.entryId);
+    CHECK(b.seed == a.seed);
+    for (std::size_t i = 0; i < a.lanes.size(); ++i)
+    {
+        CHECK(b.lanes.at(i).pinned == a.lanes.at(i).pinned);
+        CHECK(b.lanes.at(i).refitted == a.lanes.at(i).refitted);
+        CHECK(b.lanes.at(i).seed == a.lanes.at(i).seed);
+    }
+}
+
+TEST_CASE("a state with no idea or a corrupt idea loads from the seeds", "[pins]")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor(md::loadBundledBank(), 5);
+    setSeed(processor, 777);
+    const auto expected = laneEvents(*processor.idea());
+
+    juce::MemoryBlock state;
+    processor.getStateInformation(state);
+    const auto saved =
+        juce::AudioProcessor::getXmlFromBinary(state.getData(), static_cast<int>(state.getSize()));
+    REQUIRE(saved->getChildByName("Idea") != nullptr);
+
+    const auto load = [&](const juce::XmlElement& xml)
+    {
+        MagicDustProcessor fresh(md::loadBundledBank(), 99);
+        juce::MemoryBlock block;
+        juce::AudioProcessor::copyXmlToBinary(xml, block);
+        fresh.setStateInformation(block.getData(), static_cast<int>(block.getSize()));
+        REQUIRE(fresh.idea() != nullptr);
+        CHECK(laneEvents(*fresh.idea()) == expected);
+        CHECK_FALSE(fresh.lastError().has_value());
+    };
+
+    juce::XmlElement without(*saved);
+    without.removeChildElement(without.getChildByName("Idea"), true);
+    load(without);
+
+    const auto loadWith = [&](const char* attribute, const char* value)
+    {
+        auto edited = std::make_unique<juce::XmlElement>(*saved);
+        edited->getChildByName("Idea")->setAttribute(attribute, value);
+        load(*edited);
+    };
+    loadWith("mood", "loud");
+    loadWith("entryId", "no-such-entry");
 }

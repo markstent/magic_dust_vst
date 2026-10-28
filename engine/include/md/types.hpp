@@ -108,7 +108,7 @@ struct Lane
     bool pinned = false;
     bool muted = false;
     std::uint64_t seed = 0;
-    bool refitted = false; // not serialized: set when a refit changed a pitch
+    bool refitted = false; // set when a refit changed a pitch
 };
 
 struct PlacedChord

@@ -7,10 +7,12 @@
 #include <memory>
 #include <utility>
 
+#include "IdeaState.h"
 #include "Link.h"
 #include "PluginEditor.h"
 #include "md/bank.hpp"
 #include "md/ranges.hpp"
+#include "md/validate.hpp"
 
 namespace
 {
@@ -50,6 +52,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout makeLayout()
     {
         layout.add(std::make_unique<juce::AudioParameterBool>(
             ParameterID{id, 1}, juce::String(id).replace("Mute", " mute"), false));
+    }
+    for (const char* id : {"chordsPin", "bassPin", "melodyPin"})
+    {
+        layout.add(std::make_unique<juce::AudioParameterBool>(
+            ParameterID{id, 1}, juce::String(id).replace("Pin", " pin"), false));
     }
     for (const char* id : {"chordsOctave", "bassOctave", "melodyOctave"})
     {
@@ -141,7 +148,9 @@ MagicDustProcessor::MagicDustProcessor(std::optional<md::Bank> bank,
              params.getRawParameterValue("melodyMute")},
       octaves_{params.getRawParameterValue("chordsOctave"),
                params.getRawParameterValue("bassOctave"),
-               params.getRawParameterValue("melodyOctave")}
+               params.getRawParameterValue("melodyOctave")},
+      pins_{params.getRawParameterValue("chordsPin"), params.getRawParameterValue("bassPin"),
+            params.getRawParameterValue("melodyPin")}
 {
     Link& link = Link::instance();
     const bool sender = link.oldestMain() != nullptr;
@@ -239,7 +248,8 @@ md::Settings MagicDustProcessor::currentSettings() const
         .bars = bars_};
 }
 
-bool MagicDustProcessor::regenerate(std::uint32_t seed, const md::LaneSeeds& laneSeeds)
+bool MagicDustProcessor::regenerate(std::uint32_t seed, const md::LaneSeeds& laneSeeds,
+                                    bool keepPins)
 {
     if (!bank_ || mode_.load() != InstanceMode::main)
     {
@@ -250,19 +260,44 @@ bool MagicDustProcessor::regenerate(std::uint32_t seed, const md::LaneSeeds& lan
     seen_ = settings;
     try
     {
-        idea_ = md::generate(*bank_, settings, seed, laneSeeds);
+        adopt(idea_ && keepPins ? md::generate(*bank_, settings, seed, laneSeeds, *idea_, pins())
+                                : md::generate(*bank_, settings, seed, laneSeeds),
+              seed, laneSeeds);
     }
     catch (const std::exception&)
     {
         lastError_ = kNoIdea;
         return false;
     }
+    return true;
+}
+
+void MagicDustProcessor::adopt(md::Idea idea, std::uint32_t seed, const md::LaneSeeds& laneSeeds)
+{
+    idea_ = std::move(idea);
     seed_ = seed;
     laneSeeds_ = laneSeeds;
     lastError_.reset();
     Link::instance().publish(this,
                              std::make_shared<const md::PlaybackPattern>(md::makePattern(*idea_)));
-    return true;
+}
+
+// A saved idea stands in for regenerating only when it is this state's idea (same seed and
+// settings), still valid, and
+// from an entry the bank has.
+bool MagicDustProcessor::usableSaved(const md::Idea& saved, std::uint32_t seed) const
+{
+    if (!bank_)
+    {
+        return false;
+    }
+    const md::Settings now = currentSettings();
+    const md::Settings& s = saved.settings;
+    return saved.seed == seed && s.style == now.style && s.keyRoot == now.keyRoot &&
+           s.mood == now.mood && s.energy == now.energy && s.groove == now.groove &&
+           s.flavour == now.flavour && s.bars == now.bars && md::validate(saved).empty() &&
+           std::ranges::any_of(bank_->entries,
+                               [&](const md::StyleEntry& e) { return e.id == saved.entryId; });
 }
 
 void MagicDustProcessor::sprinkle()
@@ -730,6 +765,10 @@ void MagicDustProcessor::getStateInformation(juce::MemoryBlock& destData)
         state.setProperty("bassSeed", juce::String(laneSeeds_.bass), nullptr);
         state.setProperty("melodySeed", juce::String(laneSeeds_.melody), nullptr);
         state.addChild(params.copyState(), -1, nullptr);
+        if (idea_)
+        {
+            state.addChild(ideaToTree(*idea_), -1, nullptr);
+        }
     }
     if (const auto xml = state.createXml())
     {
@@ -783,7 +822,18 @@ void MagicDustProcessor::setStateInformation(const void* data, int sizeInBytes)
         chords && bass && melody
             ? md::LaneSeeds{.chords = *chords, .bass = *bass, .melody = *melody}
             : md::defaultLaneSeeds(seed);
-    if (!regenerate(seed, laneSeeds))
+    if (const auto* saved = xml->getChildByName("Idea"); saved != nullptr && bank_)
+    {
+        auto idea = ideaFromTree(juce::ValueTree::fromXml(*saved));
+        if (idea && usableSaved(*idea, seed))
+        {
+            generated_ = currentSettings();
+            seen_ = generated_;
+            adopt(std::move(*idea), seed, laneSeeds);
+            return;
+        }
+    }
+    if (!regenerate(seed, laneSeeds, false))
     {
         style_ = oldStyle;
         keyRoot_ = oldKeyRoot;
