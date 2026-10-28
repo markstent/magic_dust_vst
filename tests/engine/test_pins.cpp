@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <set>
+#include <utility>
 #include <vector>
 
 using namespace md;
@@ -83,6 +84,17 @@ bool sameStartsAndLengths(const Idea& a, const Idea& b, LaneId id)
         }
     }
     return true;
+}
+
+// The distinct (start, length) pairs of the chord lane, whatever the voicing sizes.
+std::set<std::pair<int, int>> onsets(const Idea& idea)
+{
+    std::set<std::pair<int, int>> result;
+    for (const NoteEvent& e : laneOf(idea, LaneId::chords).events)
+    {
+        result.emplace(e.start, e.length);
+    }
+    return result;
 }
 
 bool samePitches(const Idea& a, const Idea& b, LaneId id)
@@ -275,5 +287,97 @@ TEST_CASE("a bar count change ignores the pins", "[pins]")
             CHECK(sameLane(plain, result, id));
             CHECK_FALSE(laneOf(result, id).pinned);
         }
+    }
+}
+
+TEST_CASE("an empty previous idea ignores the pins", "[pins]")
+{
+    const Settings settings;
+    const Pins all{.chords = true, .bass = true, .melody = true};
+    const Idea result = next(settings, 5, Idea{}, all);
+    const Idea plain = first(settings, 5);
+    CHECK(sameProgression(plain, result));
+    for (const LaneId id : {LaneId::chords, LaneId::bass, LaneId::melody})
+    {
+        CHECK(sameLane(plain, result, id));
+        CHECK_FALSE(laneOf(result, id).pinned);
+    }
+}
+
+TEST_CASE("pinned chords revoice when no shift keeps the voicings valid", "[pins]")
+{
+    int revoiced = 0;
+    for (std::uint32_t seed = 1; seed <= kSeeds; ++seed)
+    {
+        Settings settings;
+        settings.keyRoot = 9;
+        Idea previous = first(settings, seed);
+        if (previous.progression.size() < 2)
+        {
+            continue;
+        }
+        // Tops at both ends of the allowed span: no whole-progression shift of 3, -9 or 15 fits.
+        const auto moveTop = [](PlacedChord& chord, int top)
+        {
+            const int delta = top - chord.voicing.back();
+            for (int& pitch : chord.voicing)
+            {
+                pitch += delta;
+            }
+        };
+        moveTop(previous.progression.front(), kChordTopLow);
+        moveTop(previous.progression.back(), kChordTopHigh);
+        settings.keyRoot = 0;
+        const Idea result = next(settings, seed + kNextSeedOffset, previous, {.chords = true});
+        CHECK(validate(result).empty());
+        CHECK(onsets(previous) == onsets(result));
+        if (result.progression.front().voicing.back() != kChordTopLow + 3)
+        {
+            ++revoiced;
+        }
+    }
+    CHECK(revoiced > 0);
+}
+
+TEST_CASE("pinned chords keep their rhythm across a key change", "[pins]")
+{
+    for (std::uint32_t seed = 1; seed <= kSeeds; ++seed)
+    {
+        Settings settings;
+        settings.keyRoot = 9;
+        const Idea previous = first(settings, seed);
+        settings.keyRoot = 2;
+        const Idea result = next(settings, seed + kNextSeedOffset, previous, {.chords = true});
+        CHECK(sameStartsAndLengths(previous, result, LaneId::chords));
+        CHECK(validate(result).empty());
+    }
+}
+
+TEST_CASE("a pinned melody survives a key change", "[pins]")
+{
+    for (std::uint32_t seed = 1; seed <= kSeeds; ++seed)
+    {
+        Settings settings;
+        settings.keyRoot = 9;
+        const Idea previous = first(settings, seed);
+        settings.keyRoot = 4;
+        const Idea result = next(settings, seed + kNextSeedOffset, previous, {.melody = true});
+        CHECK(sameStartsAndLengths(previous, result, LaneId::melody));
+        CHECK(validate(result).empty());
+    }
+}
+
+TEST_CASE("pinned chords survive a style change", "[pins]")
+{
+    for (std::uint32_t seed = 1; seed <= kSeeds; ++seed)
+    {
+        Settings settings;
+        settings.style = Style::soulful;
+        const Idea previous = first(settings, seed);
+        settings.style = Style::bassline;
+        const Idea result = next(settings, seed + kNextSeedOffset, previous, {.chords = true});
+        CHECK(sameProgression(previous, result));
+        CHECK(sameLane(previous, result, LaneId::chords));
+        CHECK(validate(result).empty());
     }
 }

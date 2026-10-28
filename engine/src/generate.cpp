@@ -309,6 +309,7 @@ Lane makeLane(LaneId id, std::uint64_t seed, std::string pattern, std::vector<No
         .seed = seed,
     };
 }
+
 // The semitones from one key root to another, taken in -5 to +6.
 int keyShift(int from, int to) { return ((((to - from) % 12) + 12 + 5) % 12) - 5; }
 
@@ -408,6 +409,7 @@ void keepChords(Idea& idea, const Idea& previous, const StyleEntry& entry, int s
             std::ranges::for_each(chord.voicing, [offset](int& pitch) { pitch += *offset; });
         }
         idea.lanes.at(0) = lane;
+        idea.lanes.at(0).muted = false;
         std::ranges::for_each(idea.lanes.at(0).events,
                               [offset](NoteEvent& e) { e.pitch += *offset; });
         return;
@@ -473,7 +475,7 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
               const LaneSeeds& laneSeeds, const Idea& previous, Pins pins)
 {
     checkSettings(settings, seed);
-    if (previous.settings.bars != settings.bars)
+    if (previous.settings.bars != settings.bars || previous.entryId.empty())
     {
         pins = {};
     }
@@ -501,8 +503,6 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
         buildChords(idea, entry, laneSeeds);
     }
 
-    Pcg32 bassPatternRng(laneSeeds.bass, detail::kBassPattern);
-    const BassPattern bassPattern = detail::bassPatternFor(entry, settings.energy, bassPatternRng);
     if (pins.bass)
     {
         idea.lanes.at(1) =
@@ -511,6 +511,9 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
     }
     else
     {
+        Pcg32 bassPatternRng(laneSeeds.bass, detail::kBassPattern);
+        const BassPattern bassPattern =
+            detail::bassPatternFor(entry, settings.energy, bassPatternRng);
         idea.lanes.at(1) =
             makeLane(LaneId::bass, laneSeeds.bass, std::string(bassPatternName(bassPattern)),
                      detail::bassEvents(idea, bassPattern, laneSeeds.bass), detail::kBassHumanize,

@@ -14,47 +14,25 @@ namespace md
 {
 namespace
 {
-// The nearest valid chord tone of the sounding chord, the lower on a tie; the nearest valid scale
-// tone only when no chord tone passes.
-// Valid means no clash even by approach exemption, so the fix stays valid when neighbours move.
-int nearestValidPitch(const Idea& idea, const NoteEvent& e)
+struct PitchRange
 {
-    const auto sounding = detail::soundingPcsAt(idea, e.start);
-    int best = e.pitch;
-    std::tuple<bool, int, int> bestKey{true, 1000, 0};
-    for (int pitch = kBassLow; pitch <= kBassHigh; ++pitch)
-    {
-        NoteEvent candidate = e;
-        candidate.pitch = pitch;
-        if (!detail::bassPitchOk(idea, candidate, {}))
-        {
-            continue;
-        }
-        const bool chordTone = std::ranges::find(sounding, pitch % 12) != sounding.end();
-        const std::tuple<bool, int, int> key{!chordTone, std::abs(pitch - e.pitch), pitch};
-        if (key < bestKey)
-        {
-            bestKey = key;
-            best = pitch;
-        }
-    }
-    return best;
-}
+    int low;
+    int high;
+};
 
-// The nearest valid chord tone of the sounding chord, the lower on a tie; the nearest valid scale
-// tone only when no chord tone passes. Valid includes the leap from the already fitted previous
-// note.
-int nearestValidMelodyPitch(const Idea& idea, const NoteEvent& e, std::optional<int> previous)
+// The nearest pitch in the range to high that passes valid: a chord tone of the sounding chord
+// first, the lower on a tie; a scale tone only when no chord tone passes.
+template <class Valid>
+int nearestValidPitch(const Idea& idea, const NoteEvent& e, PitchRange range, const Valid& valid)
 {
     const auto sounding = detail::soundingPcsAt(idea, e.start);
     int best = e.pitch;
     std::tuple<bool, int, int> bestKey{true, 1000, 0};
-    for (int pitch = kMelodyLow; pitch <= kMelodyHigh; ++pitch)
+    for (int pitch = range.low; pitch <= range.high; ++pitch)
     {
         NoteEvent candidate = e;
         candidate.pitch = pitch;
-        if (!detail::melodyPitchOk(idea, candidate) ||
-            (previous && !detail::melodyLeapOk(*previous, pitch)))
+        if (!valid(candidate))
         {
             continue;
         }
@@ -84,7 +62,12 @@ bool refitBass(Idea& idea)
         {
             if (!detail::bassPitchOk(idea, e, approaches))
             {
-                const int pitch = nearestValidPitch(idea, e);
+                // Valid means no clash even by approach exemption, so the fix stays valid when
+                // neighbours move.
+                const int pitch =
+                    nearestValidPitch(idea, e, {.low = kBassLow, .high = kBassHigh},
+                                      [&idea](const NoteEvent& candidate)
+                                      { return detail::bassPitchOk(idea, candidate, {}); });
                 again = again || pitch != e.pitch;
                 e.pitch = pitch;
             }
@@ -106,7 +89,14 @@ bool refitMelody(Idea& idea)
         if (!detail::melodyPitchOk(idea, e) ||
             (previous && !detail::melodyLeapOk(*previous, e.pitch)))
         {
-            const int pitch = nearestValidMelodyPitch(idea, e, previous);
+            // Valid includes the leap from the already fitted previous note.
+            const int pitch = nearestValidPitch(
+                idea, e, {.low = kMelodyLow, .high = kMelodyHigh},
+                [&idea, previous](const NoteEvent& candidate)
+                {
+                    return detail::melodyPitchOk(idea, candidate) &&
+                           (!previous || detail::melodyLeapOk(*previous, candidate.pitch));
+                });
             changed = changed || pitch != e.pitch;
             e.pitch = pitch;
         }
