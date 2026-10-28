@@ -3,6 +3,7 @@
 #include "internal.hpp"
 #include "md/bank.hpp"
 #include "md/ranges.hpp"
+#include "md/theory.hpp"
 #include "md/types.hpp"
 #include "md/validate.hpp"
 
@@ -11,6 +12,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 using namespace md;
@@ -52,7 +54,7 @@ struct Mismatch
     bool found = false;
 };
 
-Mismatch firstMismatch()
+Mismatch findMismatch()
 {
     for (std::uint32_t a = 1; a < 60; ++a)
     {
@@ -63,6 +65,24 @@ Mismatch firstMismatch()
         }
     }
     return {};
+}
+
+const Mismatch& firstMismatch()
+{
+    static const Mismatch cached = findMismatch();
+    return cached;
+}
+
+NoteEvent noteAt(int pitch, int start)
+{
+    return {.pitch = pitch, .start = start, .length = 50, .velocity = 90};
+}
+
+Settings settingsWithKey(std::uint32_t seed)
+{
+    Settings settings = settingsFor(Style::ukFunky);
+    settings.keyRoot = static_cast<int>(seed % 12);
+    return settings;
 }
 } // namespace
 
@@ -77,7 +97,7 @@ TEST_CASE("a valid bass is not refitted", "[refit]")
 
 TEST_CASE("a bass under new chords is refitted and valid with the same rhythm", "[refit]")
 {
-    const Mismatch m = firstMismatch();
+    const Mismatch& m = firstMismatch();
     REQUIRE(m.found);
     Idea idea = m.idea;
     const std::vector<NoteEvent> before = bassLane(idea).events;
@@ -96,7 +116,7 @@ TEST_CASE("a bass under new chords is refitted and valid with the same rhythm", 
 
 TEST_CASE("the refit is deterministic and settles", "[refit]")
 {
-    const Mismatch m = firstMismatch();
+    const Mismatch& m = firstMismatch();
     REQUIRE(m.found);
     Idea first = m.idea;
     Idea second = m.idea;
@@ -110,9 +130,7 @@ TEST_CASE("a chord tone wins over a nearer scale tone", "[refit]")
 {
     for (std::uint32_t seed = 1; seed < 60; ++seed)
     {
-        Settings settings = settingsFor(Style::ukFunky);
-        settings.keyRoot = static_cast<int>(seed % 12);
-        Idea idea = generate(bank(), settings, seed);
+        Idea idea = generate(bank(), settingsWithKey(seed), seed);
         const NoteEvent top{
             .pitch = kBassHigh, .start = 2 * kTicksPerSixteenth, .length = 100, .velocity = 90};
         const auto sounding = detail::soundingPcsAt(idea, top.start);
@@ -132,4 +150,84 @@ TEST_CASE("a chord tone wins over a nearer scale tone", "[refit]")
         return;
     }
     FAIL("no seed puts a scale tone at the top of the range");
+}
+
+TEST_CASE("a tie between two chord tones goes down", "[refit]")
+{
+    for (std::uint32_t seed = 1; seed < 60; ++seed)
+    {
+        Idea idea = generate(bank(), settingsWithKey(seed), seed);
+        const int start = 2 * kTicksPerSixteenth;
+        for (int pitch = kBassLow + 1; pitch < kBassHigh; ++pitch)
+        {
+            const auto ok = [&](int p) { return detail::bassPitchOk(idea, noteAt(p, start), {}); };
+            const auto sounding = detail::soundingPcsAt(idea, start);
+            const auto tone = [&](int p)
+            { return ok(p) && std::ranges::find(sounding, p % 12) != sounding.end(); };
+            for (int d = 1; d <= 6 && pitch - d >= kBassLow && pitch + d <= kBassHigh; ++d)
+            {
+                bool nearer = false;
+                for (int k = 0; k < d; ++k)
+                {
+                    nearer = nearer || tone(pitch - k) || tone(pitch + k);
+                }
+                if (!nearer && tone(pitch - d) && tone(pitch + d) && !ok(pitch))
+                {
+                    bassLane(idea).events = {noteAt(pitch, start)};
+                    REQUIRE(refitBass(idea));
+                    CHECK(bassLane(idea).events.front().pitch == pitch - d);
+                    return;
+                }
+            }
+        }
+    }
+    FAIL("no seed has a failing note between two chord tones");
+}
+
+TEST_CASE("with no chord sounding the refit falls back to the nearest scale tone", "[refit]")
+{
+    Idea idea = generate(bank(), settingsFor(Style::ukFunky), 3);
+    idea.progression.clear();
+    const auto scale = scalePitchClasses(idea.key);
+    int expected = kBassHigh;
+    while (std::ranges::find(scale, expected % 12) == scale.end())
+    {
+        --expected;
+    }
+    bassLane(idea).events = {noteAt(kBassHigh + 12, 2 * kTicksPerSixteenth)};
+    REQUIRE(refitBass(idea));
+    CHECK(bassLane(idea).events.front().pitch == expected);
+}
+
+TEST_CASE("a refit that removes an approach exemption takes a second pass", "[refit]")
+{
+    for (std::uint32_t seed = 1; seed < 200; ++seed)
+    {
+        Idea idea = generate(bank(), settingsWithKey(seed), seed);
+        if (idea.progression.size() < 2)
+        {
+            continue;
+        }
+        const int change = idea.progression.at(1).startBar * kTicksPerBar;
+        const int approachStart =
+            detail::swung(change - kTicksPerSixteenth, swingPermille(idea.settings.groove));
+        // The approach note clashes and is exempt only because its target is within 2 semitones.
+        bassLane(idea).events = {noteAt(kBassHigh, approachStart), noteAt(kBassHigh + 2, change)};
+        const auto approaches = detail::approachStarts(idea);
+        const NoteEvent approach = bassLane(idea).events.front();
+        if (!detail::bassClashes(idea, approach, {}) ||
+            !detail::bassPitchOk(idea, approach, approaches))
+        {
+            continue;
+        }
+        REQUIRE(refitBass(idea));
+        const auto after = detail::approachStarts(idea);
+        for (const NoteEvent& e : bassLane(idea).events)
+        {
+            CHECK(detail::bassPitchOk(idea, e, after));
+        }
+        CHECK(bassLane(idea).events.front().pitch != kBassHigh);
+        return;
+    }
+    FAIL("no seed gives an approach note that clashes only by exemption");
 }

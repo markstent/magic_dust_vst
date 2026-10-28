@@ -29,7 +29,8 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
               const LaneSeeds& laneSeeds);
 
 // Snaps every bass note that fails the pitch rules against the current chords to the nearest valid
-// pitch in range (equal distance: a chord tone, then the lower). Starts, lengths and velocities
-// never move. Sets the bass lane's refitted flag and returns true when any pitch changed.
+// chord tone of the sounding chord (ties go down), or to the nearest valid scale tone only when no
+// chord tone passes. Always in range. Starts, lengths and velocities never move. Sets the bass
+// lane's refitted flag and returns true when any pitch changed.
 bool refitBass(Idea& idea);
 } // namespace md
