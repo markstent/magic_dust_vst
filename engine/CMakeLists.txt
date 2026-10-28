@@ -7,6 +7,7 @@ add_library(md_engine STATIC
   src/bass.cpp
   src/melody.cpp
   src/validate.cpp
+  src/refit.cpp
   src/generate.cpp)
 target_include_directories(md_engine PUBLIC include)
 target_compile_options(md_engine PRIVATE -ffp-contract=off)

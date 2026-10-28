@@ -73,7 +73,7 @@ void checkVoicings(const Idea& idea, Lines& lines)
 // Start ticks of the bass notes that lead into a chord change: the note on the last swung 16th
 // before it, within 2 semitones of the first bass note at or after it. The idea's end counts as a
 // change into bar 1.
-std::vector<int> approachStarts(const Idea& idea)
+std::vector<int> approachStartsImpl(const Idea& idea)
 {
     auto bass = idea.lanes.at(static_cast<std::size_t>(LaneId::bass)).events;
     std::ranges::stable_sort(bass, {}, &NoteEvent::start);
@@ -137,13 +137,8 @@ void checkLane(const Idea& idea, LaneId id, std::string_view name, int low, int 
         {
             lines.push_back(describe(name, e) + " ends after the idea");
         }
-        const int pc = e.pitch % 12;
-        bool inKey = contains(scale, pc);
-        if (id != LaneId::chords && !inKey && chord != nullptr)
-        {
-            inKey = contains(chordPitchClasses(idea.key, chord->symbol), pc) ||
-                    (idea.parallel && contains(detail::soundingPitchClasses(idea, *chord), pc));
-        }
+        const bool inKey = id == LaneId::chords ? contains(scale, e.pitch % 12)
+                                                : detail::pitchInKeyOrChord(idea, e);
         if (!inKey && (id != LaneId::chords || !idea.parallel))
         {
             lines.push_back(describe(name, e) + " is out of key");
@@ -214,7 +209,6 @@ void checkBassRules(const Idea& idea, const std::vector<int>& approaches, Lines&
 {
     const Lane& lane = idea.lanes.at(static_cast<std::size_t>(LaneId::bass));
     const bool sustained = lane.pattern == bassPatternName(BassPattern::sustained);
-    const bool pedal = lane.pattern == bassPatternName(BassPattern::pedal);
     for (const NoteEvent& e : lane.events)
     {
         const int step = (e.start % kTicksPerBar) / kTicksPerSixteenth;
@@ -223,14 +217,7 @@ void checkBassRules(const Idea& idea, const std::vector<int>& approaches, Lines&
         {
             lines.push_back(describe("bass", e) + " starts on a downbeat");
         }
-        const auto sounding = detail::soundingPcsAt(idea, e.start);
-        const int pc = e.pitch % 12;
-        const bool clash =
-            !contains(sounding, pc) &&
-            std::ranges::any_of(
-                sounding, [pc](int tone)
-                { return (tone - pc + 12) % 12 == 1 || (pc - tone + 12) % 12 == 1; });
-        if (clash && !pedal && !contains(approaches, e.start))
+        if (detail::bassClashes(idea, e, approaches))
         {
             lines.push_back(describe("bass", e) + " clashes with the sounding chord");
         }
@@ -263,6 +250,40 @@ const PlacedChord* findChord(std::span<const PlacedChord> progression, int tick)
                                         tick < (chord.startBar + chord.bars) * kTicksPerBar;
                              });
     return it == progression.end() ? nullptr : &*it;
+}
+
+std::vector<int> approachStarts(const Idea& idea) { return approachStartsImpl(idea); }
+
+bool pitchInKeyOrChord(const Idea& idea, const NoteEvent& e)
+{
+    const int pc = e.pitch % 12;
+    if (contains(scalePitchClasses(idea.key), pc))
+    {
+        return true;
+    }
+    const PlacedChord* chord = findChord(idea.progression, e.start);
+    return chord != nullptr &&
+           (contains(chordPitchClasses(idea.key, chord->symbol), pc) ||
+            (idea.parallel && contains(soundingPitchClasses(idea, *chord), pc)));
+}
+
+bool bassClashes(const Idea& idea, const NoteEvent& e, std::span<const int> approaches)
+{
+    const Lane& lane = idea.lanes.at(static_cast<std::size_t>(LaneId::bass));
+    const auto sounding = soundingPcsAt(idea, e.start);
+    const int pc = e.pitch % 12;
+    const bool clash =
+        !contains(sounding, pc) &&
+        std::ranges::any_of(sounding, [pc](int tone)
+                            { return (tone - pc + 12) % 12 == 1 || (pc - tone + 12) % 12 == 1; });
+    return clash && lane.pattern != bassPatternName(BassPattern::pedal) &&
+           std::ranges::find(approaches, e.start) == approaches.end();
+}
+
+bool bassPitchOk(const Idea& idea, const NoteEvent& e, std::span<const int> approaches)
+{
+    return e.pitch >= kBassLow && e.pitch <= kBassHigh && pitchInKeyOrChord(idea, e) &&
+           !bassClashes(idea, e, approaches);
 }
 
 bool isMuddy(const Voicing& voicing)
@@ -298,7 +319,7 @@ std::vector<std::string> validate(const Idea& idea)
     checkProgressionRules(idea, lines);
     checkVoicings(idea, lines);
     checkLane(idea, LaneId::chords, "chords", kChordLow, kChordHigh, lines);
-    const std::vector<int> approaches = approachStarts(idea);
+    const std::vector<int> approaches = detail::approachStarts(idea);
     checkLane(idea, LaneId::bass, "bass", kBassLow, kBassHigh, lines);
     checkBassRules(idea, approaches, lines);
     checkLane(idea, LaneId::melody, "melody", kMelodyLow, kMelodyHigh, lines);

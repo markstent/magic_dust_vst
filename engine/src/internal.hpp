@@ -55,6 +55,18 @@ std::vector<int> soundingPitchClasses(const Idea& idea, const PlacedChord& chord
 // The pitch classes sounding at the tick, as soundingPitchClasses; empty when no chord sounds.
 std::vector<int> soundingPcsAt(const Idea& idea, int tick);
 
+// Start ticks of the bass notes that lead into a chord change (the validator's approach exemption).
+std::vector<int> approachStarts(const Idea& idea);
+// True when the note's pitch class is in the key scale or is a chord tone of the chord sounding at
+// its start (the voicing's, for a parallel idea).
+bool pitchInKeyOrChord(const Idea& idea, const NoteEvent& e);
+// True when a bass note is a semitone off the chord sounding at its start, outside the pedal and
+// approach exemptions.
+bool bassClashes(const Idea& idea, const NoteEvent& e, std::span<const int> approaches);
+// The pitch rules for a bass note: in range, in key or a chord tone, and no clash. Shared by the
+// validator and the refit so they cannot disagree.
+bool bassPitchOk(const Idea& idea, const NoteEvent& e, std::span<const int> approaches);
+
 // The pitch classes at least 2 semitones from every other one in the set.
 std::vector<int> allowedPitchClasses(const std::vector<int>& pcs);
 

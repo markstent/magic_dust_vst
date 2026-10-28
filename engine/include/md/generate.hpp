@@ -27,4 +27,9 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed);
 // progression and chord rhythm, and the melody follows the chords it is given.
 Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
               const LaneSeeds& laneSeeds);
+
+// Snaps every bass note that fails the pitch rules against the current chords to the nearest valid
+// pitch in range (equal distance: a chord tone, then the lower). Starts, lengths and velocities
+// never move. Sets the bass lane's refitted flag and returns true when any pitch changed.
+bool refitBass(Idea& idea);
 } // namespace md
