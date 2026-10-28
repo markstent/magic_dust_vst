@@ -936,6 +936,19 @@ int countPattern(const std::vector<BassPattern>& patterns, int energy, const cha
     return count;
 }
 
+// The chord root in 33 to 44.
+int expectedRootNote(int rootPc)
+{
+    for (int note = 33; note <= 44; ++note)
+    {
+        if (note % 12 == rootPc)
+        {
+            return note;
+        }
+    }
+    return -1;
+}
+
 std::vector<int> bassPitches(const Idea& idea)
 {
     std::vector<int> pitches;
@@ -952,6 +965,22 @@ TEST_CASE("energy chooses the bass pattern", "[generate][bass]")
     const std::vector<BassPattern> both = {BassPattern::rollingOffbeat, BassPattern::offbeat};
     REQUIRE(countPattern(both, 0, "offbeat") >= 160);
     REQUIRE(countPattern(both, 100, "rolling-offbeat") >= 160);
+}
+
+TEST_CASE("the energy choice orders patterns by density, not by the entry's listing",
+          "[generate][bass]")
+{
+    const std::vector<BassPattern> listed = {BassPattern::rollingOffbeat, BassPattern::sustained,
+                                             BassPattern::offbeat};
+    const auto wins = [&](int energy, const char* name)
+    { return countPattern(listed, energy, name); };
+    for (const int energy : {0, 50, 100})
+    {
+        const std::array<int, 3> counts = {wins(energy, "sustained"), wins(energy, "offbeat"),
+                                           wins(energy, "rolling-offbeat")};
+        const auto best = std::ranges::max_element(counts) - counts.begin();
+        REQUIRE(best == energy / 50);
+    }
 }
 
 TEST_CASE("an entry with one bass pattern always gets it", "[generate][bass]")
@@ -997,8 +1026,8 @@ TEST_CASE("pitch variation spares sustained and pedal and keeps each chord's fir
         const Idea sustained = bassWith({BassPattern::sustained}, energySettings(50), seed);
         for (const NoteEvent& e : sustained.lanes.at(1).events)
         {
-            REQUIRE(e.pitch % 12 == chordRootPc(sustained.key, chordAt(sustained, e.start).symbol));
-            REQUIRE(e.pitch <= 44);
+            const int pc = chordRootPc(sustained.key, chordAt(sustained, e.start).symbol);
+            REQUIRE(e.pitch == expectedRootNote(pc));
         }
         const Idea idea = bassWith({BassPattern::rollingOffbeat}, energySettings(50), seed);
         const PlacedChord* previous = nullptr;
@@ -1007,8 +1036,7 @@ TEST_CASE("pitch variation spares sustained and pedal and keeps each chord's fir
             const PlacedChord& chord = chordAt(idea, e.start);
             if (&chord != previous)
             {
-                REQUIRE(e.pitch % 12 == chordRootPc(idea.key, chord.symbol));
-                REQUIRE(e.pitch <= 44);
+                REQUIRE(e.pitch == expectedRootNote(chordRootPc(idea.key, chord.symbol)));
                 previous = &chord;
             }
         }
