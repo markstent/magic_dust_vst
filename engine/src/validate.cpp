@@ -1,6 +1,7 @@
 #include "md/validate.hpp"
 
 #include "internal.hpp"
+#include "md/names.hpp"
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
 
@@ -69,7 +70,40 @@ void checkVoicings(const Idea& idea, Lines& lines)
     }
 }
 
-void checkLane(const Idea& idea, LaneId id, std::string_view name, int low, int high, Lines& lines)
+// Start ticks of the bass notes that lead into a chord change: the note on the last swung 16th
+// before it, within 2 semitones of the first bass note at or after it. The idea's end counts as a
+// change into bar 1.
+std::vector<int> approachStarts(const Idea& idea)
+{
+    auto bass = idea.lanes.at(static_cast<std::size_t>(LaneId::bass)).events;
+    std::ranges::stable_sort(bass, {}, &NoteEvent::start);
+    const int end = idea.settings.bars * kTicksPerBar;
+    const int swing = swingPermille(idea.settings.groove);
+    std::vector<int> changes;
+    for (std::size_t i = 1; i < idea.progression.size(); ++i)
+    {
+        changes.push_back(idea.progression.at(i).startBar * kTicksPerBar);
+    }
+    changes.push_back(end);
+    std::vector<int> starts;
+    for (const int change : changes)
+    {
+        const int tick = detail::swung(change - kTicksPerSixteenth, swing);
+        const auto note = std::ranges::find(bass, tick, &NoteEvent::start);
+        const auto target = change == end ? bass.begin()
+                                          : std::ranges::find_if(bass, [change](const NoteEvent& e)
+                                                                 { return e.start >= change; });
+        if (note != bass.end() && target != bass.end() &&
+            std::abs(note->pitch - target->pitch) <= 2)
+        {
+            starts.push_back(tick);
+        }
+    }
+    return starts;
+}
+
+void checkLane(const Idea& idea, LaneId id, std::string_view name, int low, int high, Lines& lines,
+               const std::vector<int>& approaches = {})
 {
     const auto& events = idea.lanes.at(static_cast<std::size_t>(id)).events;
     const int end = idea.settings.bars * kTicksPerBar;
@@ -111,7 +145,7 @@ void checkLane(const Idea& idea, LaneId id, std::string_view name, int low, int 
             inKey = contains(chordPitchClasses(idea.key, chord->symbol), pc) ||
                     (idea.parallel && contains(detail::soundingPitchClasses(idea, *chord), pc));
         }
-        if (!inKey && (id != LaneId::chords || !idea.parallel))
+        if (!inKey && (id != LaneId::chords || !idea.parallel) && !contains(approaches, e.start))
         {
             lines.push_back(describe(name, e) + " is out of key");
         }
@@ -176,6 +210,34 @@ void checkProgressionRules(const Idea& idea, Lines& lines)
     }
 }
 
+// The bass keeps off the kick and away from a semitone clash with the chord sounding at its start.
+void checkBassRules(const Idea& idea, const std::vector<int>& approaches, Lines& lines)
+{
+    const Lane& lane = idea.lanes.at(static_cast<std::size_t>(LaneId::bass));
+    const bool sustained = lane.pattern == bassPatternName(BassPattern::sustained);
+    const bool pedal = lane.pattern == bassPatternName(BassPattern::pedal);
+    for (const NoteEvent& e : lane.events)
+    {
+        const int step = (e.start % kTicksPerBar) / kTicksPerSixteenth;
+        const bool allowed = sustained && step == 0;
+        if (step % 4 == 0 && !allowed)
+        {
+            lines.push_back(describe("bass", e) + " starts on a downbeat");
+        }
+        const auto sounding = detail::soundingPcsAt(idea, e.start);
+        const int pc = e.pitch % 12;
+        const bool clash =
+            !contains(sounding, pc) &&
+            std::ranges::any_of(
+                sounding, [pc](int tone)
+                { return (tone - pc + 12) % 12 == 1 || (pc - tone + 12) % 12 == 1; });
+        if (clash && !pedal && !contains(approaches, e.start))
+        {
+            lines.push_back(describe("bass", e) + " clashes with the sounding chord");
+        }
+    }
+}
+
 void checkBassOverlap(const Idea& idea, Lines& lines)
 {
     auto bass = idea.lanes.at(static_cast<std::size_t>(LaneId::bass)).events;
@@ -237,7 +299,9 @@ std::vector<std::string> validate(const Idea& idea)
     checkProgressionRules(idea, lines);
     checkVoicings(idea, lines);
     checkLane(idea, LaneId::chords, "chords", kChordLow, kChordHigh, lines);
-    checkLane(idea, LaneId::bass, "bass", kBassLow, kBassHigh, lines);
+    const std::vector<int> approaches = approachStarts(idea);
+    checkLane(idea, LaneId::bass, "bass", kBassLow, kBassHigh, lines, approaches);
+    checkBassRules(idea, approaches, lines);
     checkLane(idea, LaneId::melody, "melody", kMelodyLow, kMelodyHigh, lines);
     checkBassOverlap(idea, lines);
     checkMelody(idea, lines);

@@ -1,10 +1,12 @@
 #include "md/validate.hpp"
 
+#include "md/names.hpp"
 #include "md/ranges.hpp"
 #include "md/types.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -43,6 +45,7 @@ Idea validIdea(int root)
             .voicing = voicing,
         };
         idea.progression.push_back(chord);
+        idea.lanes.at(1).pattern = std::string(bassPatternName(BassPattern::sustained));
         for (const int pitch : voicing)
         {
             idea.lanes.at(0).events.push_back(note(pitch, start, kTicksPerQuarter));
@@ -289,4 +292,75 @@ TEST_CASE("a top voice leap over 7 between a 4 and a 5 note chord is one violati
         events.push_back(note(pitch, 6 * kTicksPerBar, kTicksPerQuarter));
     }
     requireOneViolation(idea);
+}
+
+namespace
+{
+bool mentions(const Idea& idea, const std::string& text)
+{
+    const auto violations = validate(idea);
+    return std::ranges::any_of(violations, [&](const std::string& line)
+                               { return line.find(text) != std::string::npos; });
+}
+
+// validIdea(9) is A aeolian with Am7 (A C E G) throughout and a sustained A1 on each chord start.
+Idea bassIdea(int pitch, int start, BassPattern pattern)
+{
+    Idea idea = validIdea(9);
+    auto& lane = idea.lanes.at(1);
+    lane.pattern = std::string(bassPatternName(pattern));
+    lane.events = {note(pitch, start, 240)};
+    return idea;
+}
+} // namespace
+
+TEST_CASE("a bass note a semitone from a chord tone and not one is a clash", "[validate]")
+{
+    // F (41) is in A aeolian but a semitone under the E of Am7.
+    const Idea idea = bassIdea(41, 2 * 240, BassPattern::offbeat);
+    REQUIRE(mentions(idea, "clashes with the sounding chord"));
+}
+
+TEST_CASE("a bass chord tone never clashes", "[validate]")
+{
+    Idea idea = bassIdea(36, 2 * 240, BassPattern::offbeat);
+    idea.progression.at(0).symbol.quality = Quality::maj7;
+    idea.key = {.root = 0, .mode = Mode::ionian};
+    REQUIRE_FALSE(mentions(idea, "clashes with the sounding chord"));
+}
+
+TEST_CASE("a bass onset on step 4 is a downbeat violation", "[validate]")
+{
+    const Idea idea = bassIdea(33, 4 * 240, BassPattern::offbeat);
+    REQUIRE(mentions(idea, "downbeat"));
+}
+
+TEST_CASE("only the sustained pattern may start on step 0", "[validate]")
+{
+    REQUIRE(validate(bassIdea(33, 0, BassPattern::sustained)).empty());
+    REQUIRE(mentions(bassIdea(33, 0, BassPattern::offbeat), "downbeat"));
+}
+
+TEST_CASE("a pedal under a chord a semitone from it is not a clash", "[validate]")
+{
+    Idea idea = bassIdea(33, 2 * 240, BassPattern::pedal);
+    idea.key = {.root = 9, .mode = Mode::phrygian};
+    idea.progression.at(0).symbol = {.degree = 2, .quality = Quality::maj};
+    REQUIRE_FALSE(mentions(idea, "clashes with the sounding chord"));
+    idea.lanes.at(1).pattern = std::string(bassPatternName(BassPattern::offbeat));
+    REQUIRE(mentions(idea, "clashes with the sounding chord"));
+}
+
+TEST_CASE("an approach note on the last swung 16th before a chord change is exempt", "[validate]")
+{
+    Idea idea = validIdea(9);
+    idea.settings.groove = Groove::ukShuffle58;
+    idea.lanes.at(1).pattern = std::string(bassPatternName(BassPattern::offbeat));
+    // G# (44) leads into the A (45) that the next chord starts on.
+    const int change = 2 * kTicksPerBar;
+    const int swung = change - 480 + (480 * 580 / 1000);
+    idea.lanes.at(1).events = {note(44, swung, 120), note(45, change + 480, 240)};
+    REQUIRE(validate(idea).empty());
+    idea.lanes.at(1).events.front().start -= 480;
+    REQUIRE(mentions(idea, "out of key"));
 }

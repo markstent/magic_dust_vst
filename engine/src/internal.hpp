@@ -42,6 +42,9 @@ const PlacedChord& chordAt(std::span<const PlacedChord> progression, int tick);
 // (the shape moves with the root and may leave the symbol).
 std::vector<int> soundingPitchClasses(const Idea& idea, const PlacedChord& chord);
 
+// The pitch classes sounding at the tick, as soundingPitchClasses; empty when no chord sounds.
+std::vector<int> soundingPcsAt(const Idea& idea, int tick);
+
 // The pitch classes at least 2 semitones from every other one in the set.
 std::vector<int> allowedPitchClasses(const std::vector<int>& pcs);
 

@@ -107,3 +107,46 @@ TEST_CASE("properties: every generated idea is valid and generation is determini
     static_cast<void>(kP99LimitMs);
 #endif
 }
+
+TEST_CASE("properties: bass has no violations across style, flavour, energy and groove",
+          "[properties]")
+{
+    const Bank bank = loadBundledBank();
+    constexpr std::array<Style, 6> styles = {
+        Style::ukFunky,  Style::mkDub,    Style::soulful,
+        Style::bassline, Style::festival, Style::nyGroove,
+    };
+    constexpr std::array<int, 6> energies = {0, 25, 50, 51, 75, 100};
+
+    const int seeds = seedCount();
+    for (int seed = 0; seed < seeds; ++seed)
+    {
+        for (const Style style : styles)
+        {
+            for (int flavour = 0; flavour < 3; ++flavour)
+            {
+                for (const int energy : energies)
+                {
+                    for (int groove = 0; groove < 4; ++groove)
+                    {
+                        Settings settings;
+                        settings.style = style;
+                        settings.keyRoot = seed % 12;
+                        settings.energy = energy;
+                        settings.groove = static_cast<Groove>(groove);
+                        settings.flavour = static_cast<Flavour>(flavour);
+                        settings.bars = 8;
+
+                        const Idea idea =
+                            generate(bank, settings, static_cast<std::uint32_t>(seed));
+                        const auto problems = validate(idea);
+                        INFO("seed " << seed << " style " << static_cast<int>(style) << " flavour "
+                                     << flavour << " energy " << energy << " groove " << groove
+                                     << ": " << (problems.empty() ? "none" : problems.front()));
+                        REQUIRE(problems.empty());
+                    }
+                }
+            }
+        }
+    }
+}

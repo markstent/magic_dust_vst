@@ -54,6 +54,12 @@ std::vector<int> soundingPitchClasses(const Idea& idea, const PlacedChord& chord
     return pcs;
 }
 
+std::vector<int> soundingPcsAt(const Idea& idea, int tick)
+{
+    const PlacedChord* chord = findChord(idea.progression, tick);
+    return chord == nullptr ? std::vector<int>{} : soundingPitchClasses(idea, *chord);
+}
+
 std::vector<int> allowedPitchClasses(const std::vector<int>& pcs)
 {
     std::vector<int> allowed;
