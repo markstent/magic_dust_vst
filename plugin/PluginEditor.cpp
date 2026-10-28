@@ -65,6 +65,12 @@ md::ui::KnobLook levelLook(md::LaneId lane)
             .subLegend = "LEVEL"};
 }
 
+md::ui::KeyButton pinKey(md::LaneId lane)
+{
+    const auto look = md::ui::laneLook(lane);
+    return {look.label, look.colour};
+}
+
 md::ui::KnobLook volumeLook()
 {
     return {.legend = "VOLUME",
@@ -121,12 +127,7 @@ class MagicDustEditor::Body : public juce::Component
           muteKeys_{md::ui::KeyButton(md::ui::laneLook(kLanes.at(0)).label, t::console::ledOn),
                     md::ui::KeyButton(md::ui::laneLook(kLanes.at(1)).label, t::console::ledOn),
                     md::ui::KeyButton(md::ui::laneLook(kLanes.at(2)).label, t::console::ledOn)},
-          pinKeys_{md::ui::KeyButton(md::ui::laneLook(kLanes.at(0)).label,
-                                     md::ui::laneLook(kLanes.at(0)).colour),
-                   md::ui::KeyButton(md::ui::laneLook(kLanes.at(1)).label,
-                                     md::ui::laneLook(kLanes.at(1)).colour),
-                   md::ui::KeyButton(md::ui::laneLook(kLanes.at(2)).label,
-                                     md::ui::laneLook(kLanes.at(2)).colour)},
+          pinKeys_{pinKey(kLanes.at(0)), pinKey(kLanes.at(1)), pinKey(kLanes.at(2))},
           rockers_{md::ui::OctaveRocker(processor.params, kOctaveIds.at(0), "chords", 0),
                    md::ui::OctaveRocker(processor.params, kOctaveIds.at(1), "bass", 1),
                    md::ui::OctaveRocker(processor.params, kOctaveIds.at(2), "melody", 2)},

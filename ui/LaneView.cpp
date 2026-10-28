@@ -229,18 +229,17 @@ void LaneView::paint(juce::Graphics& g)
     const auto top =
         label.getY() +
         ((label.getHeight() - (nameFont.getHeight() + patternFont.getHeight())) / 2.0F);
+    const auto name = juce::String(laneLook(lane_).label).toUpperCase();
     g.setColour(ink);
     g.setFont(nameFont);
-    g.drawText(juce::String(laneLook(lane_).label).toUpperCase(),
+    g.drawText(name,
                juce::Rectangle<float>(label.getX(), top, label.getWidth(), nameFont.getHeight()),
                juce::Justification::centredLeft, true);
     if (pinned_)
     {
         paintPinnedTag(g, laneLook(lane_).colour,
-                       label.getX() +
-                           juce::GlyphArrangement::getStringWidth(
-                               nameFont, juce::String(laneLook(lane_).label).toUpperCase()),
-                       top, nameFont.getHeight());
+                       label.getX() + juce::GlyphArrangement::getStringWidth(nameFont, name), top,
+                       nameFont.getHeight());
         g.setColour(ink);
     }
     g.setFont(patternFont);
