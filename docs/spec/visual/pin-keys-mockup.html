@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Magic Dust - where the PIN keys go</title>
+<style>
+
+  body { background:#1b1b1d; color:#ddd; font-family:-apple-system,"Helvetica Neue",sans-serif; margin:0; padding:28px 0 60px; }
+  .intro, .choice { width:1064px; margin:0 auto; box-sizing:border-box; }
+  .intro h2 { margin:0 0 6px; font-weight:600; } .intro p { margin:0; color:#999; }
+  .choice { margin-top:30px; cursor:pointer; border:2px solid transparent; border-radius:10px; padding:10px; }
+  .choice.selected { border-color:#6cf; }
+  .choice h3 { margin:0 0 4px; font-weight:600; } .choice .what { color:#999; margin:0 0 12px; font-size:14px; }
+
+  /* console material (the approved C look) */
+  .unit { position:relative; display:flex; border-radius:6px; overflow:hidden; box-shadow:0 18px 40px rgba(0,0,0,.55); }
+  .cheek { width:24px; flex:none; background:repeating-linear-gradient(92deg,#3d2516 0 3px,#4b2e1b 3px 7px,#35200f 7px 9px); box-shadow:inset -3px 0 6px rgba(0,0,0,.45); }
+  .cheek.r { box-shadow:inset 3px 0 6px rgba(0,0,0,.45); }
+  .face { flex:1; position:relative; background:linear-gradient(#6f7a86,#5d6773); color:#f3f1ea; padding:18px 24px 16px; box-sizing:border-box; }
+  .screw { position:absolute; width:12px; height:12px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#e2e2e2,#6d6d6d 70%); }
+  .screw::after { content:""; position:absolute; left:2px; right:2px; top:5px; height:2px; background:#444; transform:rotate(35deg); }
+  .s1{left:7px;top:7px}.s2{right:7px;top:7px}.s3{left:7px;bottom:7px}.s4{right:7px;bottom:7px}
+  .row { display:flex; align-items:center; }
+  .wordmark { font-family:"Libre Baskerville",Georgia,serif; font-weight:700; font-size:26px; letter-spacing:.16em; }
+  .tag { font-size:10px; letter-spacing:.18em; color:#dfe3e8; margin-left:16px; }
+  .lab { font-size:9px; letter-spacing:.2em; text-transform:uppercase; color:#f3f1ea; font-weight:600; white-space:nowrap; }
+  .small { font-size:7.5px; letter-spacing:.14em; color:#eef0f2; font-weight:600; }
+  .ro { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .win { font-family:"SF Mono",Menlo,monospace; font-weight:700; font-size:14px; color:#2a2418; padding:3px 9px; min-width:58px; text-align:center;
+         background:radial-gradient(130% 120% at 50% 40%,#fbf0cf,#e5cf98); border-radius:2px; box-shadow:inset 0 0 0 2px #26292d, inset 0 0 12px rgba(170,110,30,.5); }
+  .display { position:relative; border-radius:5px; background:radial-gradient(130% 120% at 50% 40%,#fbf0cf,#e5cf98);
+             box-shadow:inset 0 0 0 3px #26292d, inset 0 0 26px rgba(170,110,30,.45); box-sizing:border-box; padding:10px 12px 8px 82px; display:flex; flex-direction:column; gap:4px; }
+  .cells { display:flex; height:30px; } .cells div { flex:1; font-family:"SF Mono",Menlo,monospace; color:#2a2418; font-size:12px; font-weight:700; text-align:center; line-height:1.15; }
+  .cells small { display:block; font-weight:400; font-size:9px; opacity:.6; }
+  .lane { flex:1; position:relative; border-top:1px solid rgba(42,36,24,.12); }
+  .lane .ll { position:absolute; left:-72px; top:50%; transform:translateY(-50%); font-family:"SF Mono",Menlo,monospace; color:#2a2418; font-size:9px; letter-spacing:.1em; line-height:1.4; }
+  .lane .ll b { font-family:-apple-system,sans-serif; letter-spacing:.14em; }
+  .lane.muted { opacity:.35; }
+  .note { position:absolute; height:4px; background:#2a2418; border-radius:1px; }
+  .bl { position:absolute; inset:0 0 0 82px; pointer-events:none; } .bl i { position:absolute; top:40px; bottom:22px; width:1px; background:rgba(80,60,30,.18); }
+  .stat { font-family:"SF Mono",Menlo,monospace; font-size:9.5px; color:#2a2418; height:14px; }
+  .panel { background:rgba(0,0,0,.12); box-shadow:inset 0 0 0 1px rgba(255,255,255,.12); border-radius:4px; box-sizing:border-box; }
+
+  .ctl { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .range { display:flex; justify-content:space-between; }
+  .knob { position:relative; border-radius:50%; flex:none; }
+  .knob .ticks { position:absolute; inset:-6px; border-radius:50%; background:repeating-conic-gradient(from -135deg,#f3f1ea 0 2deg,transparent 2deg 18deg);
+    -webkit-mask:radial-gradient(circle,transparent 62%,#000 63%,#000 70%,transparent 71%),conic-gradient(from 135deg,transparent 0 90deg,#000 90deg); -webkit-mask-composite:source-in;
+    mask:radial-gradient(circle,transparent 62%,#000 63%,#000 70%,transparent 71%),conic-gradient(from 135deg,transparent 0 90deg,#000 90deg); mask-composite:intersect; }
+  .knob .cap { position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle at 40% 30%,#4b4b4b,#141414 65%); box-shadow:0 3px 5px rgba(0,0,0,.5); }
+  .knob .cap::after { content:""; position:absolute; inset:24%; border-radius:50%; background:var(--c,#8a8f96); box-shadow:inset 0 2px 3px rgba(255,255,255,.35); }
+  .knob .ptr { position:absolute; left:50%; top:9%; width:2px; height:36%; margin-left:-1px; transform-origin:50% 115%; background:#fff; z-index:2; border-radius:1px; }
+  .key { background:linear-gradient(#f0ece0,#c9c2ad); box-shadow:0 2px 0 #2c2f33; border-radius:3px; display:flex; align-items:center; justify-content:center;
+         color:#2a2418; font-size:9px; letter-spacing:.18em; font-weight:700; }
+  .key.red { background:linear-gradient(#d84a3a,#a8301f); color:#fff; }
+  .key.dark { background:linear-gradient(#3a3f46,#22262b); color:#f3f1ea; box-shadow:0 2px 0 #15171a; }
+  .led { width:6px; height:6px; border-radius:50%; background:#4e4a3c; } .led.on { background:#ffcf4a; box-shadow:0 0 6px #ffcf4a; }
+  .led.none { visibility:hidden; } .led.c { background:#7b6bd6; box-shadow:0 0 6px #7b6bd6; } .led.b { background:#d6527c; box-shadow:0 0 6px #d6527c; } .led.m { background:#3fb6c4; box-shadow:0 0 6px #3fb6c4; }
+  .stripe { height:3px; border-radius:2px; }
+
+  .choice { cursor:default; }
+  .caption { color:#ddd; font-size:14px; margin:12px 0 0; }
+  /* 1:1 plugin drawing, every part placed in window pixels */
+  .plug { position:relative; width:1040px; height:600px; overflow:hidden; border-radius:6px; box-shadow:0 18px 40px rgba(0,0,0,.55);
+          background:linear-gradient(#6f7a86,#5d6773); color:#f3f1ea; }
+  .plug .cheek { position:absolute; top:0; bottom:0; left:0; width:26px; }
+  .plug .cheek.r { left:auto; right:0; }
+  .plug .a { position:absolute; }
+  .plug .lab, .plug .lg { font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; font-weight:600; color:#f3f1ea; white-space:nowrap; }
+  .plug .lg { height:12px; line-height:12px; text-align:center; }
+  .plug .display { position:absolute; padding:0; display:block; }
+  .plug .lane { position:absolute; border:0; }
+  .plug .ll { left:4px; }
+  .plug .key { position:absolute; }
+  .plug .led { position:absolute; width:6px; height:6px; margin:0; }
+  .plug .rk { position:absolute; height:20px; display:flex; box-shadow:0 2px 0 #15171a; border-radius:3px; }
+  .plug .rk .b { background:linear-gradient(#3a3f46,#22262b); color:#f3f1ea; font-size:7px; display:flex; align-items:center; justify-content:center; width:16px; }
+  .plug .rk .b:first-child { border-radius:3px 0 0 3px; } .plug .rk .b:last-child { border-radius:0 3px 3px 0; }
+  .plug .rk .w { background:radial-gradient(130% 120% at 50% 40%,#fbf0cf,#e5cf98); color:#2a2418; font:700 11px "SF Mono",Menlo,monospace; display:flex; align-items:center; justify-content:center;
+                 box-shadow:inset 0 0 0 1px #26292d; }
+  .pintag { position:absolute; height:12px; line-height:12px; padding:0 5px; border-radius:6px; font:700 7.5px -apple-system,sans-serif; letter-spacing:.14em; color:#fff; box-sizing:border-box; }
+  .pinbtn { position:absolute; width:14px; height:14px; box-sizing:border-box; border-radius:3px; display:flex; align-items:center; justify-content:center; }
+  .pinbtn svg { width:10px; height:10px; }
+</style>
+</head>
+<body>
+<div class="intro">
+  <h2>Where do the PIN keys go?</h2>
+  <p>Pinning keeps a part as it is when you press NEW IDEA. Bass is shown pinned in all three. Each drawing is the real 1040 x 600 window at 1:1.</p>
+</div>
+<div id="out"></div>
+<script>
+const chords=[[0,64,67,71],[16,62,65,69],[32,67,71,74],[48,60,64,67]];
+const bass=[[0,3,45],[4,2,45],[8,3,57],[14,2,45],[16,3,38],[20,2,38],[26,3,50],[32,3,43],[36,2,43],[42,3,55],[48,3,48],[52,2,48],[58,3,60]];
+const mel=[[2,2,76],[5,3,79],[10,4,81],[18,2,77],[21,2,76],[24,6,74],[34,2,74],[37,3,76],[42,5,79],[50,2,76],[53,2,74],[56,6,72]];
+const notes=(l,lo,hi,ch)=>l.flatMap(n=>ch?n.slice(1).map(p=>[n[0],14,p]):[n]).map(([s,len,p])=>`<div class="note" style="left:${s/64*100}%;width:calc(${len/64*100}% - 2px);bottom:${(p-lo)/(hi-lo)*78+8}%"></div>`).join('');
+const COL={c:'#7B6BD6',b:'#D6527C',m:'#3FB6C4'};
+const at=(x,y,w,h,cls,inner,extra)=>`<div class="${cls}" style="position:absolute;left:${x}px;top:${y}px;${w?`width:${w}px;`:''}${h?`height:${h}px;`:''}${extra||''}">${inner||''}</div>`;
+const lg=(cx,cy,w,t)=>at(cx-w/2,cy-6,w,12,'lg',t);
+const vlg=(cx,cy,t)=>at(cx-30,cy-6,60,12,'lg',t,'transform:rotate(-90deg)');
+const led=(cx,cy,k)=>at(cx-3,cy-3,6,6,'led '+(k||''));
+const knob=(cx,cy,d,a,c)=>`<div class="knob" style="position:absolute;left:${cx-d/2}px;top:${cy-d/2}px;width:${d}px;height:${d}px;${c?'--c:'+c:''}"><div class="ticks"></div><div class="cap"></div><div class="ptr" style="transform:rotate(${a}deg)"></div></div>`;
+const pinSvg=(c,fill)=>`<svg viewBox="0 0 10 10"><path d="M3 .8h4L6.4 4l1.6 1.6v.9H5.4V9.4H4.6V6.5H2V5.6L3.600 4z" fill="${fill?c:'none'}" stroke="${c}" stroke-width=".9" stroke-linejoin="round"/></svg>`;
+const lanes=[['c','CHORDS','TWO-BAR-PICKUP',chords,58,76,true],['b','BASS','OFFBEAT',bass,36,60],['m','MELODY','PLUCK',mel,70,83]];
+const ys=[144,200,256];
+
+function plug(opt){
+  let h=`<div class="cheek"></div><div class="cheek r"></div>`;
+  h+=[[7,7],[1020,7],[7,580],[1020,580]].map(([x,y])=>at(x,y,0,0,'screw','',`left:${x}px;top:${y}px`)).join('');
+  h+=at(54,26,0,0,'wordmark','MAGIC DUST','font-size:30px;line-height:36px;white-space:nowrap');
+  h+=at(360,38,0,0,'tag','HOUSE MUSIC IDEA ENGINE','margin:0;white-space:nowrap');
+  [['IDEA','0001',574,84],['STYLE','UK FUNKY',670,124],['KEY','A MIN',806,84],['TEMPO','124.0',902,84]].forEach(([l,v,x,w])=>{
+    h+=lg(x+w/2,30,w,l)+at(x,38,w,26,'win',v,'box-sizing:border-box;font-size:15px;padding:0;line-height:22px;');
+  });
+  // display
+  h+=`<div class="display" style="left:54px;top:86px;width:932px;height:250px"></div>`;
+  h+=`<div class="bl" style="position:absolute;left:166px;top:144px;width:808px;height:164px;inset:auto;">${[1,2,3,4,5,6,7].map(i=>`<i style="left:${i/8*100}%;top:0;bottom:0"></i>`).join('')}</div>`;
+  [['Am7','home'],['Fmaj7','warm'],['Am7','home'],['Fmaj7','warm']].forEach(([n,f],i)=>{
+    h+=at(166+202*i,98,202,40,'cells','<div style="text-align:center;font:700 14px SF Mono,Menlo,monospace;color:#2a2418;width:100%">'+n+'<small style="font-size:10px;font-weight:400;opacity:.6;display:block">'+f+'</small></div>');
+  });
+  lanes.forEach(([k,name,pat,nt,lo,hi,ch],i)=>{
+    const y=ys[i],pinned=k==='b';
+    h+=at(62,y,916,52,'lane','','border-top:1px solid rgba(42,36,24,.12)');
+    h+=at(166,y+2,808,48,'lane',notes(nt,lo,hi,ch));
+    const nx=opt==='B'?84:66;
+    h+=at(nx,y+14,0,0,'ll',`<b>${name}</b>`,'font-family:SF Mono,Menlo,monospace;color:#2a2418;font-size:10px;letter-spacing:.14em;white-space:nowrap;line-height:12px');
+    h+=at(66,y+28,0,0,'ll',pat,'font-family:SF Mono,Menlo,monospace;color:#2a2418;font-size:10px;white-space:nowrap;line-height:12px');
+    if(opt==='B') h+=at(64,y+13,14,14,'pinbtn',pinSvg(pinned?'#fff':'#2a2418',pinned),pinned?`background:${COL[k]}`:'box-shadow:inset 0 0 0 1px rgba(42,36,24,.4)');
+    if(pinned) h+=at(opt==='B'?122:104,y+14,44,12,'pintag','PINNED',`background:${COL[k]}`);
+  });
+  h+=at(66,316,0,0,'stat','STOPPED - SELECTED: NOTHING - BASS PINNED','white-space:nowrap');
+  // knob panel
+  h+=at(54,350,932,104,'panel');
+  [['MOOD','DARK','BRIGHT',130,-60],['ENERGY','LOW','HIGH',248,20],['GROOVE','STRAIGHT','62',366,-45],['FLAVOUR','SIMPLE','JAZZY',484,0]].forEach(([l,a,b,x,r])=>{
+    h+=lg(x,366,100,l)+knob(x,412,40,r)+at(x-36,434,72,10,'range small',`<span>${a}</span><span>${b}</span>`);
+  });
+  [560,880].forEach(x=>h+=at(x,372,1,68,'',' ','background:rgba(255,255,255,.14)'));
+  [['CHORDS','c',640,110],['BASS','b',726,40],['MELODY','m',812,-20]].forEach(([l,k,x,r])=>{
+    h+=lg(x,372,84,l)+at(x-42,383,84,10,'small','LEVEL','text-align:center')+knob(x,418,34,r,COL[k]);
+  });
+  h+=lg(936,366,100,'VOLUME')+knob(936,412,40,70)+at(900,434,72,10,'range small','<span>MIN</span><span>MAX</span>');
+  // keys
+  const mx=[74,166,258];
+  h+=vlg(58,497,'MUTE');
+  mx.forEach((x,i)=>{
+    h+=at(x,470,78,54,'key','')+led(x+39,461,i===1?'on':'')+lg(x+39,538,100,lanes[i][1]);
+  });
+  h+=at(632,470,78,54,'key dark','&#9654;')+led(671,461,'on')+lg(671,538,100,'PLAY');
+  h+=at(724,470,78,54,'key dark','&#9632;')+led(763,461,'none')+lg(763,538,100,'STOP');
+  h+=at(816,470,170,54,'key red','SPRINKLE')+lg(901,538,170,'NEW IDEA');
+  // octave rockers
+  const rk=(x,w,v)=>at(x,550,w,20,'rk',`<div class="b">&#9660;</div><div class="w" style="width:${w-32}px">${v}</div><div class="b">&#9650;</div>`);
+  const oct=['0','-1','+1'];
+  if(opt==='C'){
+    h+=at(33,543,50,0,'lg','OCT /','height:12px;left:33px;width:50px;text-align:center;top:543px')+at(33,555,50,12,'lg','PIN');
+    mx.forEach((x,i)=>{
+      h+=rk(x,54,oct[i]);
+      const k=lanes[i][0],on=k==='b';
+      h+=at(x+58,550,20,20,'key','',`border-radius:3px;box-shadow:0 2px 0 #2c2f33;`);
+      if(on) h+=led(x+68,560,k);
+    });
+    h+=`<style>.x{}</style>`;
+  } else {
+    h+=lg(58,560,50,'OCT');
+    mx.forEach((x,i)=>h+=rk(x,78,oct[i]));
+  }
+  if(opt==='A'){
+    h+=vlg(352,497,'PIN');
+    [368,454,540].forEach((x,i)=>{
+      const k=lanes[i][0];
+      h+=at(x,470,72,54,'key','')+led(x+36,461,k==='b'?k:'')+lg(x+36,538,100,lanes[i][1]);
+    });
+  }
+  return `<div class="plug">${h}</div>`;
+}
+const opts=[['A','A. PIN group in the gap','Press a cream PIN key in the gap between the mute keys and PLAY: its LED lights in the part colour and a PINNED tag appears on that row of the display.'],
+ ['B','B. Pin in the display','Click a part label in the display (or its small pin): the pin fills in the part colour, the row shows PINNED, and there are no new keys.'],
+ ['C','C. Pin keys in the rocker row','Press the small cream PIN key beside a part octave rocker: a coloured dot lights inside it and the display row shows PINNED.']];
+document.getElementById('out').innerHTML=opts.map(([o,t,c])=>`<div class="choice"><h3>${t}</h3>${plug(o)}<p class="caption">${c}</p></div>`).join('');
+</script>
+</body>
+</html>
