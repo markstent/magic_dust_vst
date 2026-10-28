@@ -39,6 +39,28 @@ LaneLook laneLook(md::LaneId lane)
             .high = md::kMelodyHigh};
 }
 
+namespace
+{
+
+// A pill of the lane colour reading PINNED, left edge `x` past the name, centred on the name line.
+void paintPinnedTag(juce::Graphics& g, juce::Colour colour, float x, float top, float lineHeight)
+{
+    const auto tagFont = font(Face::groteskBold, t::layout::pinnedTagSize)
+                             .withExtraKerningFactor(t::layout::laneNameSpacing);
+    const auto width = juce::GlyphArrangement::getStringWidth(tagFont, "PINNED") +
+                       (2.0F * t::layout::pinnedTagPadX);
+    const auto tag =
+        juce::Rectangle<float>(x + t::layout::pinnedTagGap, 0.0F, width, t::layout::pinnedTagHeight)
+            .withCentre({x + t::layout::pinnedTagGap + (width / 2.0F), top + (lineHeight / 2.0F)});
+    g.setColour(colour);
+    g.fillRoundedRectangle(tag, tag.getHeight() / 2.0F);
+    g.setColour(juce::Colours::white);
+    g.setFont(tagFont);
+    g.drawText("PINNED", tag, juce::Justification::centred, false);
+}
+
+} // namespace
+
 PianoRoll::PianoRoll(md::LaneId lane) : lane_(lane) { setInterceptsMouseClicks(false, false); }
 
 void PianoRoll::set(const std::vector<md::NoteEvent>& notes, int bars,
@@ -128,6 +150,15 @@ void LaneView::set(const md::Lane& lane, int bars, std::optional<float> playhead
 
 void LaneView::setMuted(bool muted) { setAlpha(muted ? t::layout::mutedAlpha : 1.0F); }
 
+void LaneView::setPinned(bool pinned)
+{
+    if (pinned != pinned_)
+    {
+        pinned_ = pinned;
+        repaint();
+    }
+}
+
 void LaneView::resized()
 {
     roll_.setBounds(t::layout::rollX - t::layout::laneX, t::layout::rollPadY, t::layout::rollWidth,
@@ -203,6 +234,15 @@ void LaneView::paint(juce::Graphics& g)
     g.drawText(juce::String(laneLook(lane_).label).toUpperCase(),
                juce::Rectangle<float>(label.getX(), top, label.getWidth(), nameFont.getHeight()),
                juce::Justification::centredLeft, true);
+    if (pinned_)
+    {
+        paintPinnedTag(g, laneLook(lane_).colour,
+                       label.getX() +
+                           juce::GlyphArrangement::getStringWidth(
+                               nameFont, juce::String(laneLook(lane_).label).toUpperCase()),
+                       top, nameFont.getHeight());
+        g.setColour(ink);
+    }
     g.setFont(patternFont);
     g.drawText(drawnPattern(),
                juce::Rectangle<float>(label.getX(), top + nameFont.getHeight(), label.getWidth(),

@@ -53,6 +53,9 @@ class LaneView : public juce::Component
     void set(const md::Lane& lane, int bars, std::optional<float> playhead, bool selected);
     // A muted lane's row is drawn faint.
     void setMuted(bool muted);
+    // A pinned lane shows a small PINNED tag beside its name.
+    void setPinned(bool pinned);
+    [[nodiscard]] bool pinned() const { return pinned_; }
     [[nodiscard]] bool muted() const { return getAlpha() < 1.0F; }
     [[nodiscard]] PianoRoll& roll() { return roll_; }
     [[nodiscard]] juce::Rectangle<int> labelBounds() const;
@@ -77,6 +80,7 @@ class LaneView : public juce::Component
     PianoRoll roll_;
     juce::String pattern_;
     bool selected_ = false;
+    bool pinned_ = false;
     bool dragging_ = false;
     std::function<void()> onClick_;
     std::function<void()> onDrag_;

@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
@@ -44,6 +45,30 @@ juce::String selectedText(Selection selection)
         break;
     }
     return "selected: nothing";
+}
+
+// "nothing pinned", "bass pinned", "chords and bass pinned", "chords, bass and melody pinned".
+juce::String pinnedText(const std::array<bool, 3>& pinned)
+{
+    std::vector<juce::String> names;
+    for (std::size_t i = 0; i < pinned.size(); ++i)
+    {
+        if (pinned.at(i))
+        {
+            names.push_back(juce::String(laneLook(static_cast<md::LaneId>(i)).label).toLowerCase());
+        }
+    }
+    if (names.empty())
+    {
+        return "nothing pinned";
+    }
+    const auto last = names.back();
+    names.pop_back();
+    return (names.empty() ? last
+                          : juce::StringArray(names.data(), static_cast<int>(names.size()))
+                                    .joinIntoString(", ") +
+                                " and " + last) +
+           " pinned";
 }
 
 } // namespace
@@ -176,8 +201,14 @@ void ScreenComponent::refresh()
     {
         lanes_.at(i).setMuted(processor_.laneMuted(static_cast<md::LaneId>(i)));
     }
+    const auto pins = processor_.pins();
+    const std::array<bool, 3> pinned{pins.chords, pins.bass, pins.melody};
+    for (std::size_t i = 0; i < lanes_.size(); ++i)
+    {
+        lanes_.at(i).setPinned(pinned.at(i));
+    }
     bottomLine_.set(playing ? static_cast<int>(barPosition) + 1 : 0, bars, selectedText(selection_),
-                    "nothing pinned");
+                    pinnedText(pinned));
 }
 
 void ScreenComponent::paint(juce::Graphics& g)

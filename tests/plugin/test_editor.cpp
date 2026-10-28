@@ -303,7 +303,8 @@ TEST_CASE("the keys sit where the layout table puts them", "[editor]")
 TEST_CASE("every key's legend sits on one baseline, 8 px under the key", "[editor]")
 {
     Fixture f;
-    for (const auto* id : {"mute0", "mute1", "mute2", "playKey", "stopKey", "sprinkleKey"})
+    for (const auto* id :
+         {"mute0", "mute1", "mute2", "pin0", "pin1", "pin2", "playKey", "stopKey", "sprinkleKey"})
     {
         auto& key = f.find<md::ui::KeyButton>(id);
         const auto legend = f.editor->getLocalArea(&key, key.legendBounds());
@@ -427,6 +428,76 @@ TEST_CASE("the mute keys toggle their lane's parameter and light their LEDs", "[
         REQUIRE(key.keyPressed(juce::KeyPress(juce::KeyPress::returnKey)));
         CHECK(param(f, ids.at(i)) == 0.0F);
     }
+}
+
+TEST_CASE("the pin keys sit in the gap before play, named for their lanes", "[editor][pin]")
+{
+    Fixture f;
+    const std::array<int, 3> x{368, 454, 540};
+    const std::array<const char*, 3> titles{"pin chords", "pin bass", "pin melody"};
+    for (std::size_t i = 0; i < 3; ++i)
+    {
+        const auto id = "pin" + std::to_string(i);
+        CHECK(f.boundsOf(id.c_str()) == Rect(x.at(i), 470, 72, 54));
+        CHECK(f.find(id.c_str()).getTitle() == titles.at(i));
+        auto& key = f.find<md::ui::KeyButton>(id.c_str());
+        const auto legend = f.editor->getLocalArea(&key, key.legendBounds());
+        CHECK(legend.getY() == 470 + 54 + 8);
+    }
+}
+
+TEST_CASE("the pin keys toggle their lane's parameter without regenerating", "[editor][pin]")
+{
+    Fixture f;
+    const std::array<const char*, 3> ids{"chordsPin", "bassPin", "melodyPin"};
+    const auto seed = f.processor.idea()->seed;
+    for (std::size_t i = 0; i < ids.size(); ++i)
+    {
+        auto& key = f.find<md::ui::KeyButton>(("pin" + std::to_string(i)).c_str());
+        key.setAnimated(false);
+        CHECK_FALSE(key.isLit());
+        click(key, {18.0F, 12.0F});
+        CHECK(param(f, ids.at(i)) == 1.0F);
+        CHECK(key.isLit());
+        click(key, {18.0F, 12.0F});
+        CHECK(param(f, ids.at(i)) == 0.0F);
+        CHECK_FALSE(key.isLit());
+        REQUIRE(key.keyPressed(juce::KeyPress(juce::KeyPress::returnKey)));
+        CHECK(param(f, ids.at(i)) == 1.0F);
+    }
+    CHECK(f.processor.idea()->seed == seed);
+}
+
+TEST_CASE("a pin key, its lane row tag and the bottom line follow the parameter", "[editor][pin]")
+{
+    Fixture f;
+    f.idea(4);
+    auto& key = f.find<md::ui::KeyButton>("pin1");
+    key.setAnimated(false);
+    const auto bottom = [&] { return f.find<md::ui::Readout>("bottomLine").getText(); };
+    f.refresh();
+    CHECK_FALSE(f.find<md::ui::LaneView>("lane1").pinned());
+    f.processor.params.getParameter("bassPin")->setValueNotifyingHost(1.0F);
+    f.refresh();
+    CHECK(key.isLit());
+    CHECK(f.find<md::ui::LaneView>("lane1").pinned());
+    CHECK_FALSE(f.find<md::ui::LaneView>("lane0").pinned());
+    CHECK(f.find<md::ui::LaneView>("lane1").getAlpha() == Approx(1.0F).margin(kTolerance));
+    CHECK(bottom() == "STOPPED - SELECTED: NOTHING - BASS PINNED");
+    f.processor.params.getParameter("chordsPin")->setValueNotifyingHost(1.0F);
+    f.refresh();
+    CHECK(bottom() == "STOPPED - SELECTED: NOTHING - CHORDS AND BASS PINNED");
+    f.processor.params.getParameter("melodyPin")->setValueNotifyingHost(1.0F);
+    f.refresh();
+    CHECK(bottom() == "STOPPED - SELECTED: NOTHING - CHORDS, BASS AND MELODY PINNED");
+    f.processor.params.getParameter("chordsPin")->setValueNotifyingHost(0.0F);
+    f.processor.params.getParameter("bassPin")->setValueNotifyingHost(0.0F);
+    f.refresh();
+    CHECK(bottom() == "STOPPED - SELECTED: NOTHING - MELODY PINNED");
+    f.processor.params.getParameter("melodyPin")->setValueNotifyingHost(0.0F);
+    f.refresh();
+    CHECK_FALSE(key.isLit());
+    CHECK(bottom() == "STOPPED - SELECTED: NOTHING - NOTHING PINNED");
 }
 
 TEST_CASE("a mute key and its lane row follow the host, and the level knob stays put", "[editor]")
@@ -597,7 +668,7 @@ TEST_CASE("moving 4 px is a click and moving 5 px is a drag", "[editor]")
 }
 
 TEST_CASE("tab visits the wordmark, header, cells, lanes, knobs, levels, volume, then the keys, "
-          "each mute key followed by its octave keys",
+          "each mute key followed by its octave keys and its pin key",
           "[editor]")
 {
     Fixture f;
@@ -611,11 +682,12 @@ TEST_CASE("tab visits the wordmark, header, cells, lanes, knobs, levels, volume,
         current = traverser.getNextComponent(current);
     }
     const std::vector<std::string> expected{
-        "wordmark",   "styleMenu",   "keyMenu",   "cell0",   "cell1",       "cell2",
-        "cell3",      "lane0",       "lane1",     "lane2",   "moodKnob",    "energyKnob",
-        "grooveKnob", "flavourKnob", "level0",    "level1",  "level2",      "volumeKnob",
-        "mute0",      "octave0Down", "octave0Up", "mute1",   "octave1Down", "octave1Up",
-        "mute2",      "octave2Down", "octave2Up", "playKey", "stopKey",     "sprinkleKey"};
+        "wordmark",   "styleMenu",   "keyMenu",    "cell0",       "cell1",     "cell2",
+        "cell3",      "lane0",       "lane1",      "lane2",       "moodKnob",  "energyKnob",
+        "grooveKnob", "flavourKnob", "level0",     "level1",      "level2",    "volumeKnob",
+        "mute0",      "octave0Down", "octave0Up",  "pin0",        "mute1",     "octave1Down",
+        "octave1Up",  "pin1",        "mute2",      "octave2Down", "octave2Up", "pin2",
+        "playKey",    "stopKey",     "sprinkleKey"};
     CHECK(order == expected);
 }
 
@@ -847,6 +919,7 @@ TEST_CASE("every control has an accessible title", "[editor]")
     CHECK(f.find("lane0").getTitle().startsWith("chords lane, "));
     CHECK(f.find("lane1").getTitle().startsWith("bass lane, "));
     CHECK(f.find("lane2").getTitle().startsWith("melody lane, "));
+    CHECK(f.find("pin0").getTitle() == "pin chords");
     CHECK(f.find("level0").getTitle() == "chords level");
     CHECK(f.find("level1").getTitle() == "bass level");
     CHECK(f.find("level2").getTitle() == "melody level");
@@ -1237,6 +1310,8 @@ TEST_CASE("render the editor", "[.render]")
         f.processor.params.getParameter(id)->setValueNotifyingHost(
             f.processor.params.getParameter(id)->convertTo0to1(octave));
     }
+    f.find<md::ui::KeyButton>("pin1").setAnimated(false);
+    f.processor.params.getParameter("bassPin")->setValueNotifyingHost(1.0F);
     dynamic_cast<MagicDustEditor&>(*f.editor).refresh();
     f.refresh();
     const juce::File out(dir);

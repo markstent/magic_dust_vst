@@ -121,6 +121,11 @@ inline constexpr int laneLabelWidth = 96;
 inline constexpr float laneNameSize = 10.0F;
 inline constexpr float laneNameSpacing = 0.14F; // em
 inline constexpr float lanePatternSize = 10.0F;
+// The small PINNED pill beside a pinned lane's name, in the lane's cap colour.
+inline constexpr float pinnedTagSize = 7.0F;
+inline constexpr float pinnedTagGap = 6.0F;
+inline constexpr float pinnedTagPadX = 5.0F;
+inline constexpr float pinnedTagHeight = 10.0F;
 inline constexpr int rollX = 166;
 inline constexpr int rollPadY = 2;
 inline constexpr int rollWidth = 808;
@@ -167,6 +172,11 @@ inline constexpr int keyWidth = 78;
 // The MUTE and OCT legends share this x, clear of the first mute key and the first octave rocker.
 inline constexpr int muteLegendCentreX = 58;
 inline constexpr std::array<int, 3> muteKeyX{74, 166, 258};
+// The PIN group in the gap before PLAY: its own vertical legend, in line with MUTE, and three
+// narrower keys.
+inline constexpr int pinLegendCentreX = 352;
+inline constexpr int pinKeyWidth = 72;
+inline constexpr std::array<int, 3> pinKeyX{368, 454, 540};
 inline constexpr std::array<int, 2> transportKeyX{632, 724};
 inline const juce::Rectangle<int> sprinkleKey{816, keyY, 170, keyHeight};
 // The octave rockers sit under the mute keys' legends, one row, with a short OCT legend to the

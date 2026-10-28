@@ -35,6 +35,7 @@ constexpr std::array<md::LaneId, 3> kLanes{md::LaneId::chords, md::LaneId::bass,
                                            md::LaneId::melody};
 
 constexpr std::array<const char*, 3> kMuteIds{"chordsMute", "bassMute", "melodyMute"};
+constexpr std::array<const char*, 3> kPinIds{"chordsPin", "bassPin", "melodyPin"};
 constexpr std::array<const char*, 3> kOctaveIds{"chordsOctave", "bassOctave", "melodyOctave"};
 
 md::ui::KnobLook knobLook(const char* legend, juce::StringArray rangeWords,
@@ -120,6 +121,12 @@ class MagicDustEditor::Body : public juce::Component
           muteKeys_{md::ui::KeyButton(md::ui::laneLook(kLanes.at(0)).label, t::console::ledOn),
                     md::ui::KeyButton(md::ui::laneLook(kLanes.at(1)).label, t::console::ledOn),
                     md::ui::KeyButton(md::ui::laneLook(kLanes.at(2)).label, t::console::ledOn)},
+          pinKeys_{md::ui::KeyButton(md::ui::laneLook(kLanes.at(0)).label,
+                                     md::ui::laneLook(kLanes.at(0)).colour),
+                   md::ui::KeyButton(md::ui::laneLook(kLanes.at(1)).label,
+                                     md::ui::laneLook(kLanes.at(1)).colour),
+                   md::ui::KeyButton(md::ui::laneLook(kLanes.at(2)).label,
+                                     md::ui::laneLook(kLanes.at(2)).colour)},
           rockers_{md::ui::OctaveRocker(processor.params, kOctaveIds.at(0), "chords", 0),
                    md::ui::OctaveRocker(processor.params, kOctaveIds.at(1), "bass", 1),
                    md::ui::OctaveRocker(processor.params, kOctaveIds.at(2), "melody", 2)},
@@ -225,7 +232,8 @@ class MagicDustEditor::Body : public juce::Component
         {
             g.fillRect(x, t::layout::dividerY, 1, t::layout::dividerHeight);
         }
-        paintMuteLegend(g);
+        paintVerticalLegend(g, "MUTE", t::layout::muteLegendCentreX);
+        paintVerticalLegend(g, "PIN", t::layout::pinLegendCentreX);
         paintOctaveLegend(g);
 
         md::ui::paintWordmark(g);
@@ -285,6 +293,17 @@ class MagicDustEditor::Body : public juce::Component
             rocker.setExplicitFocusOrder(13 + (3 * static_cast<int>(i)));
             rocker.setTopLeftPosition(t::layout::muteKeyX.at(i), t::layout::octaveY);
             addAndMakeVisible(rocker);
+
+            auto& pin = pinKeys_.at(i);
+            pin.setComponentID("pin" + juce::String(i));
+            pin.setTitle("pin " + juce::String(md::ui::laneLook(kLanes.at(i)).label));
+            pin.setExplicitFocusOrder(14 + (3 * static_cast<int>(i)));
+            pin.setClickingTogglesState(true);
+            pin.setBounds(t::layout::pinKeyX.at(i), t::layout::keyY, t::layout::pinKeyWidth,
+                          t::layout::keyHeight);
+            pinAttachments_.at(i) = std::make_unique<juce::ButtonParameterAttachment>(
+                *processor_.params.getParameter(kPinIds.at(i)), pin);
+            addAndMakeVisible(pin);
         }
     }
 
@@ -298,20 +317,19 @@ class MagicDustEditor::Body : public juce::Component
         g.drawRoundedRectangle(panel.reduced(0.5F), radius, 1.0F);
     }
 
-    // "MUTE" reading bottom to top, centred left of the mute keys, in the key legend style.
-    static void paintMuteLegend(juce::Graphics& g)
+    // "MUTE" or "PIN" reading bottom to top, centred left of its keys, in the key legend style.
+    static void paintVerticalLegend(juce::Graphics& g, const char* text, int centreX)
     {
-        const auto centre =
-            juce::Point<float>(static_cast<float>(t::layout::muteLegendCentreX),
-                               static_cast<float>(t::layout::keyY) +
-                                   (static_cast<float>(t::layout::keyHeight) / 2.0F));
+        const auto centre = juce::Point<float>(
+            static_cast<float>(centreX), static_cast<float>(t::layout::keyY) +
+                                             (static_cast<float>(t::layout::keyHeight) / 2.0F));
         const juce::Graphics::ScopedSaveState state(g);
         g.addTransform(juce::AffineTransform::rotation(-juce::MathConstants<float>::halfPi,
                                                        centre.x, centre.y));
         g.setColour(t::console::legend);
         g.setFont(md::ui::font(md::ui::Face::groteskMedium, t::layout::legendSize)
                       .withExtraKerningFactor(t::layout::legendSpacing));
-        g.drawText("MUTE",
+        g.drawText(text,
                    juce::Rectangle<float>(static_cast<float>(t::layout::legendHeight) * 5.0F,
                                           static_cast<float>(t::layout::legendHeight))
                        .withCentre(centre),
@@ -381,6 +399,8 @@ class MagicDustEditor::Body : public juce::Component
     md::ui::Knob volume_;
     std::array<md::ui::KeyButton, 3> muteKeys_;
     std::array<std::unique_ptr<juce::ButtonParameterAttachment>, 3> muteAttachments_;
+    std::array<md::ui::KeyButton, 3> pinKeys_;
+    std::array<std::unique_ptr<juce::ButtonParameterAttachment>, 3> pinAttachments_;
     std::array<md::ui::OctaveRocker, 3> rockers_;
     md::ui::KeyButton playKey_;
     md::ui::KeyButton stopKey_;
