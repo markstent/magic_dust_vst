@@ -662,6 +662,31 @@ TEST_CASE("rerolling the bass seed changes only the bass", "[generate][seeds]")
     REQUIRE(b.lanes.at(1).seed == other.bass);
 }
 
+TEST_CASE("rerolling the bass seed leaves chords and melody alone across styles at energy 80",
+          "[generate][seeds]")
+{
+    bool patternChanged = false;
+    for (const Style style : {Style::ukFunky, Style::mkDub, Style::soulful, Style::bassline,
+                              Style::festival, Style::nyGroove})
+    {
+        Settings settings;
+        settings.style = style;
+        settings.energy = 80;
+        for (std::uint32_t seed = 1; seed <= 12; ++seed)
+        {
+            LaneSeeds other = defaultLaneSeeds(seed);
+            ++other.bass;
+            const Idea a = generate(bank(), settings, seed);
+            const Idea b = generate(bank(), settings, seed, other);
+            INFO("style " << static_cast<int>(style) << " seed " << seed);
+            REQUIRE(a.lanes.at(0).events == b.lanes.at(0).events);
+            REQUIRE(a.lanes.at(2).events == b.lanes.at(2).events);
+            patternChanged = patternChanged || a.lanes.at(1).pattern != b.lanes.at(1).pattern;
+        }
+    }
+    REQUIRE(patternChanged);
+}
+
 TEST_CASE("rerolling the melody seed changes only the melody", "[generate][seeds]")
 {
     const LaneSeeds base = defaultLaneSeeds(4242);
