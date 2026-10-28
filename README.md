@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/magic-dust.png" alt="The Magic Dust plugin window, showing a four-chord idea in A minor, with an octave rocker under each mute key" width="760">
+  <img src="docs/images/magic-dust.png" alt="The Magic Dust plugin window, showing a four-chord idea in A minor, with an octave rocker under each mute key and a PIN key for each part" width="760">
 </p>
 
 ## What it is
@@ -33,6 +33,7 @@ It comes as an Audio Unit (AU) and a VST3 plugin, and it is open source under AG
 - Eight bass patterns, from a sparse pedal to a rolling line, chosen by energy and kept clear of the chords.
 - Mood, energy, groove and flavour knobs shape each idea.
 - A level knob and a mute key for each part, and a master volume.
+- A PIN key for each part: pin the chords, bass or melody you love, and sprinkle and the knobs rewrite the rest.
 - An octave rocker for each part, from 2 octaves down to 2 up, for the built-in sound, MIDI out and dragged MIDI.
 - Play, stop and the spacebar, to hear the idea with the built-in organ, sub bass and pluck sounds.
 - Drag a single chord, or a whole lane, into your daw as a MIDI clip.
@@ -167,6 +168,7 @@ The same ideas work in any daw.
 | CHORDS, BASS and MELODY LEVEL | Level of that part's built-in sound. Double-click to reset to full. |
 | VOLUME | Master volume of the built-in sounds. |
 | MUTE keys | Silence a part, both its built-in sound and its MIDI out. |
+| PIN keys | Keep a part through sprinkle, the knobs and style changes. A pinned bass or melody keeps its rhythm and follows new chords. Pinned parts move with a key change. |
 | OCT rockers | Move a part down or up in octaves, from -2 to +2. The built-in sound, the MIDI out and the MIDI you drag all follow. |
 | PLAY | Plays the idea with the built-in sounds. |
 | STOP | Stops the preview. It does not stop your daw. |
@@ -186,7 +188,7 @@ The same ideas work in any daw.
 
 These are planned and not built yet:
 
-- Pin a chord or a part, and reroll the rest.
+- Pin a single chord, and reroll the rest.
 - Swap a chord for the next best fit.
 - Keep an idea in your favourites.
 - "Bottle it": drag the whole idea out in one go.

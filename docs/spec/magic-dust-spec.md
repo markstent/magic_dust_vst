@@ -442,11 +442,14 @@ Keeping `engine`, `bank` and `midiexport` free of JUCE means all the music logic
   A part's notes move 12 semitones per step in its built-in sound, its MIDI out and the MIDI dragged out, and a note that would leave MIDI's 0 to 127 is dropped.
   A sender follows its main instance's octave for its lane.
   A muted lane plays nothing, neither its built-in sound nor its MIDI out, and a sender follows the main instance's mutes.
+  Three more pin each lane: chords pin, bass pin and melody pin, off by default.
+  A pinned lane survives sprinkle, the aura, groove and flavour knobs, and style changes, and mute and pin are independent.
 - **Live response.**
   Groove changes apply instantly (swing only).
   Aura and flavour changes regenerate unpinned parts with the same seed after a 150 ms pause in movement, so the owner hears the change without losing the idea.
 - **Saved with the Live set:** the current idea (seed, settings, pins, lane seeds, patterns, refit flags), the last 8 spells, window size, the motion setting, and a state schema version.
-  Reopening the set restores the idea exactly.
+  Reopening the set restores the idea exactly, including refitted pinned lanes.
+  A set saved before the idea was stored loads from its seeds.
 - **Saved across projects:** favourites, mirrored to `~/Library/Application Support/Magic Dust/favourites.json`.
 
 ### Ableton integration

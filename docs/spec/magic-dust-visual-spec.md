@@ -51,7 +51,7 @@ The look is the studio console in `visual/studio-console-mockup.html`; the numbe
 | Header | 54 | 24 | 932 | 40 | Wordmark and tagline on the left, readout windows on the right |
 | Display bezel | 54 | 86 | 932 | 250 | The full content width |
 | Knob panel | 54 | 350 | 932 | 104 | Seven knobs and the volume knob in one row |
-| Key row | 54 | 462 | 932 | 112 | Mute keys on the left with an octave rocker under each, play, stop and sprinkle on the right |
+| Key row | 54 | 462 | 932 | 112 | Mute keys on the left with an octave rocker under each, then the pin keys, then play, stop and sprinkle on the right |
 
 ### Positions inside the zones
 
@@ -68,7 +68,7 @@ The look is the studio console in `visual/studio-console-mockup.html`; the numbe
 | Dividers | 1 px lines of `#FFFFFF` at 14%, at x = 560 and x = 880, from y = 372 to 440. |
 | Level knobs | Faces 34 px across, centred at x = 640, 726 and 812 on y = 418. |
 | Volume knob | Face 40 px across, centred at (936, 412). |
-| Keys | 78 x 54 px with their top at y = 470. Mute keys at x = 74, 166 and 258. Play at x = 632 and stop at x = 724. Sprinkle is 170 x 54 at x = 816. Every legend sits 8 px below its key. |
+| Keys | 78 x 54 px with their top at y = 470. Mute keys at x = 74, 166 and 258. Pin keys are 72 x 54 at x = 368, 454 and 540. Play at x = 632 and stop at x = 724. Sprinkle is 170 x 54 at x = 816. Every legend sits 8 px below its key. |
 | Octave rockers | One per mute key, top at y = 550, 20 px tall and 78 px wide, starting at the mute key's x. See "Octave rockers". |
 | Spells panel | 340 px wide, 14 px from the display's left inner edge and 40 px below its top inner edge. |
 | Toast | Centred horizontally on the display, 96 px above its bottom inner edge. |
@@ -176,6 +176,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 - The lane's level is a knob in the knob panel below the display (component 8), not in the row.
 - Selected: an `ink` band at 8% behind the row.
 - Muted: the whole row is drawn at 35% while the lane's mute key is on.
+- Pinned: a small "PINNED" tag in the lane's cap colour sits beside the row's name, and the label is not dimmed.
 - Click: select the lane.
   Drag (more than 4 px of movement): drag the lane into your daw as a MIDI clip.
 
@@ -194,6 +195,7 @@ The numbers match the order of the console's parts, left to right and top to bot
 ### 7. Bottom line
 
 - One line along the bottom of the display: "BAR 3 OF 8 - SELECTED: CHORD 2 - NOTHING PINNED", or "STOPPED - ..." when stopped.
+- The pin readout reads "NOTHING PINNED", "BASS PINNED", "CHORDS AND BASS PINNED" or "CHORDS, BASS AND MELODY PINNED", naming the pinned parts in chords, bass, melody order.
 - While there is an error, the line shows the error instead, and the readout returns once it clears.
 
 ### 8. Knob panel
@@ -205,8 +207,8 @@ The numbers match the order of the console's parts, left to right and top to bot
 - The cap is the lane's colour, and the knob is bound to `chordsLevel`, `bassLevel` or `melodyLevel`.
 - Double-click resets to 100%.
 - Accessible titles are "chords level", "bass level" and "melody level".
-- The gap between the mute keys and the transport keys (x 336 to 632) stays plain faceplate.
-  Phase 5 puts pin, reroll, swap, keep and bottle it there.
+- The gap between the mute keys and the transport keys (x 336 to 632) holds the pin keys (see "Pin keys").
+  Phase 5's reroll, swap, keep and bottle it keys will be placed in Phase 5, and no layout is reserved for them yet.
 
 ### 9. Mute keys
 
@@ -259,10 +261,22 @@ The numbers match the order of the console's parts, left to right and top to bot
 - It has no LED.
 - Writes a new idea, keeping everything pinned, and adds it to the spells list (8 most recent).
 
+### Pin keys
+
+- A vertical "PIN" legend, reading bottom to top, centred on x = 352 and on the MUTE legend's line, in the key legend style.
+- Three cream keys, 72 x 54 px, at x = 368, 454 and 540 on y = 470, with the legends "CHORDS", "BASS" and "MELODY" below.
+- An LED 9 px above each key, the same size and brightness as the mute LEDs, lights in the lane's cap colour while the part is pinned.
+- Click, or Enter while focused, toggles `chordsPin`, `bassPin` or `melodyPin`.
+- Accessible titles are "pin chords", "pin bass" and "pin melody".
+  The focus order puts each part's pin key after its octave keys.
+- Pressing a pin key never changes the sound by itself.
+  The next sprinkle, knob move or style change keeps the pinned parts.
+
 ### 13. Phase 5 keys
 
 These keys are not built yet.
-Phase 5 adds pin, reroll, swap, keep and bottle it in the gap between the mute keys and the transport keys (x 336 to 632).
+Phase 5 adds reroll, swap, keep and bottle it, and their place is decided then.
+Whole-lane pins are already built (see "Pin keys"), so the pin key here pins a chord cell only.
 They use the key material.
 
 - Pin, reroll and swap act on the current selection (a chord cell or a lane), as in the table below.
@@ -272,7 +286,7 @@ They use the key material.
 
 | Key | On a chord | On a lane | LED |
 | --- | --- | --- | --- |
-| pin | Pins or unpins the chord | Pins or unpins the lane | lit while the selected item is pinned |
+| pin (chord cell) | Pins or unpins the chord | Not used, the lane pin keys do this | lit while the selected item is pinned |
 | reroll | Picks a different chord for that slot; unpinned bass and chord lanes follow | Rewrites the lane with a new seed | None |
 | swap | Steps to the next ranked alternative; unpinned bass and chord lanes follow | Toast: "select a chord cell to swap it" | None |
 

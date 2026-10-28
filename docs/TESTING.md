@@ -150,6 +150,33 @@ Build first with `cmake --build --preset dev` and rescan your plug-ins as above.
 4. Press the keys again and hear each lane come back at its next note.
 5. Check the level knobs did not move.
 
+### Pinning parts
+
+1. Press sprinkle until you have an idea you like, then press play.
+2. Press the PIN key under CHORDS.
+   Its LED lights purple, a PINNED tag appears beside the chords row, and the line at the bottom of the display says "CHORDS PINNED".
+   The sound does not change when you press the key.
+3. Press sprinkle a few times.
+   The chords stay the same every time, while the bass and melody change to fit them.
+4. Press the PIN key under CHORDS again to unpin it, then press the PIN key under BASS.
+5. Press sprinkle a few times.
+   The bass keeps its rhythm, but its notes move to follow the new chords, while the chords and melody change.
+6. Turn the FLAVOUR knob, pick another style and move the KEY menu.
+   The bass stays pinned through all three, and it follows the new key.
+7. Mute the bass with its MUTE key.
+   The bass goes quiet and stays pinned.
+   Unmute it and it plays again.
+8. Pin all three parts and press sprinkle.
+   Nothing changes and the idea number stays the same.
+
+### Saving and reopening with pins
+
+1. Pin the bass and press sprinkle until the bass has changed notes to follow the chords.
+2. Save your daw's project, close it and open it again.
+3. Open Magic Dust.
+   The bass PIN key is lit, and the idea sounds the same as before you saved, with the same bass notes.
+4. Press sprinkle and check the bass keeps its rhythm.
+
 ### Moving a part by octaves
 
 1. Press play.
