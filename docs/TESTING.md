@@ -240,8 +240,26 @@ There are 8 bass patterns now, including a riff and a call-and-response that pla
    A note that rubs against a chord is a miss, except a short approach note that leads into the next chord.
 4. Compare the energy 30 files with the energy 80 files.
    Check that the higher energy adds movement and approach notes.
-5. Check that rerolling the bass changes it.
-   The reroll key comes in Phase 5, so for now compare two files of the same family and energy, such as seeds 1 and 2, and check that the bass differs in root, octave or fifth.
+5. Check that rerolling the bass changes it, using the files described under Rerolling the bass below.
+
+### The new patterns
+
+1. Open the `new-patterns` folder inside `phase-3-review`.
+   It has 10 riff files and 10 call-and-response files, from uk funky, bassline and ny groove, the families that play them.
+   Half are at energy 30 and half at energy 80.
+2. Rate each one keep, close or skip on the bass, the same way as above.
+3. For a riff, check that the same short phrase repeats every 2 bars and every chord gets some bass.
+4. For a call-and-response, check that the bass plays in the gaps between chord hits and does not talk over them.
+
+### Rerolling the bass
+
+1. Open the `reroll` folder inside `phase-3-review`.
+   It has 5 ideas, each as 3 files with the same chords and melody and a different bass.
+   The files are named like `mk-dub-s2-bass1-offbeat.mid`, where `bass1`, `bass2` and `bass3` are the three bass rerolls.
+2. Drag the 3 files of one idea onto 3 clips side by side and play them one after the other.
+   Check that the chords and melody sound the same and only the bass changes.
+   Check that the rerolls differ, in the root, the octave or the fifth, and sometimes in the pattern.
+3. The reroll key itself comes in Phase 5.
 
 ### The changed reference ideas
 
