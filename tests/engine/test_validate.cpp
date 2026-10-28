@@ -1,5 +1,6 @@
 #include "md/validate.hpp"
 
+#include "internal.hpp"
 #include "md/names.hpp"
 #include "md/ranges.hpp"
 #include "md/types.hpp"
@@ -33,6 +34,7 @@ Idea validIdea(int root)
     {
         idea.lanes.at(static_cast<std::size_t>(id)).id = id;
     }
+    idea.lanes.at(1).pattern = std::string(bassPatternName(BassPattern::sustained));
     for (int slot = 0; slot < 4; ++slot)
     {
         const int start = slot * 2 * kTicksPerBar;
@@ -45,7 +47,6 @@ Idea validIdea(int root)
             .voicing = voicing,
         };
         idea.progression.push_back(chord);
-        idea.lanes.at(1).pattern = std::string(bassPatternName(BassPattern::sustained));
         for (const int pitch : voicing)
         {
             idea.lanes.at(0).events.push_back(note(pitch, start, kTicksPerQuarter));
@@ -351,8 +352,22 @@ TEST_CASE("a pedal under a chord a semitone from it is not a clash", "[validate]
     REQUIRE(mentions(idea, "clashes with the sounding chord"));
 }
 
-TEST_CASE("an approach note on the last swung 16th before a chord change is not a clash",
-          "[validate]")
+namespace
+{
+constexpr const char* kClash = "clashes with the sounding chord";
+
+// An offbeat bass note on step 2 of bar 1 over a chord of the given quality on the key's root.
+Idea clashIdea(int pitch, Key key, Quality quality)
+{
+    Idea idea = bassIdea(pitch, 2 * 240, BassPattern::offbeat);
+    idea.key = key;
+    idea.progression.at(0).symbol = {.degree = 1, .quality = quality};
+    return idea;
+}
+
+// Key A major with an A chord (A C# E) throughout, an offbeat bass, and G# (44, in scale and a half
+// step under A) on the last swung 16th before bar 3. The first bass note is an A.
+Idea approachIdea(int targetPitch)
 {
     Idea idea = validIdea(9);
     idea.key = {.root = 9, .mode = Mode::ionian};
@@ -362,11 +377,59 @@ TEST_CASE("an approach note on the last swung 16th before a chord change is not 
         chord.symbol.quality = Quality::maj;
     }
     idea.lanes.at(1).pattern = std::string(bassPatternName(BassPattern::offbeat));
-    // G# (44) is in A major and a half step under the A (45) that the next chord starts on.
     const int change = 2 * kTicksPerBar;
-    const int swung = change - 480 + (480 * 580 / 1000);
-    idea.lanes.at(1).events = {note(44, swung, 120), note(45, change + 480, 240)};
-    REQUIRE_FALSE(mentions(idea, "clashes with the sounding chord"));
-    idea.lanes.at(1).events.front().start -= 480;
-    REQUIRE(mentions(idea, "clashes with the sounding chord"));
+    const int swung = detail::swung(change - kTicksPerSixteenth, 580);
+    idea.lanes.at(1).events = {note(45, 2 * 240, 240), note(44, swung, 120),
+                               note(targetPitch, change + 480, 240)};
+    return idea;
+}
+} // namespace
+
+TEST_CASE("a bass note a semitone above a chord tone and not one is a clash", "[validate]")
+{
+    // Bb (46) is in A phrygian and a semitone over the A of Am7.
+    REQUIRE(mentions(clashIdea(46, {.root = 9, .mode = Mode::phrygian}, Quality::min7), kClash));
+}
+
+TEST_CASE("a bass clash wraps across B and C", "[validate]")
+{
+    const Key cMajor = {.root = 0, .mode = Mode::ionian};
+    REQUIRE(mentions(clashIdea(47, cMajor, Quality::maj), kClash));
+    // Db (37) is in C phrygian and a semitone over the C of Cm.
+    REQUIRE(mentions(clashIdea(37, {.root = 0, .mode = Mode::phrygian}, Quality::min), kClash));
+}
+
+TEST_CASE("a parallel idea clashes against the voicing heard, not the symbol", "[validate]")
+{
+    // The voicing A C# E has a C#; the symbol Am7 has a C, a semitone under it.
+    Idea idea = clashIdea(37, {.root = 9, .mode = Mode::aeolian}, Quality::min7);
+    idea.progression.at(0).voicing = {57, 61, 64};
+    REQUIRE(mentions(idea, kClash));
+    idea.parallel = true;
+    REQUIRE_FALSE(mentions(idea, kClash));
+}
+
+TEST_CASE("an approach note on the last swung 16th before a chord change is not a clash",
+          "[validate]")
+{
+    Idea idea = approachIdea(45);
+    REQUIRE_FALSE(mentions(idea, kClash));
+    idea.lanes.at(1).events.at(1).start -= 480;
+    REQUIRE(mentions(idea, kClash));
+}
+
+TEST_CASE("an approach note more than 2 semitones from its target is a clash", "[validate]")
+{
+    REQUIRE(mentions(approachIdea(47), kClash));
+}
+
+TEST_CASE("the idea's end counts as a change into bar 1 for approach notes", "[validate]")
+{
+    Idea idea = approachIdea(45);
+    auto& events = idea.lanes.at(1).events;
+    events.at(1).start = detail::swung((8 * kTicksPerBar) - kTicksPerSixteenth, 580);
+    events.pop_back();
+    REQUIRE_FALSE(mentions(idea, kClash));
+    events.front().pitch = 50;
+    REQUIRE(mentions(idea, kClash));
 }
