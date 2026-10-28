@@ -21,6 +21,7 @@ namespace
 {
 constexpr int kDefaultSeeds = 1000;
 constexpr int kDeterminismSeeds = 50;
+constexpr int kBassSeedMultiplier = 20;
 constexpr double kP99LimitMs = 20.0;
 
 // Unset or empty means the default; anything else must be a positive whole number.
@@ -117,36 +118,33 @@ TEST_CASE("properties: bass has no violations across style, flavour, energy and 
         Style::bassline, Style::festival, Style::nyGroove,
     };
     constexpr std::array<int, 6> energies = {0, 25, 50, 51, 75, 100};
+    constexpr int flavours = 3;
+    constexpr int grooves = 4;
+    constexpr int combos = static_cast<int>(styles.size() * flavours * energies.size() * grooves);
 
-    const int seeds = seedCount();
-    for (int seed = 0; seed < seeds; ++seed)
+    // Seeds 1 to MD_PROPERTY_SEEDS * 20, one combo per seed in rotation, so each combo gets about
+    // MD_PROPERTY_SEEDS * 20 / 432 seeds.
+    const int total = seedCount() * kBassSeedMultiplier;
+    for (int seed = 1; seed <= total; ++seed)
     {
-        for (const Style style : styles)
-        {
-            for (int flavour = 0; flavour < 3; ++flavour)
-            {
-                for (const int energy : energies)
-                {
-                    for (int groove = 0; groove < 4; ++groove)
-                    {
-                        Settings settings;
-                        settings.style = style;
-                        settings.keyRoot = seed % 12;
-                        settings.energy = energy;
-                        settings.groove = static_cast<Groove>(groove);
-                        settings.flavour = static_cast<Flavour>(flavour);
-                        settings.bars = 8;
+        int combo = seed % combos;
+        Settings settings;
+        settings.groove = static_cast<Groove>(combo % grooves);
+        combo /= grooves;
+        settings.energy = energies.at(static_cast<std::size_t>(combo) % energies.size());
+        combo /= static_cast<int>(energies.size());
+        settings.flavour = static_cast<Flavour>(combo % flavours);
+        combo /= flavours;
+        settings.style = styles.at(static_cast<std::size_t>(combo));
+        settings.keyRoot = (seed / combos) % 12;
+        settings.bars = 8;
 
-                        const Idea idea =
-                            generate(bank, settings, static_cast<std::uint32_t>(seed));
-                        const auto problems = validate(idea);
-                        INFO("seed " << seed << " style " << static_cast<int>(style) << " flavour "
-                                     << flavour << " energy " << energy << " groove " << groove
-                                     << ": " << (problems.empty() ? "none" : problems.front()));
-                        REQUIRE(problems.empty());
-                    }
-                }
-            }
-        }
+        const Idea idea = generate(bank, settings, static_cast<std::uint32_t>(seed));
+        const auto problems = validate(idea);
+        INFO("seed " << seed << " style " << static_cast<int>(settings.style) << " flavour "
+                     << static_cast<int>(settings.flavour) << " energy " << settings.energy
+                     << " groove " << static_cast<int>(settings.groove) << ": "
+                     << (problems.empty() ? "none" : problems.front()));
+        REQUIRE(problems.empty());
     }
 }

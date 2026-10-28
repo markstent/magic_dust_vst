@@ -102,8 +102,7 @@ std::vector<int> approachStarts(const Idea& idea)
     return starts;
 }
 
-void checkLane(const Idea& idea, LaneId id, std::string_view name, int low, int high, Lines& lines,
-               const std::vector<int>& approaches = {})
+void checkLane(const Idea& idea, LaneId id, std::string_view name, int low, int high, Lines& lines)
 {
     const auto& events = idea.lanes.at(static_cast<std::size_t>(id)).events;
     const int end = idea.settings.bars * kTicksPerBar;
@@ -145,7 +144,7 @@ void checkLane(const Idea& idea, LaneId id, std::string_view name, int low, int 
             inKey = contains(chordPitchClasses(idea.key, chord->symbol), pc) ||
                     (idea.parallel && contains(detail::soundingPitchClasses(idea, *chord), pc));
         }
-        if (!inKey && (id != LaneId::chords || !idea.parallel) && !contains(approaches, e.start))
+        if (!inKey && (id != LaneId::chords || !idea.parallel))
         {
             lines.push_back(describe(name, e) + " is out of key");
         }
@@ -300,7 +299,7 @@ std::vector<std::string> validate(const Idea& idea)
     checkVoicings(idea, lines);
     checkLane(idea, LaneId::chords, "chords", kChordLow, kChordHigh, lines);
     const std::vector<int> approaches = approachStarts(idea);
-    checkLane(idea, LaneId::bass, "bass", kBassLow, kBassHigh, lines, approaches);
+    checkLane(idea, LaneId::bass, "bass", kBassLow, kBassHigh, lines);
     checkBassRules(idea, approaches, lines);
     checkLane(idea, LaneId::melody, "melody", kMelodyLow, kMelodyHigh, lines);
     checkBassOverlap(idea, lines);

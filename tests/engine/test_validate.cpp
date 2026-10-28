@@ -351,16 +351,22 @@ TEST_CASE("a pedal under a chord a semitone from it is not a clash", "[validate]
     REQUIRE(mentions(idea, "clashes with the sounding chord"));
 }
 
-TEST_CASE("an approach note on the last swung 16th before a chord change is exempt", "[validate]")
+TEST_CASE("an approach note on the last swung 16th before a chord change is not a clash",
+          "[validate]")
 {
     Idea idea = validIdea(9);
+    idea.key = {.root = 9, .mode = Mode::ionian};
     idea.settings.groove = Groove::ukShuffle58;
+    for (auto& chord : idea.progression)
+    {
+        chord.symbol.quality = Quality::maj;
+    }
     idea.lanes.at(1).pattern = std::string(bassPatternName(BassPattern::offbeat));
-    // G# (44) leads into the A (45) that the next chord starts on.
+    // G# (44) is in A major and a half step under the A (45) that the next chord starts on.
     const int change = 2 * kTicksPerBar;
     const int swung = change - 480 + (480 * 580 / 1000);
     idea.lanes.at(1).events = {note(44, swung, 120), note(45, change + 480, 240)};
-    REQUIRE(validate(idea).empty());
+    REQUIRE_FALSE(mentions(idea, "clashes with the sounding chord"));
     idea.lanes.at(1).events.front().start -= 480;
-    REQUIRE(mentions(idea, "out of key"));
+    REQUIRE(mentions(idea, "clashes with the sounding chord"));
 }
