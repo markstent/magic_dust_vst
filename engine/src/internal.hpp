@@ -16,7 +16,9 @@ namespace md::detail
 {
 // Every random draw is Pcg32(<lane seed>, slot) with one fixed slot per use:
 //   chords: 0 entry, 1 progression, 2 chord rhythm cell, 3 velocity humanize
-//   bass:   0 velocity humanize, 1 pattern choice, 2 pitch variation, 3 approach notes
+//   bass:   0 velocity humanize, 1 pattern choice, 2 pitch variation, 3 approach notes, 4 riff
+//   motif,
+//           5 call-and-response picks
 //   melody: 0 rhythm cell A, 1 rhythm cell B, 2 pitch walk, 3 pluck tones, 4 velocity humanize
 // Entry, progression, mode and chord-cell choices belong to the chords lane.
 constexpr std::uint32_t kChordEntry = 0;
@@ -27,6 +29,8 @@ constexpr std::uint32_t kBassHumanize = 0;
 constexpr std::uint32_t kBassPattern = 1;
 constexpr std::uint32_t kBassPitch = 2;
 constexpr std::uint32_t kBassApproach = 3;
+constexpr std::uint32_t kBassRiff = 4;
+constexpr std::uint32_t kBassCall = 5;
 constexpr std::uint32_t kMelodyCellA = 0;
 constexpr std::uint32_t kMelodyCellB = 1;
 constexpr std::uint32_t kMelodyWalk = 2;
@@ -84,10 +88,11 @@ void voiceChords(const StyleEntry& entry, const Key& key, std::vector<PlacedChor
 std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const RhythmCell& cell,
                                    const Settings& settings);
 
-// The entry's allowed patterns run sparse to busy and the energy picks along them (slot 1). Riff
-// and call-and-response are not built yet and play as offbeat.
+// The entry's allowed patterns run sparse to busy and the energy picks along them (slot 1).
 BassPattern bassPatternFor(const StyleEntry& entry, int energy, Pcg32& rng);
-// Pitch variation draws from Pcg32(bassSeed, kBassPitch), approach notes from kBassApproach.
+// Pitch variation draws from Pcg32(bassSeed, kBassPitch), approach notes from kBassApproach, the
+// riff motif from kBassRiff and the call-and-response picks from kBassCall. The call-and-response
+// pattern reads the chords lane, which must already be in the idea.
 // Velocity is a percent of the lane base: 100, or 85 for approach notes.
 std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern, std::uint64_t bassSeed);
 

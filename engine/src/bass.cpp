@@ -133,7 +133,7 @@ int densityRank(BassPattern pattern)
 bool variesPitch(BassPattern pattern)
 {
     return pattern == BassPattern::rollingOffbeat || pattern == BassPattern::offbeat ||
-           pattern == BassPattern::garageSkip || pattern == BassPattern::callResponse;
+           pattern == BassPattern::garageSkip;
 }
 
 // The chord's fifth (5 or b5 above its root) in range, up from the root when that fits.
@@ -206,20 +206,25 @@ void addApproachNotes(const Idea& idea, std::uint64_t bassSeed, std::vector<Note
         changes.push_back(idea.progression.at(i).startBar * kTicksPerBar);
     }
     changes.push_back(end);
+    const auto approachTick = [swing](int change)
+    { return swung(change - kTicksPerSixteenth, swing); };
     std::vector<NoteEvent> approaches;
-    for (const int change : changes)
+    for (std::size_t i = 0; i < changes.size(); ++i)
     {
+        const int change = changes.at(i);
         const auto target = change == end
                                 ? events.begin()
                                 : std::ranges::find_if(events, [change](const NoteEvent& e)
                                                        { return e.start >= change; });
-        if (target == events.end())
+        // A change with no bass note before the next change's approach has nothing to lead into.
+        if (target == events.end() ||
+            target->start >= approachTick(changes.at((i + 1) % changes.size())))
         {
             continue;
         }
         const int pitch = approachPitch(scale, target->pitch, rng);
         approaches.push_back({.pitch = pitch,
-                              .start = swung(change - kTicksPerSixteenth, swing),
+                              .start = approachTick(change),
                               .length = kTicksPerSixteenth,
                               .velocity = 85});
     }
@@ -229,28 +234,8 @@ void addApproachNotes(const Idea& idea, std::uint64_t bassSeed, std::vector<Note
     events.insert(events.end(), approaches.begin(), approaches.end());
     std::ranges::stable_sort(events, {}, &NoteEvent::start);
 }
-} // namespace
-
-BassPattern bassPatternFor(const StyleEntry& entry, int energy, Pcg32& rng)
-{
-    std::vector<BassPattern> allowed = entry.bassPatterns;
-    std::ranges::stable_sort(allowed, {}, densityRank);
-    const int n = static_cast<int>(allowed.size());
-    std::vector<int> weights;
-    for (int k = 0; k < n; ++k)
-    {
-        // 1 + 4 * max(0, 1 - 2 * |k / (n - 1) - energy / 100|), scaled by 100 * (n - 1).
-        const int scale = 100 * std::max(n - 1, 1);
-        const int distance = std::abs((100 * k) - (energy * (n - 1)));
-        weights.push_back(scale + (4 * std::max(0, scale - (2 * distance))));
-    }
-    const BassPattern chosen = allowed.at(rng.pickWeighted(weights));
-    // The riff and call-and-response patterns arrive in a later phase.
-    return chosen == BassPattern::riff || chosen == BassPattern::callResponse ? BassPattern::offbeat
-                                                                              : chosen;
-}
-
-std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern, std::uint64_t bassSeed)
+// Each chord span's first note is its root and the rest vary (slot 2) on the patterns that do.
+std::vector<NoteEvent> slotEvents(const Idea& idea, BassPattern pattern, std::uint64_t bassSeed)
 {
     Pcg32 pitchRng(bassSeed, kBassPitch);
     const PlacedChord* previous = nullptr;
@@ -277,6 +262,255 @@ std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern, std::ui
             events.push_back(note);
         }
     }
+    return events;
+}
+
+constexpr int kRiffSpanSteps = 2 * 16;
+constexpr std::array kRiffSteps = std::to_array({1, 2, 3, 5, 6, 7, 9, 10, 11, 13, 14, 15});
+
+struct Motif
+{
+    std::vector<int> steps;   // 16th steps within the 2-bar span, sorted
+    std::vector<int> degrees; // scale-degree offsets from the chord root, one per onset
+};
+
+// 4 to 6 onsets at least 2 steps apart, each with a scale-degree offset of -3 to 3.
+Motif drawMotif(Pcg32& rng)
+{
+    std::vector<int> pool;
+    for (int bar = 0; bar < 2; ++bar)
+    {
+        for (const int step : kRiffSteps)
+        {
+            pool.push_back((16 * bar) + step);
+        }
+    }
+    Motif motif;
+    const int count = 4 + static_cast<int>(rng.below(3));
+    for (int n = 0; n < count; ++n)
+    {
+        const int step = pool.at(rng.below(static_cast<std::uint32_t>(pool.size())));
+        motif.steps.push_back(step);
+        std::erase_if(pool, [step](int s) { return std::abs(s - step) <= 1; });
+    }
+    std::ranges::sort(motif.steps);
+    for (int n = 0; n < count; ++n)
+    {
+        motif.degrees.push_back(static_cast<int>(rng.below(7)) - 3);
+    }
+    return motif;
+}
+
+struct Onset
+{
+    int step; // 16th step in the idea
+    int degree;
+};
+
+// A riff note's place: the chord root under it and its swung start tick.
+struct Spot
+{
+    int root;
+    int start;
+};
+
+// The pitch |onset.degree| scale steps up (positive) or down (negative) from the root.
+int scaleDegree(const std::vector<int>& scale, int root, const Onset& onset)
+{
+    const int dir = onset.degree < 0 ? -1 : 1;
+    int pitch = root;
+    for (int left = std::abs(onset.degree); left > 0; --left)
+    {
+        pitch += dir;
+        while (!inScale(scale, pitch))
+        {
+            pitch += dir;
+        }
+    }
+    return pitch;
+}
+
+// The root always passes. Others must be in the scale, within 7 semitones of the root, in the bass
+// range and not a semitone from a tone of the chord sounding at the note's start.
+bool riffPitchPasses(const Idea& idea, const std::vector<int>& scale, const Spot& spot, int pitch)
+{
+    if (pitch == spot.root)
+    {
+        return true;
+    }
+    if (!inScale(scale, pitch) || std::abs(pitch - spot.root) > 7 || pitch < kBassLow ||
+        pitch > kBassHigh)
+    {
+        return false;
+    }
+    const std::vector<int> sounding = soundingPcsAt(idea, spot.start);
+    const int pc = pitch % 12;
+    return std::ranges::find(sounding, pc) != sounding.end() ||
+           std::ranges::none_of(
+               sounding,
+               [pc](int tone) { return (tone - pc + 12) % 12 == 1 || (pc - tone + 12) % 12 == 1; });
+}
+
+// The nearest passing pitch to the candidate, ties down.
+int nearestPassing(const Idea& idea, const std::vector<int>& scale, const Spot& spot, int candidate)
+{
+    for (int d = 0;; ++d)
+    {
+        for (const int pitch : {candidate - d, candidate + d})
+        {
+            if (riffPitchPasses(idea, scale, spot, pitch))
+            {
+                return pitch;
+            }
+        }
+    }
+}
+
+// One 2-bar rhythm and set of degree offsets (slot 4), repeated in every 2-bar span. Each chord
+// span applies the offsets to its own root, with the span's first onset on the root.
+std::vector<NoteEvent> riffEvents(const Idea& idea, std::uint64_t bassSeed)
+{
+    Pcg32 rng(bassSeed, kBassRiff);
+    const Motif motif = drawMotif(rng);
+    const std::vector<int> scale = scalePitchClasses(idea.key);
+    const int swing = swingPermille(idea.settings.groove);
+    const int totalSteps = idea.settings.bars * 16;
+    std::vector<Onset> onsets;
+    for (int span = 0; span * kRiffSpanSteps < totalSteps; ++span)
+    {
+        for (std::size_t k = 0; k < motif.steps.size(); ++k)
+        {
+            const int step = (span * kRiffSpanSteps) + motif.steps.at(k);
+            if (step < totalSteps)
+            {
+                onsets.push_back({.step = step, .degree = motif.degrees.at(k)});
+            }
+        }
+    }
+    std::vector<NoteEvent> events;
+    const PlacedChord* previous = nullptr;
+    for (std::size_t k = 0; k < onsets.size(); ++k)
+    {
+        const Onset& onset = onsets.at(k);
+        const int start = swung(onset.step * kTicksPerSixteenth, swing);
+        const PlacedChord& chord = chordAt(idea.progression, start);
+        const int root = rootNote(chordRootPc(idea.key, chord.symbol));
+        const int pitch = &chord == previous
+                              ? nearestPassing(idea, scale, {.root = root, .start = start},
+                                               scaleDegree(scale, root, onset))
+                              : root;
+        previous = &chord;
+        const int nextStep = k + 1 < onsets.size() ? onsets.at(k + 1).step : totalSteps;
+        events.push_back(
+            {.pitch = pitch,
+             .start = start,
+             .length = std::clamp(nextStep - onset.step - 1, 1, 3) * kTicksPerSixteenth,
+             .velocity = 100});
+    }
+    return events;
+}
+
+// Per bar, 1 + round(2 * energy / 100) notes (slot 5) on non-downbeat 16ths where no chord note
+// starts, the 16th right after a chord note ends weighing 3 and the others 1. Each lasts 1 or 2
+// sixteenths and stops at the next chord note start.
+std::vector<NoteEvent> callResponseEvents(const Idea& idea, std::uint64_t bassSeed)
+{
+    Pcg32 rng(bassSeed, kBassCall);
+    Pcg32 pitchRng(bassSeed, kBassPitch);
+    const std::vector<NoteEvent>& chordNotes = idea.lanes.at(0).events;
+    const int swing = swingPermille(idea.settings.groove);
+    const int totalSteps = idea.settings.bars * 16;
+    std::vector<int> afterChordNote;
+    for (const NoteEvent& c : chordNotes)
+    {
+        int step = 0;
+        while (step < totalSteps && swung(step * kTicksPerSixteenth, swing) < c.start + c.length)
+        {
+            ++step;
+        }
+        afterChordNote.push_back(step);
+    }
+    const int count = 1 + (((2 * idea.settings.energy) + 50) / 100);
+    std::vector<NoteEvent> events;
+    const PlacedChord* previous = nullptr;
+    for (int bar = 0; bar < idea.settings.bars; ++bar)
+    {
+        std::vector<int> candidates;
+        std::vector<int> weights;
+        for (int s = 1; s < 16; ++s)
+        {
+            const int step = (bar * 16) + s;
+            const int start = swung(step * kTicksPerSixteenth, swing);
+            if (s % 4 != 0 &&
+                std::ranges::find(chordNotes, start, &NoteEvent::start) == chordNotes.end())
+            {
+                candidates.push_back(step);
+                weights.push_back(
+                    std::ranges::find(afterChordNote, step) != afterChordNote.end() ? 3 : 1);
+            }
+        }
+        std::vector<int> picked;
+        for (std::size_t n = 0; n < std::min<std::size_t>(count, candidates.size()); ++n)
+        {
+            const auto i = static_cast<std::ptrdiff_t>(rng.pickWeighted(weights));
+            picked.push_back(candidates.at(static_cast<std::size_t>(i)));
+            candidates.erase(candidates.begin() + i);
+            weights.erase(weights.begin() + i);
+        }
+        std::ranges::sort(picked);
+        for (const int step : picked)
+        {
+            const int start = swung(step * kTicksPerSixteenth, swing);
+            const PlacedChord& chord = chordAt(idea.progression, start);
+            const int root = rootNote(chordRootPc(idea.key, chord.symbol));
+            const auto next = std::ranges::find_if(chordNotes, [start](const NoteEvent& c)
+                                                   { return c.start > start; });
+            const int length = (1 + static_cast<int>(rng.below(2))) * kTicksPerSixteenth;
+            events.push_back(
+                {.pitch = &chord == previous ? variedPitch(chord.symbol, root, pitchRng) : root,
+                 .start = start,
+                 .length =
+                     next == chordNotes.end() ? length : std::min(length, next->start - start),
+                 .velocity = 100});
+            previous = &chord;
+        }
+    }
+    return events;
+}
+
+std::vector<NoteEvent> patternEvents(const Idea& idea, BassPattern pattern, std::uint64_t bassSeed)
+{
+    switch (pattern)
+    {
+    case BassPattern::riff:
+        return riffEvents(idea, bassSeed);
+    case BassPattern::callResponse:
+        return callResponseEvents(idea, bassSeed);
+    default:
+        return slotEvents(idea, pattern, bassSeed);
+    }
+}
+} // namespace
+
+BassPattern bassPatternFor(const StyleEntry& entry, int energy, Pcg32& rng)
+{
+    std::vector<BassPattern> allowed = entry.bassPatterns;
+    std::ranges::stable_sort(allowed, {}, densityRank);
+    const int n = static_cast<int>(allowed.size());
+    std::vector<int> weights;
+    for (int k = 0; k < n; ++k)
+    {
+        // 1 + 4 * max(0, 1 - 2 * |k / (n - 1) - energy / 100|), scaled by 100 * (n - 1).
+        const int scale = 100 * std::max(n - 1, 1);
+        const int distance = std::abs((100 * k) - (energy * (n - 1)));
+        weights.push_back(scale + (4 * std::max(0, scale - (2 * distance))));
+    }
+    return allowed.at(rng.pickWeighted(weights));
+}
+
+std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern, std::uint64_t bassSeed)
+{
+    std::vector<NoteEvent> events = patternEvents(idea, pattern, bassSeed);
     if (idea.settings.energy > 50 && pattern != BassPattern::sustained &&
         pattern != BassPattern::pedal)
     {

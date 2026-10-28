@@ -332,7 +332,8 @@ TEST_CASE("bass is monophonic, in range and built from root and fifth", "[genera
                 return e.start == approachTick(idea, change) &&
                        std::abs(e.pitch - bassTarget(idea, change).pitch) <= 2;
             };
-            if (approaches && std::ranges::any_of(changes, isApproach))
+            // The riff walks scale tones; its own tests check them.
+            if (bass.pattern == "riff" || (approaches && std::ranges::any_of(changes, isApproach)))
             {
                 continue;
             }
@@ -343,8 +344,8 @@ TEST_CASE("bass is monophonic, in range and built from root and fifth", "[genera
             REQUIRE(contains(pcs, e.pitch % 12));
         }
     }
-    for (const char* pattern :
-         {"offbeat", "rolling-offbeat", "octave-bounce", "garage-skip", "sustained", "pedal"})
+    for (const char* pattern : {"offbeat", "rolling-offbeat", "octave-bounce", "garage-skip",
+                                "sustained", "pedal", "riff", "call-response"})
     {
         REQUIRE(seen.contains(pattern));
     }
@@ -1039,12 +1040,10 @@ TEST_CASE("an entry with one bass pattern always gets it", "[generate][bass]")
     REQUIRE(countPattern({BassPattern::garageSkip}, 50, "garage-skip") == 200);
 }
 
-TEST_CASE("riff and call-and-response entries play offbeat until those patterns exist",
-          "[generate][bass]")
+TEST_CASE("riff and call-and-response entries get that pattern", "[generate][bass]")
 {
-    REQUIRE(countPattern({BassPattern::riff}, 80, "offbeat") == 200);
-    REQUIRE(countPattern({BassPattern::callResponse}, 20, "offbeat") == 200);
-    REQUIRE(countPattern({BassPattern::riff, BassPattern::offbeat}, 100, "offbeat") == 200);
+    REQUIRE(countPattern({BassPattern::riff}, 80, "riff") == 200);
+    REQUIRE(countPattern({BassPattern::callResponse}, 20, "call-response") == 200);
 }
 
 TEST_CASE("the bass seed varies pitch and nothing else", "[generate][bass][seeds]")
@@ -1200,6 +1199,209 @@ TEST_CASE("the bar 8 approach note ends at the idea's end", "[generate][bass][ap
             REQUIRE(last.start == approachTick(idea, idea.settings.bars * kTicksPerBar));
             REQUIRE(last.length > 0);
             REQUIRE(last.start + last.length <= ideaLengthTicks(idea));
+        }
+    }
+}
+
+namespace
+{
+// An approach note: it starts on the last swung 16th before a chord change and sits within 2
+// semitones of the bass note at that change. Only above half energy.
+bool isApproachNote(const Idea& idea, const NoteEvent& e)
+{
+    return idea.settings.energy > 50 &&
+           std::ranges::any_of(changeTicks(idea),
+                               [&](int change)
+                               {
+                                   return e.start == approachTick(idea, change) &&
+                                          std::abs(e.pitch - bassTarget(idea, change).pitch) <= 2;
+                               });
+}
+
+// A pattern test sample: the bank with every entry limited to one pattern, and energy kept in a
+// band (low: 0 to 50, high: 51 to 100).
+Bank patternBank(BassPattern pattern)
+{
+    Bank only = bank();
+    for (StyleEntry& entry : only.entries)
+    {
+        entry.bassPatterns = {pattern};
+    }
+    return only;
+}
+
+Idea patternIdea(const Bank& only, Style style, int i, bool high)
+{
+    Settings settings = settingsFor(style, i);
+    settings.energy = high ? 51 + ((i * 7) % 50) : (i * 7) % 51;
+    return generate(only, settings, static_cast<std::uint32_t>(2000 + (i * 31)));
+}
+
+const std::vector<NoteEvent>& bassNotes(const Idea& idea) { return idea.lanes.at(1).events; }
+
+// The offsets (within the 2-bar span) of the bass onsets in each span, leaving out approach notes.
+std::vector<std::vector<int>> spanRhythms(const Idea& idea)
+{
+    constexpr int kSpan = 2 * kTicksPerBar;
+    std::vector<std::vector<int>> spans(static_cast<std::size_t>(idea.settings.bars / 2));
+    for (const NoteEvent& e : bassNotes(idea))
+    {
+        if (!isApproachNote(idea, e))
+        {
+            spans.at(static_cast<std::size_t>(e.start / kSpan)).push_back(e.start % kSpan);
+        }
+    }
+    return spans;
+}
+} // namespace
+
+TEST_CASE("the riff validates and repeats one 2-bar rhythm of 4 to 6 onsets", "[generate][bass]")
+{
+    const Bank only = patternBank(BassPattern::riff);
+    for (const bool high : {false, true})
+    {
+        for (const Style style : kStyles)
+        {
+            for (int i = 0; i < kSeedsPerStyle; ++i)
+            {
+                const Idea idea = patternIdea(only, style, i, high);
+                INFO("style " << static_cast<int>(style) << " i " << i << " high " << high);
+                REQUIRE(idea.lanes.at(1).pattern == "riff");
+                REQUIRE(validate(idea).empty());
+                auto spans = spanRhythms(idea);
+                // An approach note replaces the riff's hit on its 16th, so a span that had one
+                // there lacks it; compare the rest.
+                for (const NoteEvent& e : bassNotes(idea))
+                {
+                    if (isApproachNote(idea, e))
+                    {
+                        for (auto& span : spans)
+                        {
+                            std::erase(span, e.start % (2 * kTicksPerBar));
+                        }
+                    }
+                }
+                for (const auto& span : spans)
+                {
+                    REQUIRE(span == spans.front());
+                }
+                const auto total = [&](int from)
+                {
+                    return std::ranges::count_if(
+                        bassNotes(idea), [&](const NoteEvent& e)
+                        { return e.start >= from && e.start < from + (2 * kTicksPerBar); });
+                };
+                for (int from = 0; from < ideaLengthTicks(idea); from += 2 * kTicksPerBar)
+                {
+                    REQUIRE(total(from) >= 4);
+                    REQUIRE(total(from) <= 6 + (high ? 2 : 0));
+                }
+                if (!high)
+                {
+                    REQUIRE(spans.front().size() >= 4);
+                    REQUIRE(spans.front().size() <= 6);
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE("riff pitches are scale tones near the chord root and each chord starts on its root",
+          "[generate][bass]")
+{
+    const Bank only = patternBank(BassPattern::riff);
+    for (const bool high : {false, true})
+    {
+        for (const Style style : kStyles)
+        {
+            for (int i = 0; i < kSeedsPerStyle; ++i)
+            {
+                const Idea idea = patternIdea(only, style, i, high);
+                const std::vector<int> scale = scalePitchClasses(idea.key);
+                const PlacedChord* previous = nullptr;
+                for (const NoteEvent& e : bassNotes(idea))
+                {
+                    const PlacedChord& chord = chordAt(idea, e.start);
+                    const int root = expectedRootNote(chordRootPc(idea.key, chord.symbol));
+                    const bool first = &chord != previous;
+                    previous = &chord;
+                    INFO("style " << static_cast<int>(style) << " i " << i << " start " << e.start);
+                    if (isApproachNote(idea, e))
+                    {
+                        continue;
+                    }
+                    REQUIRE(e.pitch >= kBassLow);
+                    REQUIRE(e.pitch <= kBassHigh);
+                    REQUIRE(std::abs(e.pitch - root) <= 7);
+                    REQUIRE((e.pitch == root || contains(scale, e.pitch % 12)));
+                    if (first && !high)
+                    {
+                        REQUIRE(e.pitch == root);
+                    }
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE("riff notes last 1 to 3 sixteenths and never cross the next onset", "[generate][bass]")
+{
+    const Bank only = patternBank(BassPattern::riff);
+    for (const Style style : kStyles)
+    {
+        for (int i = 0; i < kSeedsPerStyle; ++i)
+        {
+            const Idea idea = patternIdea(only, style, i, false);
+            const auto& notes = bassNotes(idea);
+            for (std::size_t k = 0; k < notes.size(); ++k)
+            {
+                REQUIRE(notes.at(k).length >= 1);
+                REQUIRE(notes.at(k).length <= 3 * kTicksPerSixteenth);
+                if (k + 1 < notes.size())
+                {
+                    REQUIRE(notes.at(k).start + notes.at(k).length <= notes.at(k + 1).start);
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE("call-and-response keeps off chord note starts with 1 to 3 onsets a bar",
+          "[generate][bass]")
+{
+    const Bank only = patternBank(BassPattern::callResponse);
+    for (const bool high : {false, true})
+    {
+        for (const Style style : kStyles)
+        {
+            for (int i = 0; i < kSeedsPerStyle; ++i)
+            {
+                const Idea idea = patternIdea(only, style, i, high);
+                INFO("style " << static_cast<int>(style) << " i " << i << " high " << high);
+                REQUIRE(idea.lanes.at(1).pattern == "call-response");
+                REQUIRE(validate(idea).empty());
+                const auto& chordNotes = idea.lanes.at(0).events;
+                std::vector<int> perBar(static_cast<std::size_t>(idea.settings.bars), 0);
+                for (const NoteEvent& e : bassNotes(idea))
+                {
+                    if (isApproachNote(idea, e))
+                    {
+                        continue;
+                    }
+                    REQUIRE(std::ranges::find(chordNotes, e.start, &NoteEvent::start) ==
+                            chordNotes.end());
+                    const auto next = std::ranges::find_if(chordNotes, [&](const NoteEvent& c)
+                                                           { return c.start > e.start; });
+                    REQUIRE((next == chordNotes.end() || e.start + e.length <= next->start));
+                    REQUIRE(e.length <= 2 * kTicksPerSixteenth);
+                    ++perBar.at(static_cast<std::size_t>(e.start / kTicksPerBar));
+                }
+                for (const int count : perBar)
+                {
+                    REQUIRE(count <= 3);
+                    REQUIRE((count >= 1 || high));
+                }
+            }
         }
     }
 }
