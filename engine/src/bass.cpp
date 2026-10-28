@@ -213,6 +213,10 @@ void addApproachNotes(const Idea& idea, std::uint64_t bassSeed, std::vector<Note
                                 ? events.begin()
                                 : std::ranges::find_if(events, [change](const NoteEvent& e)
                                                        { return e.start >= change; });
+        if (target == events.end())
+        {
+            continue;
+        }
         const int pitch = approachPitch(scale, target->pitch, rng);
         approaches.push_back({.pitch = pitch,
                               .start = swung(change - kTicksPerSixteenth, swing),
@@ -268,7 +272,7 @@ std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern, std::ui
                     varies ? variedPitch(chord.symbol, root, pitchRng) : pitchFor(slot.role, root),
                 .start = swung((bar * kTicksPerBar) + (slot.step * kTicksPerSixteenth), swing),
                 .length = slot.length * kTicksPerSixteenth,
-                .velocity = 0,
+                .velocity = 100,
             };
             events.push_back(note);
         }

@@ -263,6 +263,44 @@ TEST_CASE("every voicing is four or five notes in range and not muddy", "[genera
     }
 }
 
+namespace
+{
+// Each chord change after bar 1, then the idea's end (the seam into bar 1).
+std::vector<int> changeTicks(const Idea& idea)
+{
+    std::vector<int> changes;
+    for (std::size_t i = 1; i < idea.progression.size(); ++i)
+    {
+        changes.push_back(idea.progression.at(i).startBar * kTicksPerBar);
+    }
+    changes.push_back(idea.settings.bars * kTicksPerBar);
+    return changes;
+}
+
+int approachTick(const Idea& idea, int change)
+{
+    return detail::swung(change - kTicksPerSixteenth, swingPermille(idea.settings.groove));
+}
+
+const NoteEvent* noteStartingAt(const Idea& idea, int tick)
+{
+    const auto& events = idea.lanes.at(1).events;
+    const auto it = std::ranges::find(events, tick, &NoteEvent::start);
+    return it == events.end() ? nullptr : &*it;
+}
+
+const NoteEvent& bassTarget(const Idea& idea, int change)
+{
+    const auto& events = idea.lanes.at(1).events;
+    if (change == idea.settings.bars * kTicksPerBar)
+    {
+        return events.front();
+    }
+    return *std::ranges::find_if(events,
+                                 [change](const NoteEvent& e) { return e.start >= change; });
+}
+} // namespace
+
 TEST_CASE("bass is monophonic, in range and built from root and fifth", "[generate]")
 {
     std::set<std::string> seen;
@@ -270,9 +308,10 @@ TEST_CASE("bass is monophonic, in range and built from root and fifth", "[genera
     {
         const Lane& bass = idea.lanes.at(1);
         seen.insert(bass.pattern);
-        // Approach notes (above half energy) leave the root and fifth; their own tests check them.
+        // Above half energy an approach note leaves the root and fifth; its own tests check it.
         const bool approaches =
             idea.settings.energy > 50 && bass.pattern != "pedal" && bass.pattern != "sustained";
+        const std::vector<int> changes = changeTicks(idea);
         const bool offbeat = bass.pattern == "offbeat" || bass.pattern == "rolling-offbeat" ||
                              bass.pattern == "pedal";
         for (std::size_t i = 0; i < bass.events.size(); ++i)
@@ -288,7 +327,12 @@ TEST_CASE("bass is monophonic, in range and built from root and fifth", "[genera
             {
                 REQUIRE(e.start % kTicksPerQuarter != 0);
             }
-            if (approaches)
+            const auto isApproach = [&](int change)
+            {
+                return e.start == approachTick(idea, change) &&
+                       std::abs(e.pitch - bassTarget(idea, change).pitch) <= 2;
+            };
+            if (approaches && std::ranges::any_of(changes, isApproach))
             {
                 continue;
             }
@@ -1052,41 +1096,6 @@ TEST_CASE("pitch variation spares sustained and pedal and keeps each chord's fir
 
 namespace
 {
-// Each chord change after bar 1, then the idea's end (the seam into bar 1).
-std::vector<int> changeTicks(const Idea& idea)
-{
-    std::vector<int> changes;
-    for (std::size_t i = 1; i < idea.progression.size(); ++i)
-    {
-        changes.push_back(idea.progression.at(i).startBar * kTicksPerBar);
-    }
-    changes.push_back(idea.settings.bars * kTicksPerBar);
-    return changes;
-}
-
-int approachTick(const Idea& idea, int change)
-{
-    return detail::swung(change - kTicksPerSixteenth, swingPermille(idea.settings.groove));
-}
-
-const NoteEvent* noteStartingAt(const Idea& idea, int tick)
-{
-    const auto& events = idea.lanes.at(1).events;
-    const auto it = std::ranges::find(events, tick, &NoteEvent::start);
-    return it == events.end() ? nullptr : &*it;
-}
-
-const NoteEvent& bassTarget(const Idea& idea, int change)
-{
-    const auto& events = idea.lanes.at(1).events;
-    if (change == idea.settings.bars * kTicksPerBar)
-    {
-        return events.front();
-    }
-    return *std::ranges::find_if(events,
-                                 [change](const NoteEvent& e) { return e.start >= change; });
-}
-
 constexpr std::array kApproachPatterns = {BassPattern::rollingOffbeat, BassPattern::offbeat,
                                           BassPattern::octaveBounce, BassPattern::garageSkip};
 } // namespace
@@ -1110,6 +1119,24 @@ TEST_CASE("above half energy every chord change has a bass approach note on the 
                 REQUIRE(approach->pitch != bassTarget(idea, change).pitch);
                 REQUIRE(approach->pitch >= kBassLow);
                 REQUIRE(approach->pitch <= kBassHigh);
+            }
+        }
+    }
+}
+
+TEST_CASE("every approach note is in the key scale", "[generate][bass][approach]")
+{
+    for (const BassPattern pattern : kApproachPatterns)
+    {
+        for (std::uint32_t seed = 1; seed <= 100; ++seed)
+        {
+            const Idea idea = bassWith({pattern}, energySettings(100), seed);
+            const std::vector<int> scale = scalePitchClasses(idea.key);
+            for (const int change : changeTicks(idea))
+            {
+                const NoteEvent* approach = noteStartingAt(idea, approachTick(idea, change));
+                REQUIRE(approach != nullptr);
+                REQUIRE(contains(scale, approach->pitch % 12));
             }
         }
     }

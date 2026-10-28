@@ -353,7 +353,7 @@ std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const
                     .pitch = pitch,
                     .start = start,
                     .length = length,
-                    .velocity = 0,
+                    .velocity = 100,
                 };
                 events.push_back(note);
             }

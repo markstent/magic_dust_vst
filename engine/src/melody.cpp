@@ -288,7 +288,7 @@ std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea,
             .pitch = pitch,
             .start = swung(onsets.at(i).step * kTicksPerSixteenth, swing),
             .length = onsets.at(i).length * kTicksPerSixteenth,
-            .velocity = 0,
+            .velocity = 100,
         };
         events.push_back(note);
     }

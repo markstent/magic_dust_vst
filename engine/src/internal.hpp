@@ -88,7 +88,7 @@ std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const
 // and call-and-response are not built yet and play as offbeat.
 BassPattern bassPatternFor(const StyleEntry& entry, int energy, Pcg32& rng);
 // Pitch variation draws from Pcg32(bassSeed, kBassPitch), approach notes from kBassApproach.
-// Approach notes carry velocity 85 (percent of the lane base); every other note carries 0.
+// Velocity is a percent of the lane base: 100, or 85 for approach notes.
 std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern, std::uint64_t bassSeed);
 
 // 1 to 3 of the allowed tones nearest the centre, cycled by the pluck.

@@ -290,8 +290,8 @@ void humanize(std::vector<NoteEvent>& events, Pcg32 rng, int energy)
     const int base = kVelocityBase + ((kVelocitySpread * energy) / 100);
     for (NoteEvent& e : events)
     {
-        // Events arrive with velocity 0, or a percent of the base.
-        const int scaled = e.velocity > 0 ? (base * e.velocity) / 100 : base;
+        // Events arrive with their velocity as a percent of the base.
+        const int scaled = (base * e.velocity) / 100;
         e.velocity = std::clamp(scaled + static_cast<int>(rng.below(kHumanizeRange)) - 6, 1, 127);
     }
 }
