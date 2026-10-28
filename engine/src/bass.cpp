@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <iterator>
 #include <span>
 #include <vector>
 
@@ -234,6 +235,7 @@ void addApproachNotes(const Idea& idea, std::uint64_t bassSeed, std::vector<Note
     events.insert(events.end(), approaches.begin(), approaches.end());
     std::ranges::stable_sort(events, {}, &NoteEvent::start);
 }
+
 // Each chord span's first note is its root and the rest vary (slot 2) on the patterns that do.
 std::vector<NoteEvent> slotEvents(const Idea& idea, BassPattern pattern, std::uint64_t bassSeed)
 {
@@ -287,14 +289,30 @@ Motif drawMotif(Pcg32& rng)
     }
     Motif motif;
     const int count = 4 + static_cast<int>(rng.below(3));
-    for (int n = 0; n < count; ++n)
+    // Two onsets in each bar first, so no chord span (whole bars) goes without bass, then the rest.
+    const auto pick = [&](int from, int to)
     {
-        const int step = pool.at(rng.below(static_cast<std::uint32_t>(pool.size())));
+        std::vector<int> open;
+        std::ranges::copy_if(pool, std::back_inserter(open),
+                             [&](int s) { return s >= from && s < to; });
+        if (open.empty())
+        {
+            return;
+        }
+        const int step = open.at(rng.below(static_cast<std::uint32_t>(open.size())));
         motif.steps.push_back(step);
         std::erase_if(pool, [step](int s) { return std::abs(s - step) <= 1; });
+    };
+    for (const int from : {0, 0, 16, 16})
+    {
+        pick(from, from + 16);
+    }
+    while (std::ssize(motif.steps) < count && !pool.empty())
+    {
+        pick(0, kRiffSpanSteps);
     }
     std::ranges::sort(motif.steps);
-    for (int n = 0; n < count; ++n)
+    for (std::size_t n = 0; n < motif.steps.size(); ++n)
     {
         motif.degrees.push_back(static_cast<int>(rng.below(7)) - 3);
     }

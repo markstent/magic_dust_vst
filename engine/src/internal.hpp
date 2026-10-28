@@ -16,8 +16,11 @@ namespace md::detail
 {
 // Every random draw is Pcg32(<lane seed>, slot) with one fixed slot per use:
 //   chords: 0 entry, 1 progression, 2 chord rhythm cell, 3 velocity humanize
-//   bass:   0 velocity humanize, 1 pattern choice, 2 pitch variation, 3 approach notes, 4 riff
-//   motif,
+//   bass:   0 velocity humanize
+//           1 pattern choice
+//           2 pitch variation
+//           3 approach notes
+//           4 riff motif
 //           5 call-and-response picks
 //   melody: 0 rhythm cell A, 1 rhythm cell B, 2 pitch walk, 3 pluck tones, 4 velocity humanize
 // Entry, progression, mode and chord-cell choices belong to the chords lane.

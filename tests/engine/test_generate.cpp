@@ -1334,7 +1334,7 @@ TEST_CASE("riff pitches are scale tones near the chord root and each chord start
                     REQUIRE(e.pitch <= kBassHigh);
                     REQUIRE(std::abs(e.pitch - root) <= 7);
                     REQUIRE((e.pitch == root || contains(scale, e.pitch % 12)));
-                    if (first && !high)
+                    if (first)
                     {
                         REQUIRE(e.pitch == root);
                     }
@@ -1400,6 +1400,120 @@ TEST_CASE("call-and-response keeps off chord note starts with 1 to 3 onsets a ba
                 {
                     REQUIRE(count <= 3);
                     REQUIRE((count >= 1 || high));
+                }
+            }
+        }
+    }
+}
+
+namespace
+{
+bool hasBassIn(const Idea& idea, const PlacedChord& chord)
+{
+    const int from = chord.startBar * kTicksPerBar;
+    return std::ranges::any_of(
+        bassNotes(idea), [&](const NoteEvent& e)
+        { return e.start >= from && e.start < from + (chord.bars * kTicksPerBar); });
+}
+
+int emptyChordSpans(const Bank& only, bool high)
+{
+    int empty = 0;
+    for (const Style style : kStyles)
+    {
+        for (int i = 0; i < kSeedsPerStyle; ++i)
+        {
+            const Idea idea = patternIdea(only, style, i, high);
+            empty += static_cast<int>(std::ranges::count_if(idea.progression,
+                                                            [&](const PlacedChord& chord)
+                                                            { return !hasBassIn(idea, chord); }));
+        }
+    }
+    return empty;
+}
+} // namespace
+
+TEST_CASE("every chord span has a bass onset for the riff and call-and-response",
+          "[generate][bass]")
+{
+    for (const BassPattern pattern : {BassPattern::riff, BassPattern::callResponse})
+    {
+        const Bank only = patternBank(pattern);
+        REQUIRE(emptyChordSpans(only, false) == 0);
+        REQUIRE(emptyChordSpans(only, true) == 0);
+    }
+}
+
+TEST_CASE("call-and-response puts min(1 + round(2E/100), candidates) notes in each bar",
+          "[generate][bass]")
+{
+    const Bank only = patternBank(BassPattern::callResponse);
+    for (const Style style : kStyles)
+    {
+        for (int i = 0; i < kSeedsPerStyle; ++i)
+        {
+            const Idea idea = patternIdea(only, style, i, false);
+            const auto& chordNotes = idea.lanes.at(0).events;
+            const int wanted = 1 + (((2 * idea.settings.energy) + 50) / 100);
+            for (int bar = 0; bar < idea.settings.bars; ++bar)
+            {
+                int candidates = 0;
+                for (int s = 1; s < 16; ++s)
+                {
+                    const int start = detail::swung(((bar * 16) + s) * kTicksPerSixteenth,
+                                                    swingPermille(idea.settings.groove));
+                    candidates +=
+                        s % 4 != 0 && std::ranges::find(chordNotes, start, &NoteEvent::start) ==
+                                          chordNotes.end()
+                            ? 1
+                            : 0;
+                }
+                const auto inBar = std::ranges::count_if(bassNotes(idea), [&](const NoteEvent& e)
+                                                         { return e.start / kTicksPerBar == bar; });
+                INFO("style " << static_cast<int>(style) << " i " << i << " bar " << bar);
+                REQUIRE(inBar == std::min(wanted, candidates));
+            }
+        }
+    }
+}
+
+TEST_CASE("riff and call-and-response get an approach note exactly when the change has a bass note "
+          "before the next approach",
+          "[generate][bass][approach]")
+{
+    for (const BassPattern pattern : {BassPattern::riff, BassPattern::callResponse})
+    {
+        const Bank only = patternBank(pattern);
+        for (const Style style : kStyles)
+        {
+            for (int i = 0; i < 50; ++i)
+            {
+                Settings settings = settingsFor(style, i);
+                settings.energy = 50;
+                const Idea idea = generate(only, settings, static_cast<std::uint32_t>(3000 + i));
+                Idea high = idea;
+                high.settings.energy = 51;
+                const std::uint64_t seed = idea.lanes.at(1).seed;
+                const auto without = detail::bassEvents(idea, pattern, seed);
+                const auto with = detail::bassEvents(high, pattern, seed);
+                const std::vector<int> changes = changeTicks(idea);
+                for (std::size_t c = 0; c < changes.size(); ++c)
+                {
+                    const int change = changes.at(c);
+                    const auto first =
+                        change == idea.settings.bars * kTicksPerBar
+                            ? without.begin()
+                            : std::ranges::find_if(without, [change](const NoteEvent& e)
+                                                   { return e.start >= change; });
+                    const int tick = approachTick(idea, change);
+                    const bool expected =
+                        first != without.end() &&
+                        first->start < approachTick(idea, changes.at((c + 1) % changes.size()));
+                    const bool present =
+                        std::ranges::any_of(with, [tick](const NoteEvent& e)
+                                            { return e.start == tick && e.velocity == 85; });
+                    INFO("style " << static_cast<int>(style) << " i " << i << " change " << change);
+                    REQUIRE(present == expected);
                 }
             }
         }
