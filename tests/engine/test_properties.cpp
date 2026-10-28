@@ -21,7 +21,20 @@ namespace
 {
 constexpr int kDefaultSeeds = 1000;
 constexpr int kDeterminismSeeds = 50;
+
+// Sanitized builds run this test 5 to 8 times slower, so they get a quarter of the seeds.
+#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
+#define MD_SANITIZED 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer)
+#define MD_SANITIZED 1
+#endif
+#endif
+#ifdef MD_SANITIZED
+constexpr int kBassSeedMultiplier = 5;
+#else
 constexpr int kBassSeedMultiplier = 20;
+#endif
 constexpr double kP99LimitMs = 20.0;
 
 // Unset or empty means the default; anything else must be a positive whole number.
@@ -120,14 +133,16 @@ TEST_CASE("properties: bass has no violations across style, flavour, energy and 
     constexpr std::array<int, 6> energies = {0, 25, 50, 51, 75, 100};
     constexpr int flavours = 3;
     constexpr int grooves = 4;
+    constexpr std::array<int, 3> bars = {4, 8, 16};
     constexpr int combos = static_cast<int>(styles.size() * flavours * energies.size() * grooves);
 
-    // Seeds 1 to MD_PROPERTY_SEEDS * 20, one combo per seed in rotation, so each combo gets about
-    // MD_PROPERTY_SEEDS * 20 / 432 seeds.
+    // Seeds 1 to MD_PROPERTY_SEEDS * kBassSeedMultiplier, one combo per seed in rotation, so each
+    // combo gets about that many divided by 432 seeds.
     const int total = seedCount() * kBassSeedMultiplier;
     for (int seed = 1; seed <= total; ++seed)
     {
-        int combo = seed % combos;
+        const int comboIndex = seed % combos;
+        int combo = comboIndex;
         Settings settings;
         settings.groove = static_cast<Groove>(combo % grooves);
         combo /= grooves;
@@ -137,7 +152,7 @@ TEST_CASE("properties: bass has no violations across style, flavour, energy and 
         combo /= flavours;
         settings.style = styles.at(static_cast<std::size_t>(combo));
         settings.keyRoot = (seed / combos) % 12;
-        settings.bars = 8;
+        settings.bars = bars.at(static_cast<std::size_t>(comboIndex) % bars.size());
 
         const Idea idea = generate(bank, settings, static_cast<std::uint32_t>(seed));
         const auto problems = validate(idea);
