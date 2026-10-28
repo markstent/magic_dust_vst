@@ -182,10 +182,17 @@ TEST_CASE("a sender plays nothing while its main has that lane muted and resumes
     MagicDustProcessor chords;
     MagicDustProcessor bass;
     bass.setSenderLane(md::LaneId::bass);
+    // The idea is random per instance and a few have no bass note in the first eight beats, so pin
+    // one whose bass plays in both halves of the run.
+    setSeed(main, 1);
     FakeHead head;
     prepare(bass, head);
     prepare(main, head);
     auto* mute = main.params.getParameter("bassMute");
+    const double halfPpq = md::ppqForSamples(100 * kBlock, 120.0, kRate);
+    REQUIRE_FALSE(laneEventsUpTo(*main.idea(), kBassChannel, halfPpq).empty());
+    REQUIRE(laneEventsUpTo(*main.idea(), kBassChannel, 2 * halfPpq).size() >
+            laneEventsUpTo(*main.idea(), kBassChannel, halfPpq).size());
 
     mute->setValueNotifyingHost(1.0F);
     const double startPpq = head.ppq;
