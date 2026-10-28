@@ -430,6 +430,6 @@ TEST_CASE("the idea's end counts as a change into bar 1 for approach notes", "[v
     events.at(1).start = detail::swung((8 * kTicksPerBar) - kTicksPerSixteenth, 580);
     events.pop_back();
     REQUIRE_FALSE(mentions(idea, kClash));
-    events.front().pitch = 50;
+    events.front().pitch = 52; // E, a chord tone 4 semitones from G#
     REQUIRE(mentions(idea, kClash));
 }
