@@ -261,8 +261,7 @@ bool MagicDustProcessor::regenerate(std::uint32_t seed, const md::LaneSeeds& lan
     try
     {
         adopt(idea_ && keepPins ? md::generate(*bank_, settings, seed, laneSeeds, *idea_, pins())
-                                : md::generate(*bank_, settings, seed, laneSeeds),
-              seed, laneSeeds);
+                                : md::generate(*bank_, settings, seed, laneSeeds));
     }
     catch (const std::exception&)
     {
@@ -272,30 +271,30 @@ bool MagicDustProcessor::regenerate(std::uint32_t seed, const md::LaneSeeds& lan
     return true;
 }
 
-void MagicDustProcessor::adopt(md::Idea idea, std::uint32_t seed, const md::LaneSeeds& laneSeeds)
+// The seeds follow the idea, which keeps its own when lanes are pinned.
+void MagicDustProcessor::adopt(md::Idea idea)
 {
     idea_ = std::move(idea);
-    seed_ = seed;
-    laneSeeds_ = laneSeeds;
+    seed_ = idea_->seed;
+    laneSeeds_ = {.chords = idea_->lanes.at(0).seed,
+                  .bass = idea_->lanes.at(1).seed,
+                  .melody = idea_->lanes.at(2).seed};
     lastError_.reset();
     Link::instance().publish(this,
                              std::make_shared<const md::PlaybackPattern>(md::makePattern(*idea_)));
 }
 
-// A saved idea stands in for regenerating only when it is this state's idea (same seed and
-// settings), still valid, and
-// from an entry the bank has.
+// A saved idea stands in for regenerating only when it is this state's idea (same seed, style, key
+// and bars), still valid, and from an entry the bank has.
 bool MagicDustProcessor::usableSaved(const md::Idea& saved, std::uint32_t seed) const
 {
     if (!bank_)
     {
         return false;
     }
-    const md::Settings now = currentSettings();
     const md::Settings& s = saved.settings;
-    return saved.seed == seed && s.style == now.style && s.keyRoot == now.keyRoot &&
-           s.mood == now.mood && s.energy == now.energy && s.groove == now.groove &&
-           s.flavour == now.flavour && s.bars == now.bars && md::validate(saved).empty() &&
+    return saved.seed == seed && s.style == style_ && s.keyRoot == keyRoot_ && s.bars == bars_ &&
+           md::validate(saved).empty() &&
            std::ranges::any_of(bank_->entries,
                                [&](const md::StyleEntry& e) { return e.id == saved.entryId; });
 }
@@ -827,9 +826,10 @@ void MagicDustProcessor::setStateInformation(const void* data, int sizeInBytes)
         auto idea = ideaFromTree(juce::ValueTree::fromXml(*saved));
         if (idea && usableSaved(*idea, seed))
         {
-            generated_ = currentSettings();
-            seen_ = generated_;
-            adopt(std::move(*idea), seed, laneSeeds);
+            // Feel params that differ from the idea regenerate, pins kept, after the quiet spell.
+            generated_ = idea->settings;
+            seen_ = idea->settings;
+            adopt(std::move(*idea));
             return;
         }
     }

@@ -134,7 +134,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     bool regenerate(std::uint32_t seed, const md::LaneSeeds& laneSeeds, bool keepPins = true);
     bool regenerate() { return regenerate(seed_, laneSeeds_); }
     // Makes an idea the current one and publishes it.
-    void adopt(md::Idea idea, std::uint32_t seed, const md::LaneSeeds& laneSeeds);
+    void adopt(md::Idea idea);
     [[nodiscard]] bool usableSaved(const md::Idea& saved, std::uint32_t seed) const;
 
     Transport readTransport();

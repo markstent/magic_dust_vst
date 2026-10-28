@@ -1286,3 +1286,49 @@ TEST_CASE("a state with no idea or a corrupt idea loads from the seeds", "[pins]
     loadWith("mood", "loud");
     loadWith("entryId", "no-such-entry");
 }
+
+TEST_CASE("everything pinned: sprinkle, save and load keeps the idea and its number", "[pins]")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor(md::loadBundledBank(), 5);
+    const auto number = processor.idea()->seed;
+    for (const char* id : {"chordsPin", "bassPin", "melodyPin"})
+    {
+        setParam(processor, id, 1);
+    }
+    processor.sprinkle();
+    CHECK(processor.idea()->seed == number);
+
+    juce::MemoryBlock state;
+    processor.getStateInformation(state);
+    MagicDustProcessor fresh(md::loadBundledBank(), 99);
+    fresh.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+
+    REQUIRE(fresh.idea() != nullptr);
+    CHECK(fresh.idea()->seed == number);
+    CHECK(laneEvents(*fresh.idea()) == laneEvents(*processor.idea()));
+    CHECK(fresh.idea()->lanes.at(0).pinned);
+}
+
+TEST_CASE("a state saved inside the quiet window keeps the pinned chords and applies the mood",
+          "[pins]")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor(md::loadBundledBank(), 5);
+    setParam(processor, "chordsPin", 1);
+    const auto chords = processor.idea()->lanes.at(0).events;
+    setParam(processor, "mood", 90);
+
+    juce::MemoryBlock state;
+    processor.getStateInformation(state);
+    MagicDustProcessor fresh(md::loadBundledBank(), 99);
+    fresh.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+
+    REQUIRE(fresh.idea() != nullptr);
+    CHECK(fresh.idea()->lanes.at(0).events == chords);
+    fresh.tick(1000);
+    fresh.tick(1200);
+    CHECK(fresh.idea()->settings.mood == 90);
+    CHECK(fresh.idea()->lanes.at(0).pinned);
+    CHECK(fresh.idea()->lanes.at(0).events == chords);
+}
