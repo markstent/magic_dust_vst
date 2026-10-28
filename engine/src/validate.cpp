@@ -220,13 +220,12 @@ const PlacedChord* findChord(std::span<const PlacedChord> progression, int tick)
     return it == progression.end() ? nullptr : &*it;
 }
 
-// Start ticks of the bass notes that lead into a chord change: the note on the last swung 16th
-// before it, within 2 semitones of the first bass note at or after it. The idea's end counts as a
-// change into bar 1.
-std::vector<int> approachStarts(const Idea& idea)
+// For each chord change, the swung 16th before it and the first bass note at or after it (the
+// first bass note overall for the idea's end, which counts as a change into bar 1). A change whose
+// first bass note starts at or after the next change's approach tick has nothing to lead into and
+// is left out. The bass must be sorted by start.
+std::vector<ApproachTarget> approachTargets(const Idea& idea, std::span<const NoteEvent> bass)
 {
-    auto bass = idea.lanes.at(static_cast<std::size_t>(LaneId::bass)).events;
-    std::ranges::stable_sort(bass, {}, &NoteEvent::start);
     const int end = idea.settings.bars * kTicksPerBar;
     const int swing = swingPermille(idea.settings.groove);
     std::vector<int> changes;
@@ -235,16 +234,35 @@ std::vector<int> approachStarts(const Idea& idea)
         changes.push_back(idea.progression.at(i).startBar * kTicksPerBar);
     }
     changes.push_back(end);
-    std::vector<int> starts;
-    for (const int change : changes)
+    const auto approachTick = [swing](int change)
+    { return swung(change - kTicksPerSixteenth, swing); };
+    std::vector<ApproachTarget> targets;
+    for (std::size_t i = 0; i < changes.size(); ++i)
     {
-        const int tick = swung(change - kTicksPerSixteenth, swing);
-        const auto note = std::ranges::find(bass, tick, &NoteEvent::start);
+        const int change = changes.at(i);
         const auto target = change == end ? bass.begin()
                                           : std::ranges::find_if(bass, [change](const NoteEvent& e)
                                                                  { return e.start >= change; });
-        if (note != bass.end() && target != bass.end() &&
-            std::abs(note->pitch - target->pitch) <= 2)
+        if (target != bass.end() &&
+            target->start < approachTick(changes.at((i + 1) % changes.size())))
+        {
+            targets.push_back({.tick = approachTick(change), .pitch = target->pitch});
+        }
+    }
+    return targets;
+}
+
+// Start ticks of the bass notes that lead into a chord change: the note on the approach tick,
+// within 2 semitones of the target.
+std::vector<int> approachStarts(const Idea& idea)
+{
+    auto bass = idea.lanes.at(static_cast<std::size_t>(LaneId::bass)).events;
+    std::ranges::stable_sort(bass, {}, &NoteEvent::start);
+    std::vector<int> starts;
+    for (const auto& [tick, pitch] : approachTargets(idea, bass))
+    {
+        const auto note = std::ranges::find(bass, tick, &NoteEvent::start);
+        if (note != bass.end() && std::abs(note->pitch - pitch) <= 2)
         {
             starts.push_back(tick);
         }

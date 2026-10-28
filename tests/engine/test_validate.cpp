@@ -433,3 +433,16 @@ TEST_CASE("the idea's end counts as a change into bar 1 for approach notes", "[v
     events.front().pitch = 52; // E, a chord tone 4 semitones from G#
     REQUIRE(mentions(idea, kClash));
 }
+
+TEST_CASE("a note on an approach tick is no target for the change before it", "[validate]")
+{
+    Idea idea = approachIdea(45);
+    const auto approachTick = [](int bar)
+    { return detail::swung((bar * kTicksPerBar) - kTicksPerSixteenth, 580); };
+    // The first note after bar 3 is the approach note into bar 5, so the change into bar 3 has
+    // nothing to lead into and its G# is a clash.
+    idea.lanes.at(1).events = {note(45, 2 * 240, 240),
+                               note(44, approachTick(2), kTicksPerSixteenth),
+                               note(45, approachTick(4), kTicksPerSixteenth)};
+    REQUIRE(mentions(idea, kClash));
+}

@@ -199,33 +199,11 @@ void addApproachNotes(const Idea& idea, std::uint64_t bassSeed, std::vector<Note
 {
     Pcg32 rng(bassSeed, kBassApproach);
     const std::vector<int> scale = scalePitchClasses(idea.key);
-    const int end = idea.settings.bars * kTicksPerBar;
-    const int swing = swingPermille(idea.settings.groove);
-    std::vector<int> changes;
-    for (std::size_t i = 1; i < idea.progression.size(); ++i)
-    {
-        changes.push_back(idea.progression.at(i).startBar * kTicksPerBar);
-    }
-    changes.push_back(end);
-    const auto approachTick = [swing](int change)
-    { return swung(change - kTicksPerSixteenth, swing); };
     std::vector<NoteEvent> approaches;
-    for (std::size_t i = 0; i < changes.size(); ++i)
+    for (const auto& [tick, target] : approachTargets(idea, events))
     {
-        const int change = changes.at(i);
-        const auto target = change == end
-                                ? events.begin()
-                                : std::ranges::find_if(events, [change](const NoteEvent& e)
-                                                       { return e.start >= change; });
-        // A change with no bass note before the next change's approach has nothing to lead into.
-        if (target == events.end() ||
-            target->start >= approachTick(changes.at((i + 1) % changes.size())))
-        {
-            continue;
-        }
-        const int pitch = approachPitch(scale, target->pitch, rng);
-        approaches.push_back({.pitch = pitch,
-                              .start = approachTick(change),
+        approaches.push_back({.pitch = approachPitch(scale, target, rng),
+                              .start = tick,
                               .length = kTicksPerSixteenth,
                               .velocity = 85});
     }
@@ -361,12 +339,8 @@ bool riffPitchPasses(const Idea& idea, const std::vector<int>& scale, const Spot
     {
         return false;
     }
-    const std::vector<int> sounding = soundingPcsAt(idea, spot.start);
-    const int pc = pitch % 12;
-    return std::ranges::find(sounding, pc) != sounding.end() ||
-           std::ranges::none_of(
-               sounding,
-               [pc](int tone) { return (tone - pc + 12) % 12 == 1 || (pc - tone + 12) % 12 == 1; });
+    return !bassClashes(idea, {.pitch = pitch, .start = spot.start, .length = 0, .velocity = 0},
+                        {});
 }
 
 // The nearest passing pitch to the candidate, ties down.

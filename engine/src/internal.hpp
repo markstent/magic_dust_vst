@@ -55,6 +55,14 @@ std::vector<int> soundingPitchClasses(const Idea& idea, const PlacedChord& chord
 // The pitch classes sounding at the tick, as soundingPitchClasses; empty when no chord sounds.
 std::vector<int> soundingPcsAt(const Idea& idea, int tick);
 
+// A chord change a bass note can lead into: its approach tick and the pitch it leads to.
+struct ApproachTarget
+{
+    int tick;
+    int pitch;
+};
+// The one approach rule, for the generator, validator and refit. The bass must be sorted by start.
+std::vector<ApproachTarget> approachTargets(const Idea& idea, std::span<const NoteEvent> bass);
 // Start ticks of the bass notes that lead into a chord change (the validator's approach exemption).
 std::vector<int> approachStarts(const Idea& idea);
 // True when the note's pitch class is in the key scale or is a chord tone of the chord sounding at
