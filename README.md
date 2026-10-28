@@ -30,6 +30,7 @@ It comes as an Audio Unit (AU) and a VST3 plugin, and it is open source under AG
 - The sprinkle key writes a new 8-bar idea with chords, bass and melody.
 - Five style families, plus "UK funky house", a blend of all five: MK dub, soulful, bassline, festival and NY groove.
 - Key and style menus on the top line.
+- Eight bass patterns, from a sparse pedal to a rolling line, chosen by energy and kept clear of the chords.
 - Mood, energy, groove and flavour knobs shape each idea.
 - A level knob and a mute key for each part, and a master volume.
 - An octave rocker for each part, from 2 octaves down to 2 up, for the built-in sound, MIDI out and dragged MIDI.

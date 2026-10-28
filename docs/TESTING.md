@@ -210,3 +210,44 @@ Phase 2 changed some of the 50 reference ideas: flavour now changes the simple a
 The old and new versions are in the `golden-review` folder in the `magic-dust` folder on your Desktop, in `before` and `after`, with the changed cases listed in `changed.txt`.
 Drag the same case from both folders into your daw and listen to the before, then the after.
 Say which after files you are happy with and which sound worse, and why.
+
+## Phase 3 in your daw
+
+Phase 3 gives each idea a proper bass line.
+Low energy gives a sparse bass and high energy gives a busy one.
+Above energy 50 the bass also leans into each chord change with a short approach note.
+Rerolling the bass changes its root, octave and fifth.
+There are 8 bass patterns now, including a riff and a call-and-response that plays in the gaps between chord hits.
+
+### Dropping the review files into your daw
+
+1. Open the `phase-3-review` folder in the `magic-dust` folder on your Desktop.
+   It has one folder for each family: mk-dub, soulful, bassline, festival and ny-groove.
+2. Each folder has 20 files named like `mk-dub-s3-e30-offbeat.mid`.
+   That is the family, the seed, the energy and the bass pattern.
+   Seeds 1 to 10 are at energy 30 and seeds 11 to 20 are at energy 80.
+3. Drag the files you want to hear into your daw, one per clip.
+   Each file holds chords, bass and melody on separate tracks.
+   The file maker could not leave the melody out, so mute the melody track while you listen to the bass.
+4. Put a bass sound on the bass track and a chord sound on the chords track.
+
+### Rating the bass
+
+1. Listen to each idea and rate it keep, close or skip, on the bass only.
+2. The target is at least 1 keep in every 3 ideas.
+   Write down the ones that miss, with the family and seed, so they can be fixed.
+3. Check that the bass never fights the chords.
+   A note that rubs against a chord is a miss, except a short approach note that leads into the next chord.
+4. Compare the energy 30 files with the energy 80 files.
+   Check that the higher energy adds movement and approach notes.
+5. Check that rerolling the bass changes it.
+   The reroll key comes in Phase 5, so for now compare two files of the same family and energy, such as seeds 1 and 2, and check that the bass differs in root, octave or fifth.
+
+### The changed reference ideas
+
+Phase 3 changed 45 of the 50 reference ideas, all in the bass.
+The chords and melody are the same as before.
+The old and new versions are in the `golden-review-phase-3` folder in the `magic-dust` folder on your Desktop, in `before` and `after`.
+`changed.txt` lists each changed case with its style, energy and bass pattern.
+Drag the same case from both folders into your daw and listen to the before, then the after.
+Say which after files you are happy with and which sound worse, and why.
