@@ -215,7 +215,7 @@ Say which after files you are happy with and which sound worse, and why.
 
 Phase 3 gives each idea a proper bass line.
 Low energy gives a sparse bass and high energy gives a busy one.
-Above energy 50 the bass also leans into each chord change with a short approach note.
+Above energy 50 the bass also leans into each chord change with a short approach note, except the sustained and pedal patterns.
 Rerolling the bass changes its root, octave and fifth.
 There are 8 bass patterns now, including a riff and a call-and-response that plays in the gaps between chord hits.
 
