@@ -1339,7 +1339,7 @@ TEST_CASE("render the editor", "[.render]")
 }
 
 // Renders the README picture to $MD_RENDER_DIR: the four-chord idea at 2x, nothing muted, every
-// octave at 0, not playing.
+// octave at 0, the bass pinned, not playing.
 TEST_CASE("render the readme editor", "[.render]")
 {
     const char* dir = std::getenv("MD_RENDER_DIR");
@@ -1348,6 +1348,8 @@ TEST_CASE("render the readme editor", "[.render]")
         return;
     }
     Fixture f;
+    f.find<md::ui::KeyButton>("pin1").setAnimated(false);
+    f.processor.params.getParameter("bassPin")->setValueNotifyingHost(1.0F);
     dynamic_cast<MagicDustEditor&>(*f.editor).refresh();
     f.refresh();
     const juce::File out(dir);

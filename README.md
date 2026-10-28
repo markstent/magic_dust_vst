@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/magic-dust.png" alt="The Magic Dust plugin window, showing a four-chord idea in A minor, with an octave rocker under each mute key and a PIN key for each part" width="760">
+  <img src="docs/images/magic-dust.png" alt="The Magic Dust plugin window, showing a four-chord idea in A minor, with an octave rocker under each mute key and a PIN key for each part, with the bass pinned" width="760">
 </p>
 
 ## What it is
@@ -86,7 +86,10 @@ Restart your daw, or rescan its plug-ins, so it finds Magic Dust.
 3. Press the red sprinkle key for a new idea.
    Every press gives a different one.
 4. Pick a style and a key from the top line, and turn the knobs until it feels right.
-5. Drag a chord or a lane from the screen onto a track to keep it as MIDI.
+5. Like the chords but not the rest?
+   Press the chords PIN key and sprinkle again.
+   The chords stay and the bass and melody change.
+6. Drag a chord or a lane from the screen onto a track to keep it as MIDI.
 
 ## Tutorial: your first track idea in Ableton Live
 
@@ -97,7 +100,7 @@ The same ideas work in any daw.
    In Live, open Settings, then Plug-Ins, and switch on both Audio Units and VST3 system folders.
    Press Rescan.
    Make a MIDI track and drag Magic Dust from the Plug-Ins browser onto it.
-   Use the VST3 version if you plan to use senders in step 8.
+   Use the VST3 version if you plan to use senders in step 9.
 2. **Choose a style and a key.**
    Click STYLE on the top line and pick a family, or leave it on UK funky.
    Click KEY and pick a root note.
@@ -108,6 +111,7 @@ The same ideas work in any daw.
    Press play and listen, then sprinkle until you hear something you like.
 4. **Shape it.**
    Mood runs from dark to bright and energy from low to high.
+   Higher energy also gives a busier bass, and above halfway the bass leads into each chord change.
    Groove steps from straight through three swing settings.
    Flavour steps through simple, soulful and jazzy.
    Soulful is the chords as written, simple is plainer and jazzy is richer.
@@ -117,17 +121,26 @@ The same ideas work in any daw.
    Double-click a level knob to put it back to full.
    Press a MUTE key to drop a part out, and press it again to bring it back.
    A muted part stops its built-in sound and its MIDI out.
-6. **Audition with the spacebar.**
+6. **Pin what you love.**
+   Press a PIN key to keep that part.
+   Its light glows in the part's colour, and its row on the screen says PINNED.
+   Sprinkle again, or turn the knobs, and only the parts that are not pinned change.
+   With the chords pinned, the new bass and melody are written to fit them.
+   With the bass or melody pinned and new chords, the part keeps its rhythm and its notes move to fit the chords.
+   Changing key moves the pinned parts into the new key.
+   Press the PIN key again to let the part change.
+   Pins, and the exact idea you hear, are saved with your project.
+7. **Audition with the spacebar.**
    Click an empty part of the plugin window and press the spacebar.
    The preview starts, and the spacebar stops it again.
    If your daw is playing, Magic Dust follows it.
    Stop then only stops the preview, so use your daw's own stop.
-7. **Drag chords and lanes into Live.**
+8. **Drag chords and lanes into Live.**
    Drag a chord cell onto a MIDI track to get that one chord.
    Drag a lane onto a MIDI track to get that lane.
    The level knobs do not change the MIDI you drag out, but the octave rockers do.
    Lanes dropped at the same bar play in time with each other.
-8. **Send a part to your own synth.**
+9. **Send a part to your own synth.**
    Live merges the MIDI from one plugin onto one channel, so each part you want to send needs its own Magic Dust.
    Use the VST3 version for this.
    The AU cannot send MIDI to other tracks in Live.
@@ -162,7 +175,7 @@ The same ideas work in any daw.
 | TEMPO | Shows your daw's tempo. |
 | Screen | Shows the four chords and the chord, bass and melody rows. Drag a chord cell or a lane out as MIDI. |
 | MOOD | Dark to bright. |
-| ENERGY | Low to high. |
+| ENERGY | Low to high. Higher energy gives a busier bass, with notes that lead into each chord change above halfway. |
 | GROOVE | Straight, or one of three swing settings (54, 58, 62). |
 | FLAVOUR | Simple, soulful or jazzy chords. |
 | CHORDS, BASS and MELODY LEVEL | Level of that part's built-in sound. Double-click to reset to full. |
@@ -180,9 +193,12 @@ The same ideas work in any daw.
 ## Tips
 
 - Sprinkle often. Every press is a new idea.
+- Found chords you love? Pin them and sprinkle until the bass and melody match.
+- Pin a bass line you love, then sprinkle for new chords under it.
 - Drag the lanes you like out as MIDI before you sprinkle again, so you can change the sounds later.
 - Muting a part also stops its MIDI out, so a sender goes quiet too.
 - Flavour changes the chords, so try jazzy on a soulful idea and simple on a festival one.
+- Turn energy up for a busier bass, and down for a sparse one.
 
 ## Roadmap
 
