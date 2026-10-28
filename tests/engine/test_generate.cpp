@@ -270,6 +270,9 @@ TEST_CASE("bass is monophonic, in range and built from root and fifth", "[genera
     {
         const Lane& bass = idea.lanes.at(1);
         seen.insert(bass.pattern);
+        // Approach notes (above half energy) leave the root and fifth; their own tests check them.
+        const bool approaches =
+            idea.settings.energy > 50 && bass.pattern != "pedal" && bass.pattern != "sustained";
         const bool offbeat = bass.pattern == "offbeat" || bass.pattern == "rolling-offbeat" ||
                              bass.pattern == "pedal";
         for (std::size_t i = 0; i < bass.events.size(); ++i)
@@ -284,6 +287,10 @@ TEST_CASE("bass is monophonic, in range and built from root and fifth", "[genera
             if (offbeat)
             {
                 REQUIRE(e.start % kTicksPerQuarter != 0);
+            }
+            if (approaches)
+            {
+                continue;
             }
             const int root = chordRootPc(idea.key, chordAt(idea, e.start).symbol);
             const std::vector<int> pcs = bass.pattern == "pedal"
@@ -1039,6 +1046,133 @@ TEST_CASE("pitch variation spares sustained and pedal and keeps each chord's fir
                 REQUIRE(e.pitch == expectedRootNote(chordRootPc(idea.key, chord.symbol)));
                 previous = &chord;
             }
+        }
+    }
+}
+
+namespace
+{
+// Each chord change after bar 1, then the idea's end (the seam into bar 1).
+std::vector<int> changeTicks(const Idea& idea)
+{
+    std::vector<int> changes;
+    for (std::size_t i = 1; i < idea.progression.size(); ++i)
+    {
+        changes.push_back(idea.progression.at(i).startBar * kTicksPerBar);
+    }
+    changes.push_back(idea.settings.bars * kTicksPerBar);
+    return changes;
+}
+
+int approachTick(const Idea& idea, int change)
+{
+    return detail::swung(change - kTicksPerSixteenth, swingPermille(idea.settings.groove));
+}
+
+const NoteEvent* noteStartingAt(const Idea& idea, int tick)
+{
+    const auto& events = idea.lanes.at(1).events;
+    const auto it = std::ranges::find(events, tick, &NoteEvent::start);
+    return it == events.end() ? nullptr : &*it;
+}
+
+const NoteEvent& bassTarget(const Idea& idea, int change)
+{
+    const auto& events = idea.lanes.at(1).events;
+    if (change == idea.settings.bars * kTicksPerBar)
+    {
+        return events.front();
+    }
+    return *std::ranges::find_if(events,
+                                 [change](const NoteEvent& e) { return e.start >= change; });
+}
+
+constexpr std::array kApproachPatterns = {BassPattern::rollingOffbeat, BassPattern::offbeat,
+                                          BassPattern::octaveBounce, BassPattern::garageSkip};
+} // namespace
+
+TEST_CASE("above half energy every chord change has a bass approach note on the last swung 16th",
+          "[generate][bass][approach]")
+{
+    for (const BassPattern pattern : kApproachPatterns)
+    {
+        for (std::uint32_t seed = 1; seed <= 30; ++seed)
+        {
+            const Idea idea = bassWith({pattern}, energySettings(51), seed);
+            REQUIRE(validate(idea).empty());
+            for (const int change : changeTicks(idea))
+            {
+                INFO("pattern " << static_cast<int>(pattern) << " seed " << seed << " change "
+                                << change);
+                const NoteEvent* approach = noteStartingAt(idea, approachTick(idea, change));
+                REQUIRE(approach != nullptr);
+                REQUIRE(std::abs(approach->pitch - bassTarget(idea, change).pitch) <= 2);
+                REQUIRE(approach->pitch != bassTarget(idea, change).pitch);
+                REQUIRE(approach->pitch >= kBassLow);
+                REQUIRE(approach->pitch <= kBassHigh);
+            }
+        }
+    }
+}
+
+TEST_CASE("at half energy the bass has no approach notes", "[generate][bass][approach]")
+{
+    for (std::uint32_t seed = 1; seed <= 30; ++seed)
+    {
+        const Idea idea = bassWith({BassPattern::offbeat}, energySettings(50), seed);
+        for (const int change : changeTicks(idea))
+        {
+            REQUIRE(noteStartingAt(idea, approachTick(idea, change)) == nullptr);
+        }
+    }
+}
+
+TEST_CASE("sustained and pedal bass get no approach notes", "[generate][bass][approach]")
+{
+    for (const BassPattern pattern : {BassPattern::sustained, BassPattern::pedal})
+    {
+        for (std::uint32_t seed = 1; seed <= 30; ++seed)
+        {
+            const Idea idea = bassWith({pattern}, energySettings(100), seed);
+            for (const int change : changeTicks(idea))
+            {
+                REQUIRE(noteStartingAt(idea, approachTick(idea, change)) == nullptr);
+            }
+        }
+    }
+}
+
+TEST_CASE("the note held into an approach note is shortened to end where it starts",
+          "[generate][bass][approach]")
+{
+    for (std::uint32_t seed = 1; seed <= 30; ++seed)
+    {
+        const Idea idea = bassWith({BassPattern::offbeat}, energySettings(100), seed);
+        const auto& events = idea.lanes.at(1).events;
+        for (const int change : changeTicks(idea))
+        {
+            const auto approach =
+                std::ranges::find(events, approachTick(idea, change), &NoteEvent::start);
+            REQUIRE(approach != events.end());
+            REQUIRE(approach != events.begin());
+            const NoteEvent& before = *std::prev(approach);
+            REQUIRE(before.length > 0);
+            REQUIRE(before.start + before.length == approach->start);
+        }
+    }
+}
+
+TEST_CASE("the bar 8 approach note ends at the idea's end", "[generate][bass][approach]")
+{
+    for (const BassPattern pattern : kApproachPatterns)
+    {
+        for (std::uint32_t seed = 1; seed <= 30; ++seed)
+        {
+            const Idea idea = bassWith({pattern}, energySettings(100), seed);
+            const NoteEvent& last = idea.lanes.at(1).events.back();
+            REQUIRE(last.start == approachTick(idea, idea.settings.bars * kTicksPerBar));
+            REQUIRE(last.length > 0);
+            REQUIRE(last.start + last.length <= ideaLengthTicks(idea));
         }
     }
 }

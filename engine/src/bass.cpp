@@ -160,6 +160,71 @@ int variedPitch(const ChordSymbol& chord, int root, Pcg32& rng)
     }
     return pitch >= kBassLow && pitch <= kBassHigh ? pitch : root;
 }
+
+bool inScale(const std::vector<int>& scale, int pitch)
+{
+    return std::ranges::find(scale, pitch % 12) != scale.end();
+}
+
+// The nearest scale pitch in direction dir (1 or -1), at most 2 semitones from the target.
+int scaleStep(const std::vector<int>& scale, int target, int dir)
+{
+    for (int step = 1; step <= 2; ++step)
+    {
+        if (inScale(scale, target + (dir * step)))
+        {
+            return target + (dir * step);
+        }
+    }
+    return target;
+}
+
+// Half step below 40% (only when in the scale, else the scale step below), scale step above 30%,
+// scale step below 30%. A pitch outside the range mirrors to the other side.
+int approachPitch(const std::vector<int>& scale, int target, Pcg32& rng)
+{
+    const std::uint32_t roll = rng.below(100);
+    const int dir = roll >= 40 && roll < 70 ? 1 : -1;
+    const bool half = roll < 40 && inScale(scale, target - 1);
+    const auto pitchTo = [&](int d)
+    { return half && d < 0 ? target - 1 : scaleStep(scale, target, d); };
+    const int pitch = pitchTo(dir);
+    return pitch >= kBassLow && pitch <= kBassHigh ? pitch : pitchTo(-dir);
+}
+
+// Replaces the hit on the last swung 16th before each chord change (and before the loop seam) with
+// a 16th approach note to the first bass note at the change. Events must be sorted by start.
+void addApproachNotes(const Idea& idea, std::uint64_t bassSeed, std::vector<NoteEvent>& events)
+{
+    Pcg32 rng(bassSeed, kBassApproach);
+    const std::vector<int> scale = scalePitchClasses(idea.key);
+    const int end = idea.settings.bars * kTicksPerBar;
+    const int swing = swingPermille(idea.settings.groove);
+    std::vector<int> changes;
+    for (std::size_t i = 1; i < idea.progression.size(); ++i)
+    {
+        changes.push_back(idea.progression.at(i).startBar * kTicksPerBar);
+    }
+    changes.push_back(end);
+    std::vector<NoteEvent> approaches;
+    for (const int change : changes)
+    {
+        const auto target = change == end
+                                ? events.begin()
+                                : std::ranges::find_if(events, [change](const NoteEvent& e)
+                                                       { return e.start >= change; });
+        const int pitch = approachPitch(scale, target->pitch, rng);
+        approaches.push_back({.pitch = pitch,
+                              .start = swung(change - kTicksPerSixteenth, swing),
+                              .length = kTicksPerSixteenth,
+                              .velocity = 85});
+    }
+    std::erase_if(
+        events, [&](const NoteEvent& e)
+        { return std::ranges::find(approaches, e.start, &NoteEvent::start) != approaches.end(); });
+    events.insert(events.end(), approaches.begin(), approaches.end());
+    std::ranges::stable_sort(events, {}, &NoteEvent::start);
+}
 } // namespace
 
 BassPattern bassPatternFor(const StyleEntry& entry, int energy, Pcg32& rng)
@@ -207,6 +272,11 @@ std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern, std::ui
             };
             events.push_back(note);
         }
+    }
+    if (idea.settings.energy > 50 && pattern != BassPattern::sustained &&
+        pattern != BassPattern::pedal)
+    {
+        addApproachNotes(idea, bassSeed, events);
     }
     clampMonophonic(events, idea.settings.bars * kTicksPerBar);
     return events;
