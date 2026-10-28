@@ -75,6 +75,15 @@ bool bassClashes(const Idea& idea, const NoteEvent& e, std::span<const int> appr
 // validator and the refit so they cannot disagree.
 bool bassPitchOk(const Idea& idea, const NoteEvent& e, std::span<const int> approaches);
 
+// True when a melody leap from one pitch to the next is within kMaxMelodyLeap or exactly an octave.
+bool melodyLeapOk(int from, int to);
+// True when a melody note starts on a quarter and its pitch class is not allowed against the chord
+// sounding there.
+bool melodyStrongBeatClash(const Idea& idea, const NoteEvent& e);
+// The pitch rules for one melody note, apart from its leap: in range, in key or a chord tone, and
+// no strong-beat clash. Shared by the validator and the refit so they cannot disagree.
+bool melodyPitchOk(const Idea& idea, const NoteEvent& e);
+
 // The pitch classes at least 2 semitones from every other one in the set.
 std::vector<int> allowedPitchClasses(const std::vector<int>& pcs);
 

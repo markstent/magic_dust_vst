@@ -16,6 +16,7 @@ add_executable(md_engine_tests
   engine/test_validate.cpp
   engine/test_generate.cpp
   engine/test_refit.cpp
+  engine/test_pins.cpp
   engine/test_properties.cpp)
 target_link_libraries(md_engine_tests PRIVATE md_bank md_midiexport Catch2::Catch2WithMain)
 target_include_directories(md_engine_tests PRIVATE ${CMAKE_SOURCE_DIR}/engine/src)

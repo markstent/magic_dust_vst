@@ -121,19 +121,13 @@ void checkMelody(const Idea& idea, Lines& lines)
     for (std::size_t i = 0; i < events.size(); ++i)
     {
         const NoteEvent& e = events.at(i);
-        if (i > 0)
+        if (i > 0 && !detail::melodyLeapOk(events.at(i - 1).pitch, e.pitch))
         {
-            const int leap = std::abs(e.pitch - events.at(i - 1).pitch);
-            if (leap > kMaxMelodyLeap && leap != 12)
-            {
-                lines.push_back(describe("melody", e) + " leaps " + std::to_string(leap) +
-                                " semitones");
-            }
+            lines.push_back(describe("melody", e) + " leaps " +
+                            std::to_string(std::abs(e.pitch - events.at(i - 1).pitch)) +
+                            " semitones");
         }
-        const PlacedChord* chord = detail::findChord(idea.progression, e.start);
-        if (e.start % kTicksPerQuarter == 0 && chord != nullptr &&
-            !contains(detail::allowedPitchClasses(detail::soundingPitchClasses(idea, *chord)),
-                      e.pitch % 12))
+        if (detail::melodyStrongBeatClash(idea, e))
         {
             lines.push_back(describe("melody", e) + " clashes with its chord on a strong beat");
         }
@@ -300,6 +294,25 @@ bool bassPitchOk(const Idea& idea, const NoteEvent& e, std::span<const int> appr
 {
     return e.pitch >= kBassLow && e.pitch <= kBassHigh && pitchInKeyOrChord(idea, e) &&
            !bassClashes(idea, e, approaches);
+}
+
+bool melodyLeapOk(int from, int to)
+{
+    const int leap = std::abs(to - from);
+    return leap <= kMaxMelodyLeap || leap == 12;
+}
+
+bool melodyStrongBeatClash(const Idea& idea, const NoteEvent& e)
+{
+    const PlacedChord* chord = findChord(idea.progression, e.start);
+    return e.start % kTicksPerQuarter == 0 && chord != nullptr &&
+           !contains(allowedPitchClasses(soundingPitchClasses(idea, *chord)), e.pitch % 12);
+}
+
+bool melodyPitchOk(const Idea& idea, const NoteEvent& e)
+{
+    return e.pitch >= kMelodyLow && e.pitch <= kMelodyHigh && pitchInKeyOrChord(idea, e) &&
+           !melodyStrongBeatClash(idea, e);
 }
 
 bool isMuddy(const Voicing& voicing)

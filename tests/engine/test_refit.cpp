@@ -231,3 +231,69 @@ TEST_CASE("a refit that removes an approach exemption takes a second pass", "[re
     }
     FAIL("no seed gives an approach note that clashes only by exemption");
 }
+
+namespace
+{
+Lane& melodyLane(Idea& idea) { return idea.lanes.at(static_cast<std::size_t>(LaneId::melody)); }
+
+// A's melody played under B's chords.
+Idea melodyUnderOtherChords(std::uint32_t a, std::uint32_t b)
+{
+    Idea idea = bassUnderOtherChords(Style::ukFunky, a, b);
+    melodyLane(idea) = generate(bank(), settingsFor(Style::ukFunky), a)
+                           .lanes.at(static_cast<std::size_t>(LaneId::melody));
+    return idea;
+}
+
+Idea firstMelodyMismatch()
+{
+    for (std::uint32_t a = 1; a < 60; ++a)
+    {
+        Idea idea = melodyUnderOtherChords(a, a + 100);
+        Idea fitted = idea;
+        if (refitMelody(fitted))
+        {
+            return idea;
+        }
+    }
+    FAIL("no seed puts a melody under chords it fails against");
+    return {};
+}
+} // namespace
+
+TEST_CASE("a valid melody is not refitted", "[refit]")
+{
+    Idea idea = generate(bank(), settingsFor(Style::ukFunky), 7);
+    const std::vector<NoteEvent> before = melodyLane(idea).events;
+    CHECK_FALSE(refitMelody(idea));
+    CHECK_FALSE(melodyLane(idea).refitted);
+    CHECK(melodyLane(idea).events == before);
+}
+
+TEST_CASE("a melody under foreign chords is refitted and valid with the same rhythm", "[refit]")
+{
+    Idea idea = firstMelodyMismatch();
+    const std::vector<NoteEvent> before = melodyLane(idea).events;
+
+    CHECK(refitMelody(idea));
+    CHECK(melodyLane(idea).refitted);
+    refitBass(idea);
+    CHECK(validate(idea).empty());
+    REQUIRE(melodyLane(idea).events.size() == before.size());
+    for (std::size_t i = 0; i < before.size(); ++i)
+    {
+        CHECK(melodyLane(idea).events.at(i).start == before.at(i).start);
+        CHECK(melodyLane(idea).events.at(i).length == before.at(i).length);
+        CHECK(melodyLane(idea).events.at(i).velocity == before.at(i).velocity);
+    }
+}
+
+TEST_CASE("the melody refit is deterministic and settles", "[refit]")
+{
+    Idea first = firstMelodyMismatch();
+    Idea second = first;
+    refitMelody(first);
+    refitMelody(second);
+    CHECK(melodyLane(first).events == melodyLane(second).events);
+    CHECK_FALSE(refitMelody(first));
+}

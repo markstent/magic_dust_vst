@@ -309,6 +309,144 @@ Lane makeLane(LaneId id, std::uint64_t seed, std::string pattern, std::vector<No
         .seed = seed,
     };
 }
+// The semitones from one key root to another, taken in -5 to +6.
+int keyShift(int from, int to) { return ((((to - from) % 12) + 12 + 5) % 12) - 5; }
+
+const StyleEntry* findEntry(const Bank& bank, const std::string& id)
+{
+    const auto it = std::ranges::find(bank.entries, id, &StyleEntry::id);
+    return it == bank.entries.end() ? nullptr : &*it;
+}
+
+const StyleEntry& pickEntry(const Bank& bank, Style style, const LaneSeeds& laneSeeds)
+{
+    std::vector<const StyleEntry*> entries;
+    for (const StyleEntry& entry : bank.entries)
+    {
+        if (inStyle(style, entry.family))
+        {
+            entries.push_back(&entry);
+        }
+    }
+    if (entries.empty())
+    {
+        throw std::invalid_argument("generate: the bank has no entry for this style");
+    }
+    Pcg32 entryRng(laneSeeds.chords, detail::kChordEntry);
+    std::vector<int> entryWeights;
+    for (const StyleEntry* entry : entries)
+    {
+        const int sum =
+            std::accumulate(entry->progressions.begin(), entry->progressions.end(), 0,
+                            [](int total, const Progression& p) { return total + p.weightMilli; });
+        entryWeights.push_back(
+            entry->confidence == Confidence::verified ? sum * kVerifiedWeightFactor : sum);
+    }
+    return *entries.at(entryRng.pickWeighted(entryWeights));
+}
+
+// The chosen entry's progression, key mode, flavour, voicings and the chord lane.
+void buildChords(Idea& idea, const StyleEntry& entry, const LaneSeeds& laneSeeds)
+{
+    const Settings& settings = idea.settings;
+    std::vector<int> progressionWeights;
+    std::ranges::transform(entry.progressions, std::back_inserter(progressionWeights),
+                           &Progression::weightMilli);
+    Pcg32 progressionRng(laneSeeds.chords, detail::kChordProgression);
+    const Progression& progression =
+        entry.progressions.at(progressionRng.pickWeighted(progressionWeights));
+
+    idea.key = {.root = settings.keyRoot, .mode = pickMode(entry, progression, settings.mood)};
+    idea.progression = detail::placeProgression(progression, settings.bars);
+    idea.borrowedFrom = borrowedFor(idea);
+    for (PlacedChord& chord : idea.progression)
+    {
+        chord.symbol =
+            detail::applyFlavour(idea.key, idea.borrowedFrom, chord.symbol, settings.flavour);
+    }
+    idea.borrowedFrom = borrowedFor(idea);
+    detail::voiceChords(entry, idea.key, idea.progression);
+
+    Pcg32 rhythmRng(laneSeeds.chords, detail::kChordCell);
+    const RhythmCell& chordCell = entry.chordRhythms.at(
+        rhythmRng.below(static_cast<std::uint32_t>(entry.chordRhythms.size())));
+    idea.lanes.at(0) = makeLane(LaneId::chords, laneSeeds.chords, chordCell.id,
+                                detail::chordEvents(idea.progression, chordCell, settings),
+                                detail::kChordHumanize, settings.energy);
+}
+
+bool voicingFits(const Voicing& voicing, int offset)
+{
+    Voicing moved = voicing;
+    for (int& pitch : moved)
+    {
+        pitch += offset;
+    }
+    return !moved.empty() && moved.front() >= kChordLow && moved.back() >= kChordTopLow &&
+           moved.back() <= kChordTopHigh && !detail::isMuddy(moved);
+}
+
+// The previous progression and chord lane moved by the key shift. The shift, or an octave off it,
+// is used when every voicing stays valid; otherwise the chords are revoiced, keeping the rhythm.
+void keepChords(Idea& idea, const Idea& previous, const StyleEntry& entry, int shift)
+{
+    idea.key = {.root = idea.settings.keyRoot, .mode = previous.key.mode};
+    idea.borrowedFrom = previous.borrowedFrom;
+    idea.progression = previous.progression;
+    const Lane& lane = previous.lanes.at(0);
+    const std::array<int, 3> offsets{shift, shift - 12, shift + 12};
+    const auto fits = [&](int offset)
+    {
+        return std::ranges::all_of(idea.progression, [offset](const PlacedChord& chord)
+                                   { return voicingFits(chord.voicing, offset); });
+    };
+    const auto* const offset = std::ranges::find_if(offsets, fits);
+    if (offset != offsets.end())
+    {
+        for (PlacedChord& chord : idea.progression)
+        {
+            std::ranges::for_each(chord.voicing, [offset](int& pitch) { pitch += *offset; });
+        }
+        idea.lanes.at(0) = lane;
+        std::ranges::for_each(idea.lanes.at(0).events,
+                              [offset](NoteEvent& e) { e.pitch += *offset; });
+        return;
+    }
+    detail::voiceChords(entry, idea.key, idea.progression);
+    const auto cell = std::ranges::find(entry.chordRhythms, lane.pattern, &RhythmCell::id);
+    idea.lanes.at(0) = makeLane(
+        LaneId::chords, lane.seed, lane.pattern,
+        detail::chordEvents(idea.progression,
+                            cell == entry.chordRhythms.end() ? entry.chordRhythms.front() : *cell,
+                            idea.settings),
+        detail::kChordHumanize, idea.settings.energy);
+}
+
+// A previous lane moved by the key shift, each note an octave back into range where it left it.
+struct PitchRange
+{
+    int low;
+    int high;
+};
+
+Lane keptLane(const Lane& previous, int shift, PitchRange range)
+{
+    Lane lane = previous;
+    lane.muted = false;
+    for (NoteEvent& e : lane.events)
+    {
+        e.pitch += shift;
+        while (e.pitch < range.low)
+        {
+            e.pitch += 12;
+        }
+        while (e.pitch > range.high)
+        {
+            e.pitch -= 12;
+        }
+    }
+    return lane;
+}
 } // namespace
 
 LaneSeeds defaultLaneSeeds(std::uint32_t ideaSeed)
@@ -328,72 +466,75 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed)
 Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
               const LaneSeeds& laneSeeds)
 {
-    checkSettings(settings, seed);
-    std::vector<const StyleEntry*> entries;
-    for (const StyleEntry& entry : bank.entries)
-    {
-        if (inStyle(settings.style, entry.family))
-        {
-            entries.push_back(&entry);
-        }
-    }
-    if (entries.empty())
-    {
-        throw std::invalid_argument("generate: the bank has no entry for this style");
-    }
+    return generate(bank, settings, seed, laneSeeds, Idea{}, Pins{});
+}
 
-    Pcg32 entryRng(laneSeeds.chords, detail::kChordEntry);
-    std::vector<int> entryWeights;
-    for (const StyleEntry* entry : entries)
+Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
+              const LaneSeeds& laneSeeds, const Idea& previous, Pins pins)
+{
+    checkSettings(settings, seed);
+    if (previous.settings.bars != settings.bars)
     {
-        const int sum =
-            std::accumulate(entry->progressions.begin(), entry->progressions.end(), 0,
-                            [](int total, const Progression& p) { return total + p.weightMilli; });
-        entryWeights.push_back(
-            entry->confidence == Confidence::verified ? sum * kVerifiedWeightFactor : sum);
+        pins = {};
     }
-    const StyleEntry& entry = *entries.at(entryRng.pickWeighted(entryWeights));
+    const StyleEntry* keptEntry = pins.chords ? findEntry(bank, previous.entryId) : nullptr;
+    // A bank without the previous entry cannot keep its chords.
+    pins.chords = keptEntry != nullptr;
+    const bool keepAny = pins.chords || pins.bass || pins.melody;
+    const bool keepAll = pins.chords && pins.bass && pins.melody;
+    const int shift = keyShift(previous.key.root, settings.keyRoot);
+    const StyleEntry& entry = pins.chords ? *keptEntry : pickEntry(bank, settings.style, laneSeeds);
     checkEntry(entry);
-    std::vector<int> progressionWeights;
-    std::ranges::transform(entry.progressions, std::back_inserter(progressionWeights),
-                           &Progression::weightMilli);
-    Pcg32 progressionRng(laneSeeds.chords, detail::kChordProgression);
-    const Progression& progression =
-        entry.progressions.at(progressionRng.pickWeighted(progressionWeights));
 
     Idea idea{};
-    idea.seed = seed;
+    idea.seed = keepAll ? previous.seed : seed;
     idea.settings = settings;
-    idea.key = {.root = settings.keyRoot, .mode = pickMode(entry, progression, settings.mood)};
     idea.bankVersion = bank.version;
     idea.entryId = entry.id;
     idea.parallel = entry.parallel;
-    idea.progression = detail::placeProgression(progression, settings.bars);
-    idea.borrowedFrom = borrowedFor(idea);
-    for (PlacedChord& chord : idea.progression)
+    if (pins.chords)
     {
-        chord.symbol =
-            detail::applyFlavour(idea.key, idea.borrowedFrom, chord.symbol, settings.flavour);
+        keepChords(idea, previous, entry, shift);
     }
-    idea.borrowedFrom = borrowedFor(idea);
-    detail::voiceChords(entry, idea.key, idea.progression);
+    else
+    {
+        buildChords(idea, entry, laneSeeds);
+    }
 
-    Pcg32 rhythmRng(laneSeeds.chords, detail::kChordCell);
-    const RhythmCell& chordCell = entry.chordRhythms.at(
-        rhythmRng.below(static_cast<std::uint32_t>(entry.chordRhythms.size())));
     Pcg32 bassPatternRng(laneSeeds.bass, detail::kBassPattern);
     const BassPattern bassPattern = detail::bassPatternFor(entry, settings.energy, bassPatternRng);
-    idea.lanes.at(0) = makeLane(LaneId::chords, laneSeeds.chords, chordCell.id,
-                                detail::chordEvents(idea.progression, chordCell, settings),
-                                detail::kChordHumanize, settings.energy);
-    idea.lanes.at(1) =
-        makeLane(LaneId::bass, laneSeeds.bass, std::string(bassPatternName(bassPattern)),
-                 detail::bassEvents(idea, bassPattern, laneSeeds.bass), detail::kBassHumanize,
-                 settings.energy);
-    idea.lanes.at(2) = makeLane(LaneId::melody, laneSeeds.melody,
-                                std::string(melodyModeName(entry.melodyModes.front())),
-                                detail::melodyEvents(entry, idea, laneSeeds.melody),
-                                detail::kMelodyHumanize, settings.energy);
+    if (pins.bass)
+    {
+        idea.lanes.at(1) =
+            keptLane(previous.lanes.at(1), shift, {.low = kBassLow, .high = kBassHigh});
+        refitBass(idea);
+    }
+    else
+    {
+        idea.lanes.at(1) =
+            makeLane(LaneId::bass, laneSeeds.bass, std::string(bassPatternName(bassPattern)),
+                     detail::bassEvents(idea, bassPattern, laneSeeds.bass), detail::kBassHumanize,
+                     settings.energy);
+    }
+    if (pins.melody)
+    {
+        idea.lanes.at(2) =
+            keptLane(previous.lanes.at(2), shift, {.low = kMelodyLow, .high = kMelodyHigh});
+        refitMelody(idea);
+    }
+    else
+    {
+        idea.lanes.at(2) = makeLane(LaneId::melody, laneSeeds.melody,
+                                    std::string(melodyModeName(entry.melodyModes.front())),
+                                    detail::melodyEvents(entry, idea, laneSeeds.melody),
+                                    detail::kMelodyHumanize, settings.energy);
+    }
+    if (keepAny)
+    {
+        idea.lanes.at(0).pinned = pins.chords;
+        idea.lanes.at(1).pinned = pins.bass;
+        idea.lanes.at(2).pinned = pins.melody;
+    }
 
     const auto violations = validate(idea);
     if (!violations.empty())
