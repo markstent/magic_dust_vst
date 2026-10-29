@@ -219,8 +219,9 @@ constexpr int kFillTries = 8;
 
 // Replaces steps 8 to 15 of the last bar with 3 or 4 sixteenths on kFillSteps that walk scale tones
 // toward the first bass note, leaving step 15 to the approach note. A draw whose notes break the
-// pitch rules is redrawn, up to kFillTries times, then the bar is left as it is. Events must be
-// sorted by start; the caller spares sustained and pedal.
+// pitch rules, or whose last note repeats the approach note's pitch, is redrawn, up to kFillTries
+// times, then the bar is left as it is. Events must be sorted by start and already hold the
+// approach notes; the caller spares sustained and pedal.
 void addFill(const Idea& idea, std::uint64_t bassSeed, std::vector<NoteEvent>& events)
 {
     const int lastBar = (idea.settings.bars - 1) * kTicksPerBar;
@@ -235,6 +236,12 @@ void addFill(const Idea& idea, std::uint64_t bassSeed, std::vector<NoteEvent>& e
     const std::vector<int> scale = scalePitchClasses(idea.key);
     const int swing = swingPermille(idea.settings.groove);
     const int target = events.front().pitch;
+    const int seam = swung(lastBar + (15 * kTicksPerSixteenth), swing);
+    const auto targets = approachTargets(idea, events);
+    const bool approaching =
+        std::ranges::any_of(targets, [seam](const ApproachTarget& t) { return t.tick == seam; });
+    const auto approach = std::ranges::find(events, seam, &NoteEvent::start);
+    const int approachPitch = approaching && approach != events.end() ? approach->pitch : -1;
     for (int attempt = 0; attempt < kFillTries; ++attempt)
     {
         std::vector<int> steps(kFillSteps.begin(), kFillSteps.end());
@@ -255,10 +262,13 @@ void addFill(const Idea& idea, std::uint64_t bassSeed, std::vector<NoteEvent>& e
                          .length = kTicksPerSixteenth,
                          .velocity = 100});
         }
-        if (std::ranges::all_of(fill, [&](const NoteEvent& e) { return bassPitchOk(idea, e, {}); }))
+        if (fill.back().pitch != approachPitch &&
+            std::ranges::all_of(fill, [&](const NoteEvent& e) { return bassPitchOk(idea, e, {}); }))
         {
-            std::erase_if(events, [&](const NoteEvent& e) { return e.start >= fillStart; });
+            std::erase_if(events, [&](const NoteEvent& e)
+                          { return e.start >= fillStart && (!approaching || e.start != seam); });
             events.insert(events.end(), fill.begin(), fill.end());
+            std::ranges::stable_sort(events, {}, &NoteEvent::start);
             return;
         }
     }
@@ -553,15 +563,14 @@ BassPattern bassPatternFor(const StyleEntry& entry, int energy, Pcg32& rng)
 std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern, std::uint64_t bassSeed)
 {
     std::vector<NoteEvent> events = patternEvents(idea, pattern, bassSeed);
-    if (idea.settings.energy > kHighEnergy && pattern != BassPattern::sustained &&
-        pattern != BassPattern::pedal)
-    {
-        addFill(idea, bassSeed, events);
-    }
     if (idea.settings.energy > 50 && pattern != BassPattern::sustained &&
         pattern != BassPattern::pedal)
     {
         addApproachNotes(idea, bassSeed, events);
+        if (idea.settings.energy > kHighEnergy)
+        {
+            addFill(idea, bassSeed, events);
+        }
     }
     clampMonophonic(events, idea.settings.bars * kTicksPerBar);
     return events;

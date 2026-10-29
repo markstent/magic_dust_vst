@@ -447,11 +447,14 @@ void keepChords(Idea& idea, const Idea& previous, const StyleEntry& entry, int s
     }
     detail::voiceChords(entry, idea.key, idea.progression);
     const auto cell = std::ranges::find(entry.chordRhythms, lane.pattern, &RhythmCell::id);
+    // The pinned rhythm, turnaround and breath stay as they were whatever the energy now is.
+    Settings rhythmSettings = idea.settings;
+    rhythmSettings.energy = previous.settings.energy;
     idea.lanes.at(0) = makeLane(
         LaneId::chords, lane.seed, lane.pattern,
         detail::chordEvents(idea.progression,
                             cell == entry.chordRhythms.end() ? entry.chordRhythms.front() : *cell,
-                            idea.settings, entry, lane.seed),
+                            rhythmSettings, entry, lane.seed),
         detail::kChordHumanize, idea.settings.energy);
 }
 

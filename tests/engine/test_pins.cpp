@@ -333,6 +333,41 @@ TEST_CASE("pinned chords revoice when no shift keeps the voicings valid", "[pins
     CHECK(revoiced > 0);
 }
 
+TEST_CASE("pinned chords that revoice keep their turnaround and breath at a lower energy", "[pins]")
+{
+    int revoiced = 0;
+    for (std::uint32_t seed = 1; seed <= kSeeds; ++seed)
+    {
+        Settings settings;
+        settings.keyRoot = 9;
+        settings.energy = 80;
+        Idea previous = first(settings, seed);
+        if (previous.progression.size() < 2)
+        {
+            continue;
+        }
+        const auto moveTop = [](PlacedChord& chord, int top)
+        {
+            const int delta = top - chord.voicing.back();
+            for (int& pitch : chord.voicing)
+            {
+                pitch += delta;
+            }
+        };
+        moveTop(previous.progression.front(), kChordTopLow);
+        moveTop(previous.progression.back(), kChordTopHigh);
+        settings.keyRoot = 0;
+        settings.energy = 20;
+        const Idea result = next(settings, seed + kNextSeedOffset, previous, {.chords = true});
+        CHECK(onsets(previous) == onsets(result));
+        if (result.progression.front().voicing.back() != kChordTopLow + 3)
+        {
+            ++revoiced;
+        }
+    }
+    CHECK(revoiced > 0);
+}
+
 TEST_CASE("pinned chords keep their rhythm across a key change", "[pins]")
 {
     for (std::uint32_t seed = 1; seed <= kSeeds; ++seed)

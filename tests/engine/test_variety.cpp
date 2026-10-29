@@ -272,6 +272,9 @@ TEST_CASE("melody: the answer phrase uses another of the entry's cells over the 
             REQUIRE(midEvents == lowEvents);
             continue;
         }
+        // Pitches after an answer block (bars 9 to 14 of a 16-bar idea, which only a loaded project
+        // has) may drift, as the pitch walk chains from the previous note; only the notes before
+        // the first answer are compared.
         const int firstAnswer = answerBars(s.bars).front();
         REQUIRE(starts(midEvents, 0, firstAnswer - 1) == starts(lowEvents, 0, firstAnswer - 1));
         for (const NoteEvent& e : midEvents)
@@ -383,12 +386,15 @@ TEST_CASE("bass: the fill obeys its steps, spares sustained and pedal, and only 
                                  [&](const NoteEvent& e) { return e.start >= window; });
             const int approach = detail::swung(lastBar + (15 * kTicksPerSixteenth), swing);
             REQUIRE(fill.back().start == approach);
+            const int approachPitch = fill.back().pitch;
             fill.pop_back();
+            REQUIRE(fill.back().pitch != approachPitch);
             REQUIRE(fill.size() >= 3);
             REQUIRE(fill.size() <= 4);
             for (const NoteEvent& e : fill)
             {
                 REQUIRE(e.length <= kTicksPerSixteenth);
+                REQUIRE(e.length >= kTicksPerSixteenth / 2);
                 REQUIRE(std::ranges::any_of(kFillSteps,
                                             [&](int step)
                                             {

@@ -195,7 +195,9 @@ std::vector<int> blockOnsets(const Idea& idea, int block)
 bool inFill(const Idea& idea, const NoteEvent& e)
 {
     const int start = ((idea.settings.bars - 1) * kTicksPerBar) + (8 * kTicksPerSixteenth);
-    return idea.settings.energy > 60 && e.start >= start;
+    const std::string& pattern = idea.lanes.at(1).pattern;
+    return idea.settings.energy > 60 && pattern != "sustained" && pattern != "pedal" &&
+           e.start >= start;
 }
 
 Bank bankWith(const std::function<void(StyleEntry&)>& edit)
@@ -421,14 +423,33 @@ TEST_CASE("melody blocks follow the entry's rhythm cells", "[generate]")
                                [permille](const RhythmCell& cell)
                                { return cellOnsets(cell, permille); });
         const int blocks = idea.settings.bars / 2;
-        // Above energy 60 the breath may drop the last note of block 1 and 5.
+        // Above energy 60 the breath may drop the last note of bar 4 of each 8, in blocks 1 and 5.
         const auto breathes = [&](int block)
         { return idea.settings.energy > 60 && blocks > 2 && block % 4 == 1; };
+        const auto withoutBreathNote = [](std::vector<int> onsets)
+        {
+            const auto last = std::ranges::find_if(onsets.rbegin(), onsets.rend(),
+                                                   [](int onset) { return onset >= kTicksPerBar; });
+            if (last != onsets.rend())
+            {
+                onsets.erase(std::prev(last.base()));
+            }
+            return onsets;
+        };
         for (int block = 0; block < blocks; ++block)
         {
-            if (!breathes(block))
+            const auto actual = blockOnsets(idea, block);
+            if (breathes(block))
             {
-                REQUIRE(std::ranges::find(cells, blockOnsets(idea, block)) != cells.end());
+                // A cell, or a cell less the last note of its bar 2 (bar 4 of the idea's 8).
+                const bool dropped =
+                    std::ranges::any_of(cells, [&](const std::vector<int>& cell)
+                                        { return withoutBreathNote(cell) == actual; });
+                REQUIRE((dropped || std::ranges::find(cells, actual) != cells.end()));
+            }
+            else
+            {
+                REQUIRE(std::ranges::find(cells, actual) != cells.end());
             }
         }
         // Phrase form A A A B, repeated every 4 blocks; B is the answer phrase from energy 30.
@@ -436,6 +457,9 @@ TEST_CASE("melody blocks follow the entry's rhythm cells", "[generate]")
         {
             if (breathes(block))
             {
+                const auto actual = blockOnsets(idea, block);
+                REQUIRE((actual == blockOnsets(idea, 0) ||
+                         actual == withoutBreathNote(blockOnsets(idea, 0))));
                 continue;
             }
             const bool phraseEnd = block % 4 == 3;
@@ -1304,15 +1328,6 @@ std::vector<std::vector<int>> spanRhythms(const Idea& idea)
             spans.at(static_cast<std::size_t>(e.start / kSpan)).push_back(e.start % kSpan);
         }
     }
-    if (idea.settings.energy > 60)
-    {
-        // The fill replaces the last bar's second half, so leave that half out of every span.
-        for (auto& span : spans)
-        {
-            std::erase_if(span, [](int offset)
-                          { return offset >= kTicksPerBar + (8 * kTicksPerSixteenth); });
-        }
-    }
     return spans;
 }
 } // namespace
@@ -1343,9 +1358,23 @@ TEST_CASE("the riff validates and repeats one 2-bar rhythm of 4 to 6 onsets", "[
                         }
                     }
                 }
-                for (const auto& span : spans)
+                // Above energy 60 the fill replaces the second half of the last bar, so that half
+                // of the last span is left out of its comparison.
+                const auto beforeFill = [&](std::vector<int> span)
                 {
-                    REQUIRE(span == spans.front());
+                    if (idea.settings.energy > 60)
+                    {
+                        std::erase_if(
+                            span, [](int offset)
+                            { return offset >= kTicksPerBar + (8 * kTicksPerSixteenth); });
+                    }
+                    return span;
+                };
+                for (std::size_t k = 0; k < spans.size(); ++k)
+                {
+                    const bool last = k + 1 == spans.size();
+                    REQUIRE((last ? beforeFill(spans.at(k)) == beforeFill(spans.front())
+                                  : spans.at(k) == spans.front()));
                 }
                 const auto total = [&](int from)
                 {
@@ -1356,7 +1385,8 @@ TEST_CASE("the riff validates and repeats one 2-bar rhythm of 4 to 6 onsets", "[
                 for (int from = 0; from < ideaLengthTicks(idea); from += 2 * kTicksPerBar)
                 {
                     REQUIRE(total(from) >= 4);
-                    REQUIRE(total(from) <= 6 + (high ? 6 : 0));
+                    const bool last = from + (2 * kTicksPerBar) == ideaLengthTicks(idea);
+                    REQUIRE(total(from) <= 6 + (high ? (last ? 6 : 2) : 0));
                 }
                 if (!high)
                 {

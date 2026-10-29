@@ -68,7 +68,7 @@ bool hasAnswer(const StyleEntry& entry, const Idea& idea)
     return idea.settings.energy >= kMidEnergy && entry.melodyRhythms.size() > 1;
 }
 
-// True for a step in the last block of a 4-bar phrase.
+// True for a step in the last block of an 8-bar phrase (bars 7 and 8).
 bool inAnswerBlock(int step)
 {
     return (step / kBlockSteps) % kBlocksPerPhrase == kBlocksPerPhrase - 1;
@@ -82,8 +82,8 @@ std::vector<Onset> rhythm(const StyleEntry& entry, const Idea& idea, std::uint64
     const std::size_t a = pickCell(entry.melodyRhythms, target, {}, rngA);
     const std::size_t b =
         entry.melodyRhythms.size() > 1 ? pickCell(entry.melodyRhythms, target, {&a, 1}, rngB) : a;
-    // From kMidEnergy up the answer phrase, the last 2 bars of each 4-bar phrase in an idea of 8
-    // bars or more, uses a cell other than A and B when the entry has a third, else B.
+    // From kMidEnergy up the answer phrase, bars 7 and 8 of each 8-bar phrase, uses a cell other
+    // than A and B when the entry has a third, else B.
     const std::array<std::size_t, 2> used = {a, b};
     Pcg32 rngAnswer(seed, kMelodyAnswerCell);
     const std::size_t answer =
