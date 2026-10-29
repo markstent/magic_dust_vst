@@ -36,6 +36,7 @@ It comes as an Audio Unit (AU) and a VST3 plugin, and it is open source under AG
 - A PIN key for each part: pin the chords, bass or melody you love, and sprinkle and the knobs rewrite the rest.
 - An octave rocker for each part, from 2 octaves down to 2 up, for the built-in sound, MIDI out and dragged MIDI.
 - Play, stop and the spacebar, to hear the idea with the built-in house piano, sub bass and synth lead.
+- Ideas vary at the end of each phrase, with accents, ghost notes, a lazy timing feel and varied chord lengths and voicings, more as energy goes up.
 - Drag a single chord, or a whole lane, into your daw as a MIDI clip.
 - MIDI out on channels 1 to 3: chords on 1, bass on 2, melody on 3.
 - Sender mode: play a part through your own synth, even in Ableton Live, which merges plugin MIDI to one channel.

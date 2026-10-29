@@ -322,3 +322,28 @@ The old and new versions are in the `golden-review-bank` folder in the `magic-du
 `changed.txt` lists each changed case with its style, energy and the entry it now picks.
 Drag the same case from both folders into your daw and listen to the before, then the after.
 Say which after files you are happy with and which sound worse, and why.
+
+## Variety in your daw
+
+Ideas now have more variety: phrase endings, accents, a lazy timing feel, ghost notes, varied note lengths and inverted chords.
+The goal is variety that does not sound stupid or robotic.
+
+### Listening to A and B
+
+1. Open the `variety-ab` folder in the `magic-dust` folder on your Desktop.
+   It has 80 files, which are 40 pairs.
+2. Each pair is the same idea, with the same style, seed and energy.
+   The file ending `-A.mid` is the idea from before the variety work.
+   The file ending `-B.mid` is the idea now.
+3. The names look like `soulful-s2-e75-B.mid`, with the style, the seed and the energy.
+   Each style has 4 seeds at energy 25 and the same 4 seeds at energy 75.
+   Energy 25 should sound close to A, with only the accents and the timing feel changed.
+   Energy 75 has all the changes.
+4. Drag `-A.mid` and then `-B.mid` of the same pair into your daw, on two clips side by side.
+   Each file holds chords, bass and melody on separate tracks.
+5. Put a chord sound, a bass sound and a melody sound on the tracks, set the tempo to 124 and press play.
+6. Rate B against A as better, same or worse.
+7. Write down anything that "sounds stupid", with the file name.
+   That means a note that sounds like a mistake, a fill that is too busy, a ghost note that is too loud or a chord that sounds wrong.
+8. Say if anything feels too loose or too late, because the chords and melody now sit slightly behind the beat.
+   The bass stays exactly on the beat.
