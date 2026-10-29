@@ -296,3 +296,29 @@ The old and new versions are in the `golden-review-phase-3` folder in the `magic
 `changed.txt` lists each changed case with its style, energy and bass pattern.
 Drag the same case from both folders into your daw and listen to the before, then the after.
 Say which after files you are happy with and which sound worse, and why.
+
+## New patterns in your daw
+
+The bank now has a third starter entry in every family, and some of them are in brighter modes.
+
+### Listening to the new patterns
+
+1. Open the `new-patterns-review` folder in the `magic-dust` folder on your Desktop.
+   It has a folder for each family: mk dub, soulful, bassline, festival and ny groove.
+2. Each folder has 10 ideas from the new entry of that family, all at energy 60.
+   Half are at mood 20 and half are at mood 80.
+   The files are named like `soulful-s5-m80-ionian.mid`, with the seed, the mood and the mode.
+3. Drag the files you want to hear into your daw, one per clip.
+   Each file holds chords, bass and melody on separate tracks.
+4. Put a bass sound on the bass track, a chord sound on the chords track and a melody sound on the melody track.
+5. Rate every idea keep, close or skip.
+6. Say which ones sound brighter than the older entries, and which ones still sound alike.
+   Write down the misses with the file name, so the entry can be fixed.
+
+### The changed reference ideas
+
+The new entries changed 40 of the 50 reference ideas, because the seeds now pick different entries.
+The old and new versions are in the `golden-review-bank` folder in the `magic-dust` folder on your Desktop, in `before` and `after`.
+`changed.txt` lists each changed case with its style, energy and the entry it now picks.
+Drag the same case from both folders into your daw and listen to the before, then the after.
+Say which after files you are happy with and which sound worse, and why.
