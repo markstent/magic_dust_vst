@@ -322,7 +322,7 @@ TEST_CASE("chordSlotTrack clips a note that runs past the chord")
     idea.lanes.at(0).events = {note(57, 3840, 20000, 90)};
     const MidiTrack track = chordSlotTrack(idea, 0);
     REQUIRE(track.notes.size() == 1);
-    CHECK(track.notes.at(0) == note(57, 3848, 3832, 90)); // the default groove lays back 8 ticks
+    CHECK(track.notes.at(0) == note(57, 3856, 3824, 90)); // the default groove lays back 16 ticks
 }
 
 TEST_CASE("dragFileName names each drag")
@@ -471,8 +471,8 @@ constexpr std::array<Groove, 4> kGrooves = {Groove::straight, Groove::swing54, G
 
 TEST_CASE("the feel is exact for chords and bass and bounded for the melody")
 {
-    constexpr std::array<int, 4> layBack = {2, 5, 8, 10};
-    constexpr std::array<int, 4> melodyBound = {2, 4, 5, 7};
+    constexpr std::array<int, 4> layBack = {4, 10, 16, 20};
+    constexpr std::array<int, 4> melodyBound = {4, 7, 10, 14};
     for (std::size_t g = 0; g < kGrooves.size(); ++g)
     {
         const Idea idea = feelIdea(kGrooves.at(g), 4242);
@@ -537,7 +537,20 @@ TEST_CASE("a note that would cross the idea end is shortened and the idea stays 
     idea.lanes.at(0).events = {note(57, end - 960, 960, 90)};
     const auto played = performedNotes(idea, LaneId::chords);
     REQUIRE(played.size() == 1);
-    CHECK(played.at(0) == note(57, end - 960 + 2, 958, 90));
+    CHECK(played.at(0) == note(57, end - 960 + 4, 956, 90));
     const Idea fresh = feelIdea(Groove::heavy62, 4242);
     CHECK(validate(fresh).empty());
+}
+
+TEST_CASE("a negative melody offset on a note at tick 0 is clamped to tick 0")
+{
+    Idea idea = feelIdea(Groove::heavy62, 4242);
+    idea.lanes.at(2).events = {note(69, 0, 240, 80)};
+    while (feelOffsetTicks(idea, LaneId::melody, 0) >= 0)
+    {
+        ++idea.lanes.at(2).seed;
+    }
+    const auto played = performedNotes(idea, LaneId::melody);
+    REQUIRE(played.size() == 1);
+    CHECK(played.at(0) == note(69, 0, 240, 80));
 }

@@ -197,8 +197,8 @@ TEST_CASE("dragged lanes keep the bass on the grid and chords and melody within 
     setSeed(processor, kFourChordSeed);
     REQUIRE(processor.idea() != nullptr);
     const auto& idea = *processor.idea();
-    constexpr int kMelodyBound = 7; // the widest melody offset, at groove heavy62
-    constexpr int kChordBound = 10; // the widest chord lay-back, at groove heavy62
+    constexpr int kMelodyBound = 14; // the widest melody offset, at groove heavy62
+    constexpr int kChordBound = 20;  // the widest chord lay-back, at groove heavy62
 
     for (const md::LaneId lane : {md::LaneId::chords, md::LaneId::bass, md::LaneId::melody})
     {

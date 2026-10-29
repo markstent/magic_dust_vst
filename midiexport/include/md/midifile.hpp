@@ -28,9 +28,9 @@ std::vector<std::uint8_t> writeMidiFile(std::span<const MidiTrack> tracks, int t
 int ideaLengthTicks(const Idea& idea);
 
 // The timing feel of one note, in ticks: a performance layer that never changes the idea's events.
-//   chords: a lay-back of 2, 5, 8 or 10 for groove straight, 54, 58 or 62
+//   chords: a lay-back of 4, 10, 16 or 20 ticks for groove straight, 54, 58 or 62
 //   bass:   0, always locked to the kick
-//   melody: a seeded offset of +-(2 + groove * 1.5) rounded (lane seed, slot 7, one draw per note)
+//   melody: a seeded offset of +-(4 + groove * 3) ticks (lane seed, slot 7, one draw per note)
 int feelOffsetTicks(const Idea& idea, LaneId lane, std::size_t noteIndex);
 // The lane's notes as they play, with the feel applied. Never before tick 0, a melody note ends
 // before the next one starts, and a note that would cross the idea's end is shortened.

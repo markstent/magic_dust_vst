@@ -20,7 +20,8 @@ using Byte = std::uint8_t;
 
 constexpr std::size_t kMaxTracks = 254; // format 1 adds a conductor; the count is one byte
 constexpr unsigned kMicrosPerMinute = 60'000'000U;
-constexpr std::array<int, 4> kChordLayBack = {2, 5, 8, 10}; // by groove
+// In ms (1 tick = 0.5 ms): chords lay back 2, 5, 8 or 10 by groove, melody +-(2 + groove * 1.5).
+constexpr std::array<int, 4> kChordLayBack = {4, 10, 16, 20}; // ticks, by groove
 constexpr std::uint32_t kMelodyFeelSlot = 7; // the melody lane's timing feel, see internal.hpp
 
 Byte lo(unsigned v) { return static_cast<Byte>(v & 0xFFU); }
@@ -220,8 +221,7 @@ int feelOffsetTicks(const Idea& idea, LaneId lane, std::size_t noteIndex)
         return kChordLayBack.at(groove);
     case LaneId::melody:
     {
-        // 2 + groove * 1.5, rounded half up
-        const auto bound = static_cast<std::uint32_t>((5 + (3 * groove)) / 2);
+        const auto bound = static_cast<std::uint32_t>(4 + (3 * groove)); // 2 * (2 + groove * 1.5)
         Pcg32 rng(idea.lanes.at(2).seed, kMelodyFeelSlot);
         std::uint32_t draw = 0;
         for (std::size_t i = 0; i <= noteIndex; ++i)

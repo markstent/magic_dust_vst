@@ -178,13 +178,13 @@ TEST_CASE("makePattern sorts offs first and skips muted lanes")
     const auto p = md::makePattern(idea);
     CHECK(p.lengthTicks == 4 * 3840);
     REQUIRE(p.events.size() == 4);
-    // The default groove lays the chords back 8 ticks; the bass stays on the grid.
+    // The default groove lays the chords back 16 ticks; the bass stays on the grid.
     CHECK(p.events.at(0).on);
-    CHECK(p.events.at(0).tick == 8);
+    CHECK(p.events.at(0).tick == 16);
     CHECK(p.events.at(1).tick == 960);
     CHECK(p.events.at(1).on);
     CHECK(p.events.at(1).channel == 1);
-    CHECK(p.events.at(2).tick == 968);
+    CHECK(p.events.at(2).tick == 976);
     CHECK_FALSE(p.events.at(2).on);
     CHECK(p.events.at(3).tick == 1440);
     CHECK_FALSE(p.events.at(3).on);
