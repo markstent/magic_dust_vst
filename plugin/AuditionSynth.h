@@ -1,11 +1,11 @@
 #pragma once
 
-#include <algorithm>
 #include <array>
-#include <atomic>
 #include <cstdint>
 
 #include <juce_audio_basics/juce_audio_basics.h>
+
+#include "plugin/Instrument.h"
 
 namespace md
 {
@@ -25,13 +25,6 @@ struct VoiceRecipe
     int voices;
 };
 
-inline constexpr VoiceRecipe kOrgan{.partials = {1.0F, 0.5F, 0.25F, 0.125F, 0.0F, 0.0F, 0.0F, 0.0F},
-                                    .attackMs = 5.0F,
-                                    .decayMs = 0.0F,
-                                    .releaseMs = 60.0F,
-                                    .gain = 0.2F,
-                                    .voices = 8};
-
 inline constexpr VoiceRecipe kSubBass{.partials = {1.0F, 0.15F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F},
                                       .attackMs = 3.0F,
                                       .decayMs = 0.0F,
@@ -47,31 +40,20 @@ inline constexpr VoiceRecipe kPluck{.partials = {1.0F, 0.5F, 0.33F, 0.25F, 0.2F,
                                     .gain = 0.18F,
                                     .voices = 4};
 
-static_assert(kOrgan.voices >= 1 && kOrgan.voices <= kMaxAuditionVoices);
 static_assert(kSubBass.voices >= 1 && kSubBass.voices <= kMaxAuditionVoices);
 static_assert(kPluck.voices >= 1 && kPluck.voices <= kMaxAuditionVoices);
 
-// One built-in sound. Notes take effect at the next render call. noteOn, noteOff and render never
-// allocate after prepare.
-class AuditionSynth
+// A small additive synth driven by a recipe.
+class AuditionSynth final : public Instrument
 {
   public:
     explicit AuditionSynth(const VoiceRecipe& recipe);
-    AuditionSynth(const AuditionSynth&) = delete;
-    AuditionSynth& operator=(const AuditionSynth&) = delete;
-    AuditionSynth(AuditionSynth&&) = delete;
-    AuditionSynth& operator=(AuditionSynth&&) = delete;
-    ~AuditionSynth() = default;
 
-    void prepare(double sampleRate);
-    // A velocity of 0 is a note-off.
-    void noteOn(int note, int velocity);
-    void noteOff(int note);
-    void allNotesOff();
-    // Adds into the buffer; start and num must lie within it.
-    void render(juce::AudioBuffer<float>& buffer, int start, int num);
-    // The level is the volume times a lane level, each up to 2.0 (+6 dB).
-    void setLevel(float level) { level_.store(std::clamp(level, 0.0F, 4.0F)); }
+    void prepare(double sampleRate) override;
+    void noteOn(int note, int velocity) override;
+    void noteOff(int note) override;
+    void allNotesOff() override;
+    void render(juce::AudioBuffer<float>& buffer, int start, int num) override;
 
   private:
     struct Voice
@@ -94,7 +76,6 @@ class AuditionSynth
                      float amp) const;
 
     VoiceRecipe recipe_;
-    std::atomic<float> level_{0.8F};
     double sampleRate_ = 48000.0;
     std::uint64_t noteCounter_ = 0;
     std::array<Voice, kMaxAuditionVoices> voices_{};

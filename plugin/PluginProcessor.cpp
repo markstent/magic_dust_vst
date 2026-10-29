@@ -425,19 +425,19 @@ void MagicDustProcessor::prepareToPlay(double sampleRate, int /*samplesPerBlock*
     auditionRequest_.store(0);
     auditionPacked_ = 0;
     releasePending_.store(true);
-    organ_.prepare(sampleRate);
+    piano_.prepare(sampleRate);
     subBass_.prepare(sampleRate);
     pluck_.prepare(sampleRate);
 }
 
 void MagicDustProcessor::releaseResources() { releasePending_.store(true); }
 
-md::AuditionSynth& MagicDustProcessor::voiceFor(int channel)
+md::Instrument& MagicDustProcessor::voiceFor(int channel)
 {
     switch (channel)
     {
     case 0:
-        return organ_;
+        return piano_;
     case 1:
         return subBass_;
     default:
@@ -476,7 +476,7 @@ void MagicDustProcessor::releaseAllNotes(juce::MidiBuffer& midi)
     // A held note went out at its lane's octave, which cannot have changed since.
     sounding_.releaseAll([this, &midi](std::uint8_t channel, std::uint8_t note)
                          { addMidi(midi, false, channel, shiftedNote(channel, note), 0, 0); });
-    organ_.allNotesOff();
+    piano_.allNotesOff();
     subBass_.allNotesOff();
     pluck_.allNotesOff();
 }
@@ -495,12 +495,12 @@ void MagicDustProcessor::startAudition(double bpm)
     endAudition();
     auditionPacked_ = request;
     auditionSamplesLeft_ = static_cast<int>(60.0 / bpm * sampleRate_);
-    forEachAuditionNote(request, [this](int note) { organ_.noteOn(note, kAuditionVelocity); });
+    forEachAuditionNote(request, [this](int note) { piano_.noteOn(note, kAuditionVelocity); });
 }
 
 void MagicDustProcessor::endAudition()
 {
-    forEachAuditionNote(auditionPacked_, [this](int note) { organ_.noteOff(note); });
+    forEachAuditionNote(auditionPacked_, [this](int note) { piano_.noteOff(note); });
     auditionPacked_ = 0;
 }
 
@@ -534,7 +534,7 @@ void MagicDustProcessor::emitEvent(const md::PlayEvent& e, juce::MidiBuffer& mid
     {
         return;
     }
-    md::AuditionSynth& voice = voiceFor(e.channel);
+    md::Instrument& voice = voiceFor(e.channel);
     const int note = shiftedNote(e.channel, e.note);
     if (e.on)
     {
@@ -548,7 +548,7 @@ void MagicDustProcessor::emitEvent(const md::PlayEvent& e, juce::MidiBuffer& mid
 
 void MagicDustProcessor::renderVoices(juce::AudioBuffer<float>& buffer, int start, int num)
 {
-    organ_.render(buffer, start, num);
+    piano_.render(buffer, start, num);
     subBass_.render(buffer, start, num);
     pluck_.render(buffer, start, num);
 }
@@ -562,7 +562,7 @@ void MagicDustProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Mi
     const int numSamples = buffer.getNumSamples();
 
     const float volume = volume_->load();
-    organ_.setLevel(volume * chordsLevel_->load());
+    piano_.setLevel(volume * chordsLevel_->load());
     subBass_.setLevel(volume * bassLevel_->load());
     pluck_.setLevel(volume * melodyLevel_->load());
 

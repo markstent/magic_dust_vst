@@ -15,6 +15,8 @@
 #include "md/style.hpp"
 #include "md/types.hpp"
 #include "plugin/AuditionSynth.h"
+#include "plugin/HousePiano.h"
+#include "plugin/Instrument.h"
 #include "plugin/Playback.h"
 
 enum class InstanceMode : std::uint8_t
@@ -156,7 +158,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     void renderVoices(juce::AudioBuffer<float>& buffer, int start, int num);
     bool emitMidi(const md::PlayEvent& e, juce::MidiBuffer& midi, int offset);
     void emitEvent(const md::PlayEvent& e, juce::MidiBuffer& midi, int offset);
-    md::AuditionSynth& voiceFor(int channel);
+    md::Instrument& voiceFor(int channel);
 
     juce::Random random_;
     std::optional<md::Bank> bank_;
@@ -190,7 +192,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     juce::int64 followUntilMs_ = 0; // message thread only; 0 when there is no notice
     std::atomic<double> previewPpq_{0.0};
     std::atomic<double> hostBpm_{0.0};
-    md::AuditionSynth organ_{md::kOrgan};
+    md::HousePiano piano_;
     md::AuditionSynth subBass_{md::kSubBass};
     md::AuditionSynth pluck_{md::kPluck};
     md::InternalClock internal_;

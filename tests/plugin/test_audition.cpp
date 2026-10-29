@@ -18,6 +18,14 @@ namespace
 
 constexpr double kRate = 48000.0;
 
+// A polyphonic recipe, to test the voice pool the sub bass does not use.
+constexpr md::VoiceRecipe kStabs{.partials = {1.0F, 0.5F, 0.25F, 0.125F, 0.0F, 0.0F, 0.0F, 0.0F},
+                                 .attackMs = 5.0F,
+                                 .decayMs = 0.0F,
+                                 .releaseMs = 60.0F,
+                                 .gain = 0.2F,
+                                 .voices = 8};
+
 float expectedRms(const md::VoiceRecipe& r)
 {
     float sum = 0.0F;
@@ -85,7 +93,7 @@ double steadyRms(const md::VoiceRecipe& r, float level, int velocity = 127, doub
 
 TEST_CASE("audition voices", "[audition]")
 {
-    for (const md::VoiceRecipe* r : {&md::kOrgan, &md::kSubBass})
+    for (const md::VoiceRecipe* r : {&kStabs, &md::kSubBass})
     {
         SECTION("silent with no notes")
         {
@@ -157,9 +165,9 @@ TEST_CASE("sub bass is mono and steals without a click", "[audition]")
     CHECK(rms(buf, 9600, 14400) == Catch::Approx(expectedRms(md::kSubBass)).epsilon(0.02));
 }
 
-TEST_CASE("organ caps at eight voices", "[audition]")
+TEST_CASE("an eight voice recipe caps at eight voices", "[audition]")
 {
-    md::AuditionSynth synth(md::kOrgan);
+    md::AuditionSynth synth(kStabs);
     synth.prepare(kRate);
     synth.setLevel(1.0F);
     juce::AudioBuffer<float> buf(2, 28800);
@@ -170,18 +178,18 @@ TEST_CASE("organ caps at eight voices", "[audition]")
     }
     synth.render(buf, 0, 28800);
     CHECK(rms(buf, 4800, 28800) ==
-          Catch::Approx(std::sqrt(8.0) * expectedRms(md::kOrgan)).epsilon(0.03));
+          Catch::Approx(std::sqrt(8.0) * expectedRms(kStabs)).epsilon(0.03));
 }
 
 TEST_CASE("velocity scales the level", "[audition]")
 {
-    CHECK(steadyRms(md::kOrgan, 1.0F, 64) ==
-          Catch::Approx(expectedRms(md::kOrgan) * 64.0 / 127.0).epsilon(0.02));
+    CHECK(steadyRms(kStabs, 1.0F, 64) ==
+          Catch::Approx(expectedRms(kStabs) * 64.0 / 127.0).epsilon(0.02));
 }
 
 TEST_CASE("velocity 0 is a note off", "[audition]")
 {
-    md::AuditionSynth synth(md::kOrgan);
+    md::AuditionSynth synth(kStabs);
     synth.prepare(kRate);
     juce::AudioBuffer<float> buf(2, 4800);
     buf.clear();
@@ -189,7 +197,7 @@ TEST_CASE("velocity 0 is a note off", "[audition]")
     synth.render(buf, 0, 4800);
     synth.noteOn(69, 0);
     buf.clear();
-    synth.render(buf, 0, releaseSamples(md::kOrgan));
+    synth.render(buf, 0, releaseSamples(kStabs));
     buf.clear();
     synth.render(buf, 0, 64);
     CHECK(allZero(buf));
@@ -198,13 +206,13 @@ TEST_CASE("velocity 0 is a note off", "[audition]")
 TEST_CASE("partials at or above nyquist are skipped", "[audition]")
 {
     // Note 96 is 2093 Hz: at 8000 Hz only the fundamental is below 4000 Hz.
-    CHECK(steadyRms(md::kOrgan, 1.0F, 127, 8000.0, 96) ==
-          Catch::Approx(md::kOrgan.gain * std::sqrt(0.5)).epsilon(0.02));
+    CHECK(steadyRms(kStabs, 1.0F, 127, 8000.0, 96) ==
+          Catch::Approx(kStabs.gain * std::sqrt(0.5)).epsilon(0.02));
 }
 
 TEST_CASE("note off for a note not sounding changes nothing", "[audition]")
 {
-    md::AuditionSynth synth(md::kOrgan);
+    md::AuditionSynth synth(kStabs);
     synth.prepare(kRate);
     synth.setLevel(1.0F);
     juce::AudioBuffer<float> buf(2, 9600);
@@ -213,7 +221,7 @@ TEST_CASE("note off for a note not sounding changes nothing", "[audition]")
     synth.render(buf, 0, 4800);
     synth.noteOff(70);
     synth.render(buf, 4800, 4800);
-    CHECK(rms(buf, 4800, 9600) == Catch::Approx(expectedRms(md::kOrgan)).epsilon(0.02));
+    CHECK(rms(buf, 4800, 9600) == Catch::Approx(expectedRms(kStabs)).epsilon(0.02));
 }
 
 namespace
@@ -267,9 +275,9 @@ TEST_CASE("a pluck note off still releases a held note", "[audition]")
     CHECK(allZero(buf));
 }
 
-TEST_CASE("organ and sub bass do not decay", "[audition]")
+TEST_CASE("a held voice does not decay", "[audition]")
 {
-    for (const md::VoiceRecipe* r : {&md::kOrgan, &md::kSubBass})
+    for (const md::VoiceRecipe* r : {&kStabs, &md::kSubBass})
     {
         CHECK(r->decayMs == 0.0F);
         auto buf = renderHeld(*r, 96000);

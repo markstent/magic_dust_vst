@@ -322,7 +322,8 @@ TEST_CASE("a bass sender mutes the main sub bass until it is destroyed")
 
     CHECK(withSender > 0.0);
     CHECK(withSender < alone * 0.95);
-    CHECK(after == Catch::Approx(alone).epsilon(0.01));
+    // The piano release of the last run still ring into this one, so allow a few percent.
+    CHECK(after == Catch::Approx(alone).epsilon(0.03));
 }
 
 TEST_CASE("destroying the main instance releases a playing sender and then silences it")

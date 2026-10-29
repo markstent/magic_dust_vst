@@ -50,7 +50,7 @@ juce_add_binary_data(MdFonts
     ${CMAKE_SOURCE_DIR}/ui/fonts/LibreBaskervilleBold.ttf)
 
 add_library(md_plugin_core STATIC PluginProcessor.cpp PluginEditor.cpp Playback.cpp
-  AuditionSynth.cpp Link.cpp DragFiles.cpp IdeaState.cpp
+  AuditionSynth.cpp HousePiano.cpp Link.cpp DragFiles.cpp IdeaState.cpp
   ${CMAKE_SOURCE_DIR}/ui/Fonts.cpp ${CMAKE_SOURCE_DIR}/ui/ChordCell.cpp ${CMAKE_SOURCE_DIR}/ui/LaneView.cpp
   ${CMAKE_SOURCE_DIR}/ui/Faceplate.cpp ${CMAKE_SOURCE_DIR}/ui/Readout.cpp ${CMAKE_SOURCE_DIR}/ui/TopLine.cpp ${CMAKE_SOURCE_DIR}/ui/ScreenComponent.cpp
   ${CMAKE_SOURCE_DIR}/ui/KeyButton.cpp ${CMAKE_SOURCE_DIR}/ui/OctaveRocker.cpp ${CMAKE_SOURCE_DIR}/ui/SprinkleKey.cpp

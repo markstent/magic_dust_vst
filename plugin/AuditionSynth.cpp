@@ -157,7 +157,7 @@ void AuditionSynth::render(juce::AudioBuffer<float>& buffer, int start, int num)
     {
         if (v.active)
         {
-            renderVoice(v, buffer, start, num, recipe_.gain * v.velocity * level_.load());
+            renderVoice(v, buffer, start, num, recipe_.gain * v.velocity * level());
         }
     }
 }
