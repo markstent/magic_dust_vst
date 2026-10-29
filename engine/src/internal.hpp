@@ -1,6 +1,7 @@
 #pragma once
 
 #include "md/pcg32.hpp"
+#include "md/ranges.hpp"
 #include "md/style.hpp"
 #include "md/types.hpp"
 
@@ -60,6 +61,14 @@ constexpr int kHighEnergy = 60;
 
 // A ghost note's velocity, as a percent of the lane base.
 constexpr int kGhostVelocity = 40;
+// Above this a note is played, not a ghost: a ghost is at most 44 - 8 + 3 = 39 once humanized and a
+// played note at least 80 * 85 / 100 - 11 = 57.
+constexpr int kGhostCeiling = 55;
+// The shortest a varied chord hit gets, half a 16th.
+constexpr int kMinChordLength = kTicksPerSixteenth / 2;
+
+// True for a ghost note, as the engine writes it (velocity 40) or after humanize.
+inline bool isGhost(const NoteEvent& e) { return e.velocity < kGhostCeiling; }
 
 // True for the bar (0-based) that ends a phrase and turns the idea around: the last bar, and bar 8
 // of a 16-bar idea.

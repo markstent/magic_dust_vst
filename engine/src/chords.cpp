@@ -20,7 +20,6 @@ namespace
 constexpr int kFirstChordTop = 70;
 constexpr int kLeapPenalty = 1'000'000;
 constexpr int kFifth = 7;
-constexpr int kMinChordLength = kTicksPerSixteenth / 2;
 constexpr int kMaxVariedHit = 2 * kTicksPerSixteenth;
 constexpr std::array kLengthPercents = std::to_array({70, 85, 100});
 constexpr int kMinGhostGap = 2;
@@ -315,6 +314,7 @@ void addGhosts(std::vector<NoteEvent>& events, const std::vector<PlacedChord>& c
         }
     }
     std::vector<NoteEvent> ghosts;
+    // A bar with no clear odd step is skipped, so the idea may hold fewer ghosts than the cap.
     for (int n = 0; n < settings.bars / 2 && !bars.empty(); ++n)
     {
         const auto pick =

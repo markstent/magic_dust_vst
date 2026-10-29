@@ -1314,19 +1314,12 @@ Idea patternIdea(const Bank& only, Style style, int i, bool high)
     return generate(only, settings, static_cast<std::uint32_t>(2000 + (i * 31)));
 }
 
-// A ghost note is 40 percent of the lane base, with an accent of -8 and a spread of +-3, so at most
-// 44 - 8 + 3 = 39; a played note is never below 80 * 85 / 100 - 11 = 57 (an approach note at the
-// lowest base).
-constexpr int kGhostCeiling = 55;
-
-bool isGhost(const NoteEvent& e) { return e.velocity < kGhostCeiling; }
-
 // The bass lane without its ghost notes, which their own tests check.
 std::vector<NoteEvent> bassNotes(const Idea& idea)
 {
     std::vector<NoteEvent> notes;
     std::ranges::copy_if(idea.lanes.at(1).events, std::back_inserter(notes),
-                         [](const NoteEvent& e) { return !isGhost(e); });
+                         [](const NoteEvent& e) { return !detail::isGhost(e); });
     return notes;
 }
 
@@ -1645,7 +1638,7 @@ TEST_CASE("the accent table holds per 16th step on top of the lane base", "[gene
                 const int step = ((e.start / 480) * 2) + (e.start % 480 == 0 ? 0 : 1);
                 const int accent = (step % 4 == 0) ? 4 : -8;
                 const int offbeat = (step % 4 == 2) ? 16 : 0; // -8 becomes +8
-                const int percent = isGhost(e) ? detail::kGhostVelocity : 100;
+                const int percent = detail::isGhost(e) ? detail::kGhostVelocity : 100;
                 REQUIRE(e.velocity - spread == (base * percent / 100) + accent + offbeat);
             }
         }

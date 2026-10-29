@@ -1,5 +1,6 @@
 #include "md/generate.hpp"
 
+#include "internal.hpp"
 #include "md/bank.hpp"
 #include "md/ranges.hpp"
 #include "md/types.hpp"
@@ -406,7 +407,7 @@ TEST_CASE("pinned chords that revoice keep their ghosts and lengths at a lower e
         };
         CHECK(shape(previous) == shape(result));
         const auto& events = laneOf(previous, LaneId::chords).events;
-        if (std::ranges::any_of(events, [](const NoteEvent& e) { return e.velocity < 55; }))
+        if (std::ranges::any_of(events, [](const NoteEvent& e) { return detail::isGhost(e); }))
         {
             ++ghosted;
         }

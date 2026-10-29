@@ -110,7 +110,7 @@ std::vector<int> answerBars(int bars)
 
 std::vector<NoteEvent> withoutGhosts(std::vector<NoteEvent> events)
 {
-    std::erase_if(events, [](const NoteEvent& e) { return e.velocity == detail::kGhostVelocity; });
+    std::erase_if(events, [](const NoteEvent& e) { return detail::isGhost(e); });
     return events;
 }
 
@@ -124,7 +124,7 @@ std::vector<NoteEvent> chordsAt(const Sample& s, int energy)
     REQUIRE(cell != s.entry->chordRhythms.end());
     auto events = detail::chordEvents(idea.progression, *cell, idea.settings, *s.entry,
                                       idea.lanes.at(0).seed);
-    std::erase_if(events, [](const NoteEvent& e) { return e.velocity == detail::kGhostVelocity; });
+    std::erase_if(events, [](const NoteEvent& e) { return detail::isGhost(e); });
     return events;
 }
 
@@ -442,7 +442,6 @@ TEST_CASE("the chord turnaround draws from its own slot: the low tier is unchang
 namespace
 {
 constexpr int kHighSeedsPerStyle = 200;
-constexpr int kMinChordLength = kTicksPerSixteenth / 2;
 
 const std::vector<Sample>& highSamples()
 {
@@ -487,7 +486,7 @@ std::vector<NoteEvent> ghostsOf(const std::vector<NoteEvent>& events)
 {
     std::vector<NoteEvent> out;
     std::ranges::copy_if(events, std::back_inserter(out),
-                         [](const NoteEvent& e) { return e.velocity == detail::kGhostVelocity; });
+                         [](const NoteEvent& e) { return detail::isGhost(e); });
     return out;
 }
 
@@ -563,8 +562,8 @@ TEST_CASE(
                                      { return e.start == base.start && e.pitch == base.pitch; });
             REQUIRE(it != varied.end());
             REQUIRE(it->length <= base.length);
-            REQUIRE(it->length >=
-                    std::min(base.length, std::max(kMinChordLength, base.length * 70 / 100)));
+            REQUIRE(it->length >= std::min(base.length, std::max(detail::kMinChordLength,
+                                                                 base.length * 70 / 100)));
             if (base.length > 2 * kTicksPerSixteenth)
             {
                 REQUIRE(it->length == base.length);
@@ -637,7 +636,7 @@ TEST_CASE("bass: ghost notes are a root octave off, on an empty odd 16th, above 
                 ++ghosts;
                 REQUIRE(barOf(g) < lastBar);
                 REQUIRE(stepIn(g) % 2 == 1);
-                REQUIRE(g.length <= kTicksPerSixteenth);
+                REQUIRE(g.length == kTicksPerSixteenth);
                 const PlacedChord& chord = detail::chordAt(high.progression, g.start);
                 const int rootPc = chordRootPc(high.key, chord.symbol);
                 REQUIRE(g.pitch % 12 == rootPc);
@@ -659,4 +658,42 @@ TEST_CASE("every idea validates at energy 80 in 4, 8 and 16 bars", "[variety]")
     {
         REQUIRE(validate(s.idea).empty());
     }
+}
+
+TEST_CASE("every ghost note is quieter than the other notes of its bar in the finished idea",
+          "[variety][ghost]")
+{
+    int checked = 0;
+    for (const Sample& s : highSamples())
+    {
+        for (const std::size_t lane : {std::size_t{0}, std::size_t{1}})
+        {
+            const auto& events = s.idea.lanes.at(lane).events;
+            for (int bar = 0; bar < s.bars; ++bar)
+            {
+                int ghostMax = 0;
+                int playedMin = 128;
+                for (const NoteEvent& e : events)
+                {
+                    if (barOf(e) == bar)
+                    {
+                        if (detail::isGhost(e))
+                        {
+                            ghostMax = std::max(ghostMax, e.velocity);
+                        }
+                        else
+                        {
+                            playedMin = std::min(playedMin, e.velocity);
+                        }
+                    }
+                }
+                if (ghostMax > 0)
+                {
+                    ++checked;
+                    REQUIRE(ghostMax < playedMin);
+                }
+            }
+        }
+    }
+    REQUIRE(checked > 0);
 }
