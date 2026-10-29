@@ -45,6 +45,7 @@ constexpr std::uint32_t kBassApproach = 3;
 constexpr std::uint32_t kBassRiff = 4;
 constexpr std::uint32_t kBassCall = 5;
 constexpr std::uint32_t kBassGhost = 6;
+constexpr std::uint32_t kBassFill = 7;
 constexpr std::uint32_t kMelodyCellA = 0;
 constexpr std::uint32_t kMelodyCellB = 1;
 constexpr std::uint32_t kMelodyWalk = 2;
@@ -52,7 +53,7 @@ constexpr std::uint32_t kMelodyPluck = 3;
 constexpr std::uint32_t kMelodyHumanize = 4;
 constexpr std::uint32_t kMelodyAnswerCell = 5;
 constexpr std::uint32_t kMelodyAnswerWalk = 6;
-constexpr std::uint32_t kBassFill = 7;
+constexpr std::uint32_t kMelodyFeel = 7; // drawn by performedNotes, not the generator
 
 // Energy tiers: the turnaround and the answer phrase from kMidEnergy up; the bass fill and the
 // breath above kHighEnergy.
@@ -61,14 +62,8 @@ constexpr int kHighEnergy = 60;
 
 // A ghost note's velocity, as a percent of the lane base.
 constexpr int kGhostVelocity = 40;
-// Above this a note is played, not a ghost: a ghost is at most 44 - 8 + 3 = 39 once humanized and a
-// played note at least 80 * 85 / 100 - 11 = 57.
-constexpr int kGhostCeiling = 55;
-// The shortest a varied chord hit gets, half a 16th.
+// A floor on a varied chord hit's length, half a 16th. Today's 70% minimum never reaches it.
 constexpr int kMinChordLength = kTicksPerSixteenth / 2;
-
-// True for a ghost note, as the engine writes it (velocity 40) or after humanize.
-inline bool isGhost(const NoteEvent& e) { return e.velocity < kGhostCeiling; }
 
 // True for the bar (0-based) that ends a phrase and turns the idea around: the last bar, and bar 8
 // of a 16-bar idea.

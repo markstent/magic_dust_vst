@@ -1,5 +1,6 @@
 #include "md/generate.hpp"
 
+#include "ghost.hpp"
 #include "internal.hpp"
 #include "md/bank.hpp"
 #include "md/ideacode.hpp"

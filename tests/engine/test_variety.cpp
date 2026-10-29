@@ -1,5 +1,6 @@
 #include "md/generate.hpp"
 
+#include "ghost.hpp"
 #include "internal.hpp"
 #include "md/bank.hpp"
 #include "md/names.hpp"
@@ -420,7 +421,7 @@ TEST_CASE("every idea validates at the tier edges, in 4, 8 and 16 bars", "[varie
 {
     for (const Sample& s : samples())
     {
-        for (const int energy : {kLow, kMid, kTop, kHigh, 100})
+        for (const int energy : {kLow, kMid, kTop, kHigh, 80, 100})
         {
             Settings settings = s.idea.settings;
             settings.energy = energy;
@@ -542,9 +543,8 @@ TEST_CASE("chords: ghost notes obey their count, place, length and voicing, abov
     REQUIRE(ghosts > 0);
 }
 
-TEST_CASE(
-    "chords: short hits shorten to 70, 85 or 100 percent, never below 120 ticks, above 60 only",
-    "[variety][chords][length]")
+TEST_CASE("chords: short hits shorten to 70, 85 or 100 percent of written, above 60 only",
+          "[variety][chords][length]")
 {
     int shortened = 0;
     for (const Sample& s : highSamples())
@@ -652,13 +652,52 @@ TEST_CASE("bass: ghost notes are a root octave off, on an empty odd 16th, above 
     REQUIRE(ghosts > 0);
 }
 
-TEST_CASE("every idea validates at energy 80 in 4, 8 and 16 bars", "[variety]")
+TEST_CASE("chords: no ghost note falls in a breath bar", "[variety][chords][ghost]")
 {
     for (const Sample& s : highSamples())
     {
-        REQUIRE(validate(s.idea).empty());
+        for (const NoteEvent& g : ghostsOf(rawChords(s, 80)))
+        {
+            REQUIRE(!contains(breathBars(s.bars), barOf(g)));
+        }
     }
 }
+
+namespace
+{
+// The finished notes that start where the engine wrote a ghost, before humanize.
+std::vector<NoteEvent> finishedGhosts(const std::vector<NoteEvent>& written,
+                                      const std::vector<NoteEvent>& finished)
+{
+    std::set<int> ghostStarts;
+    for (const NoteEvent& e : written)
+    {
+        if (e.velocity == detail::kGhostVelocity)
+        {
+            ghostStarts.insert(e.start);
+        }
+    }
+    std::vector<NoteEvent> out;
+    std::ranges::copy_if(finished, std::back_inserter(out),
+                         [&](const NoteEvent& e) { return ghostStarts.contains(e.start); });
+    return out;
+}
+
+int lowestPlayed(const std::vector<NoteEvent>& finished, const std::vector<NoteEvent>& ghosts,
+                 int bar)
+{
+    int lowest = 128;
+    for (const NoteEvent& e : finished)
+    {
+        if (barOf(e) == bar &&
+            std::ranges::none_of(ghosts, [&](const NoteEvent& g) { return g.start == e.start; }))
+        {
+            lowest = std::min(lowest, e.velocity);
+        }
+    }
+    return lowest;
+}
+} // namespace
 
 TEST_CASE("every ghost note is quieter than the other notes of its bar in the finished idea",
           "[variety][ghost]")
@@ -666,32 +705,22 @@ TEST_CASE("every ghost note is quieter than the other notes of its bar in the fi
     int checked = 0;
     for (const Sample& s : highSamples())
     {
-        for (const std::size_t lane : {std::size_t{0}, std::size_t{1}})
+        const auto bassPattern =
+            std::ranges::find_if(s.entry->bassPatterns, [&](BassPattern p)
+                                 { return bassPatternName(p) == s.idea.lanes.at(1).pattern; });
+        REQUIRE(bassPattern != s.entry->bassPatterns.end());
+        const std::array<std::vector<NoteEvent>, 2> written = {
+            rawChords(s, 80),
+            detail::bassEvents(s.idea, *bassPattern, s.idea.lanes.at(1).seed),
+        };
+        for (std::size_t lane = 0; lane < 2; ++lane)
         {
-            const auto& events = s.idea.lanes.at(lane).events;
-            for (int bar = 0; bar < s.bars; ++bar)
+            const auto& finished = s.idea.lanes.at(lane).events;
+            const auto ghosts = finishedGhosts(written.at(lane), finished);
+            for (const NoteEvent& g : ghosts)
             {
-                int ghostMax = 0;
-                int playedMin = 128;
-                for (const NoteEvent& e : events)
-                {
-                    if (barOf(e) == bar)
-                    {
-                        if (detail::isGhost(e))
-                        {
-                            ghostMax = std::max(ghostMax, e.velocity);
-                        }
-                        else
-                        {
-                            playedMin = std::min(playedMin, e.velocity);
-                        }
-                    }
-                }
-                if (ghostMax > 0)
-                {
-                    ++checked;
-                    REQUIRE(ghostMax < playedMin);
-                }
+                ++checked;
+                REQUIRE(g.velocity < lowestPlayed(finished, ghosts, barOf(g)));
             }
         }
     }
