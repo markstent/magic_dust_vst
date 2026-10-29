@@ -1,6 +1,13 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
+#include <cstdint>
+#include <utility>
 #include <vector>
+
+#include "md/bank.hpp"
+#include "md/generate.hpp"
+#include "md/midifile.hpp"
 
 #include "plugin/Playback.h"
 
@@ -171,11 +178,16 @@ TEST_CASE("makePattern sorts offs first and skips muted lanes")
     const auto p = md::makePattern(idea);
     CHECK(p.lengthTicks == 4 * 3840);
     REQUIRE(p.events.size() == 4);
+    // The default groove lays the chords back 8 ticks; the bass stays on the grid.
     CHECK(p.events.at(0).on);
+    CHECK(p.events.at(0).tick == 8);
     CHECK(p.events.at(1).tick == 960);
-    CHECK_FALSE(p.events.at(1).on);
-    CHECK(p.events.at(2).on);
-    CHECK(p.events.at(2).channel == 1);
+    CHECK(p.events.at(1).on);
+    CHECK(p.events.at(1).channel == 1);
+    CHECK(p.events.at(2).tick == 968);
+    CHECK_FALSE(p.events.at(2).on);
+    CHECK(p.events.at(3).tick == 1440);
+    CHECK_FALSE(p.events.at(3).on);
 }
 
 TEST_CASE("internal clock counts ppq")
@@ -186,4 +198,36 @@ TEST_CASE("internal clock counts ppq")
     CHECK(c.ppq() == 2.0);
     c.stop();
     CHECK_FALSE(c.running());
+}
+
+TEST_CASE("makePattern plays exactly the notes the MIDI export writes")
+{
+    for (const md::Groove groove :
+         {md::Groove::straight, md::Groove::swing54, md::Groove::ukShuffle58, md::Groove::heavy62})
+    {
+        md::Settings settings;
+        settings.groove = groove;
+        const md::Idea idea = md::generate(md::loadBundledBank(), settings, 4242);
+        const auto p = md::makePattern(idea);
+        for (std::uint8_t channel = 0; channel < 3; ++channel)
+        {
+            std::vector<std::pair<int, int>> played;
+            for (const md::PlayEvent& e : p.events)
+            {
+                if (e.on && e.channel == channel)
+                {
+                    played.emplace_back(e.tick, e.note);
+                }
+            }
+            std::vector<std::pair<int, int>> exported;
+            for (const md::NoteEvent& n :
+                 md::laneTrack(idea, static_cast<md::LaneId>(channel)).notes)
+            {
+                exported.emplace_back(n.start, n.pitch);
+            }
+            std::ranges::sort(played);
+            std::ranges::sort(exported);
+            CHECK(played == exported);
+        }
+    }
 }

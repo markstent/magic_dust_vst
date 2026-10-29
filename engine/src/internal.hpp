@@ -22,7 +22,8 @@ namespace md::detail
 //           3 approach notes
 //           4 riff motif
 //           5 call-and-response picks
-//   melody: 0 rhythm cell A, 1 rhythm cell B, 2 pitch walk, 3 pluck tones, 4 velocity humanize
+//   melody: 0 rhythm cell A, 1 rhythm cell B, 2 pitch walk, 3 pluck tones, 4 velocity humanize,
+//           7 timing feel (drawn by performedNotes, not the generator)
 // Entry, progression, mode and chord-cell choices belong to the chords lane.
 constexpr std::uint32_t kChordEntry = 0;
 constexpr std::uint32_t kChordProgression = 1;

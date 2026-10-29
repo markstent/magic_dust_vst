@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "md/midifile.hpp"
 #include "md/ranges.hpp"
 
 namespace md
@@ -10,9 +11,9 @@ namespace md
 namespace
 {
 
-void addLane(PlaybackPattern& p, const Lane& lane, std::uint8_t channel)
+void addLane(PlaybackPattern& p, const Idea& idea, LaneId lane, std::uint8_t channel)
 {
-    for (const NoteEvent& n : lane.events)
+    for (const NoteEvent& n : performedNotes(idea, lane))
     {
         const auto note = static_cast<std::uint8_t>(n.pitch);
         p.events.push_back({.tick = n.start,
@@ -37,7 +38,7 @@ PlaybackPattern makePattern(const Idea& idea)
     {
         if (!lane.muted)
         {
-            addLane(p, lane, channel);
+            addLane(p, idea, static_cast<LaneId>(channel), channel);
         }
         ++channel;
     }

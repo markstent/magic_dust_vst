@@ -1,5 +1,6 @@
 #include "md/midifile.hpp"
 
+#include "md/pcg32.hpp"
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
 
@@ -19,6 +20,8 @@ using Byte = std::uint8_t;
 
 constexpr std::size_t kMaxTracks = 254; // format 1 adds a conductor; the count is one byte
 constexpr unsigned kMicrosPerMinute = 60'000'000U;
+constexpr std::array<int, 4> kChordLayBack = {2, 5, 8, 10}; // by groove
+constexpr std::uint32_t kMelodyFeelSlot = 7; // the melody lane's timing feel, see internal.hpp
 
 Byte lo(unsigned v) { return static_cast<Byte>(v & 0xFFU); }
 
@@ -208,6 +211,52 @@ std::vector<std::uint8_t> writeMidiFile(std::span<const MidiTrack> tracks, int t
 
 int ideaLengthTicks(const Idea& idea) { return idea.settings.bars * kTicksPerBar; }
 
+int feelOffsetTicks(const Idea& idea, LaneId lane, std::size_t noteIndex)
+{
+    const auto groove = static_cast<std::size_t>(idea.settings.groove);
+    switch (lane)
+    {
+    case LaneId::chords:
+        return kChordLayBack.at(groove);
+    case LaneId::melody:
+    {
+        // 2 + groove * 1.5, rounded half up
+        const auto bound = static_cast<std::uint32_t>((5 + (3 * groove)) / 2);
+        Pcg32 rng(idea.lanes.at(2).seed, kMelodyFeelSlot);
+        std::uint32_t draw = 0;
+        for (std::size_t i = 0; i <= noteIndex; ++i)
+        {
+            draw = rng.below((2 * bound) + 1);
+        }
+        return static_cast<int>(draw) - static_cast<int>(bound);
+    }
+    case LaneId::bass:
+        break;
+    }
+    return 0;
+}
+
+std::vector<NoteEvent> performedNotes(const Idea& idea, LaneId lane)
+{
+    std::vector<NoteEvent> notes = idea.lanes.at(static_cast<std::size_t>(lane)).events;
+    for (std::size_t i = 0; i < notes.size(); ++i)
+    {
+        notes.at(i).start = std::max(0, notes.at(i).start + feelOffsetTicks(idea, lane, i));
+    }
+    const int end = ideaLengthTicks(idea);
+    for (std::size_t i = 0; i < notes.size(); ++i)
+    {
+        NoteEvent& n = notes.at(i);
+        int limit = end;
+        if (lane == LaneId::melody && i + 1 < notes.size())
+        {
+            limit = std::min(limit, notes.at(i + 1).start);
+        }
+        n.length = std::max(1, std::min(n.length, limit - n.start));
+    }
+    return notes;
+}
+
 MidiTrack laneTrack(const Idea& idea, LaneId lane)
 {
     static constexpr std::array<std::string_view, 3> kNames = {"Chords", "Bass", "Melody"};
@@ -222,7 +271,7 @@ MidiTrack laneTrack(const Idea& idea, LaneId lane)
     }
     MidiTrack track{
         .name = std::string(kNames.at(index)),
-        .notes = idea.lanes.at(index).events,
+        .notes = performedNotes(idea, lane),
         .markers = {},
         .channel = static_cast<int>(index),
     };

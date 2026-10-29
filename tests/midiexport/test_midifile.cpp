@@ -4,12 +4,16 @@
 
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
+#include "md/validate.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
+#include <cstdlib>
 #include <limits>
+#include <set>
 #include <span>
 #include <stdexcept>
 #include <vector>
@@ -228,7 +232,7 @@ TEST_CASE("laneTrack names lanes and marks chord starts")
     const Idea idea = makeIdea();
     const MidiTrack chords = laneTrack(idea, LaneId::chords);
     CHECK(chords.name == "Chords");
-    CHECK(chords.notes == idea.lanes.at(0).events);
+    CHECK(chords.notes == performedNotes(idea, LaneId::chords));
     REQUIRE(chords.markers.size() == 2);
     CHECK(chords.markers.at(0).first == 0);
     CHECK(chords.markers.at(0).second == chordName(idea.key, idea.progression.at(0).symbol));
@@ -283,7 +287,7 @@ TEST_CASE("chordSlotTrack holds one chord's notes from tick 0")
 {
     const Bank bank = loadBundledBank();
     const Idea idea = generate(bank, goldenCase0Settings(), 1000);
-    const auto& lane = idea.lanes.at(0).events;
+    const auto lane = performedNotes(idea, LaneId::chords);
     for (std::size_t slot = 0; slot < idea.progression.size(); ++slot)
     {
         const PlacedChord& chord = idea.progression.at(slot);
@@ -318,7 +322,7 @@ TEST_CASE("chordSlotTrack clips a note that runs past the chord")
     idea.lanes.at(0).events = {note(57, 3840, 20000, 90)};
     const MidiTrack track = chordSlotTrack(idea, 0);
     REQUIRE(track.notes.size() == 1);
-    CHECK(track.notes.at(0) == note(57, 3840, 3840, 90));
+    CHECK(track.notes.at(0) == note(57, 3848, 3832, 90)); // the default groove lays back 8 ticks
 }
 
 TEST_CASE("dragFileName names each drag")
@@ -449,4 +453,91 @@ TEST_CASE("the three dragged lanes of an idea share length, beat, tempo and a 0 
             }
         }
     }
+}
+
+namespace
+{
+Idea feelIdea(Groove groove, std::uint32_t seed)
+{
+    Settings settings;
+    settings.groove = groove;
+    settings.bars = 8;
+    return generate(loadBundledBank(), settings, seed);
+}
+
+constexpr std::array<Groove, 4> kGrooves = {Groove::straight, Groove::swing54, Groove::ukShuffle58,
+                                            Groove::heavy62};
+} // namespace
+
+TEST_CASE("the feel is exact for chords and bass and bounded for the melody")
+{
+    constexpr std::array<int, 4> layBack = {2, 5, 8, 10};
+    constexpr std::array<int, 4> melodyBound = {2, 4, 5, 7};
+    for (std::size_t g = 0; g < kGrooves.size(); ++g)
+    {
+        const Idea idea = feelIdea(kGrooves.at(g), 4242);
+        for (std::size_t i = 0; i < idea.lanes.at(0).events.size(); ++i)
+        {
+            CHECK(feelOffsetTicks(idea, LaneId::chords, i) == layBack.at(g));
+        }
+        for (std::size_t i = 0; i < idea.lanes.at(1).events.size(); ++i)
+        {
+            CHECK(feelOffsetTicks(idea, LaneId::bass, i) == 0);
+        }
+        std::set<int> seen;
+        for (std::size_t i = 0; i < idea.lanes.at(2).events.size(); ++i)
+        {
+            const int offset = feelOffsetTicks(idea, LaneId::melody, i);
+            CHECK(std::abs(offset) <= melodyBound.at(g));
+            seen.insert(offset);
+        }
+        CHECK(seen.size() > 1);
+    }
+}
+
+TEST_CASE("performed notes keep pitch, velocity and order and stay inside the idea")
+{
+    for (const Groove groove : kGrooves)
+    {
+        for (std::uint32_t seed = 1; seed <= 30; ++seed)
+        {
+            const Idea idea = feelIdea(groove, seed);
+            for (const LaneId lane : {LaneId::chords, LaneId::bass, LaneId::melody})
+            {
+                const auto& written = idea.lanes.at(static_cast<std::size_t>(lane)).events;
+                const auto played = performedNotes(idea, lane);
+                REQUIRE(played.size() == written.size());
+                for (std::size_t i = 0; i < played.size(); ++i)
+                {
+                    CHECK(played.at(i).pitch == written.at(i).pitch);
+                    CHECK(played.at(i).velocity == written.at(i).velocity);
+                    CHECK(played.at(i).start >= 0);
+                    CHECK(played.at(i).length > 0);
+                    CHECK(played.at(i).start + played.at(i).length <= ideaLengthTicks(idea));
+                    CHECK(played.at(i).start ==
+                          std::max(0, written.at(i).start + feelOffsetTicks(idea, lane, i)));
+                    if (lane == LaneId::melody && i + 1 < played.size())
+                    {
+                        CHECK(played.at(i).start + played.at(i).length <= played.at(i + 1).start);
+                    }
+                }
+                if (lane == LaneId::bass)
+                {
+                    CHECK(played == written);
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE("a note that would cross the idea end is shortened and the idea stays valid")
+{
+    Idea idea = feelIdea(Groove::straight, 4242);
+    const int end = ideaLengthTicks(idea);
+    idea.lanes.at(0).events = {note(57, end - 960, 960, 90)};
+    const auto played = performedNotes(idea, LaneId::chords);
+    REQUIRE(played.size() == 1);
+    CHECK(played.at(0) == note(57, end - 960 + 2, 958, 90));
+    const Idea fresh = feelIdea(Groove::heavy62, 4242);
+    CHECK(validate(fresh).empty());
 }

@@ -26,6 +26,16 @@ std::vector<std::uint8_t> writeMidiFile(std::span<const MidiTrack> tracks, int t
                                         int totalTicks);
 
 int ideaLengthTicks(const Idea& idea);
+
+// The timing feel of one note, in ticks: a performance layer that never changes the idea's events.
+//   chords: a lay-back of 2, 5, 8 or 10 for groove straight, 54, 58 or 62
+//   bass:   0, always locked to the kick
+//   melody: a seeded offset of +-(2 + groove * 1.5) rounded (lane seed, slot 7, one draw per note)
+int feelOffsetTicks(const Idea& idea, LaneId lane, std::size_t noteIndex);
+// The lane's notes as they play, with the feel applied. Never before tick 0, a melody note ends
+// before the next one starts, and a note that would cross the idea's end is shortened.
+// Playback and every MIDI export build their notes from this.
+std::vector<NoteEvent> performedNotes(const Idea& idea, LaneId lane);
 // Muted lanes are still exported: muting is preview-only.
 // Chords are on channel 1, bass on 2 and melody on 3, as in the live MIDI output.
 MidiTrack laneTrack(const Idea& idea, LaneId lane);

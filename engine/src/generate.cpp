@@ -177,7 +177,11 @@ namespace
 constexpr int kVerifiedWeightFactor = 2;
 constexpr int kVelocityBase = 80;
 constexpr int kVelocitySpread = 30;
-constexpr int kHumanizeRange = 13;
+constexpr int kSpreadRange = 7; // a spread of +-3
+constexpr int kSpreadCentre = 3;
+constexpr int kAccentBeat = 4;
+constexpr int kAccentOffbeat = 8;
+constexpr int kAccentOther = -8;
 
 std::optional<Mode> borrowedFor(const Idea& idea)
 {
@@ -284,7 +288,29 @@ Mode pickMode(const StyleEntry& entry, const Progression& progression, int mood)
     return fitting.at(static_cast<std::size_t>(mood) * fitting.size() / 101);
 }
 
-// One velocity per note in event order, drawn from the lane's own seed.
+// The 16th step of a swung start: an odd step lands in the second half of its pair of 16ths.
+int stepOf(int start)
+{
+    const int pair = 2 * kTicksPerSixteenth;
+    return ((start / pair) * 2) + (start % pair == 0 ? 0 : 1);
+}
+
+// The house accent for a 16th step: the beat, the offbeat 8th, or one of the other 16ths.
+int accentFor(int step)
+{
+    switch (step % 4)
+    {
+    case 0:
+        return kAccentBeat;
+    case 2:
+        return kAccentOffbeat;
+    default:
+        return kAccentOther;
+    }
+}
+
+// One velocity per note in event order: the lane base, then the step's accent and a small spread
+// drawn from the lane's own seed.
 void humanize(std::vector<NoteEvent>& events, Pcg32 rng, int energy)
 {
     const int base = kVelocityBase + ((kVelocitySpread * energy) / 100);
@@ -292,7 +318,8 @@ void humanize(std::vector<NoteEvent>& events, Pcg32 rng, int energy)
     {
         // Events arrive with their velocity as a percent of the base.
         const int scaled = (base * e.velocity) / 100;
-        e.velocity = std::clamp(scaled + static_cast<int>(rng.below(kHumanizeRange)) - 6, 1, 127);
+        const int spread = static_cast<int>(rng.below(kSpreadRange)) - kSpreadCentre;
+        e.velocity = std::clamp(scaled + accentFor(stepOf(e.start)) + spread, 1, 127);
     }
 }
 

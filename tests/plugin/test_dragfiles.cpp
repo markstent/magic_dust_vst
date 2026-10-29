@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstdint>
+#include <cstdlib>
 #include <optional>
 #include <vector>
 
@@ -186,4 +187,42 @@ TEST_CASE("dragged chords and lanes carry the part's octave", "[dragfiles]")
     const std::vector<md::MidiTrack> chordTracks{md::shiftOctaves(md::chordSlotTrack(idea, 1), 2)};
     CHECK(contents(chord) ==
           md::writeMidiFile(chordTracks, kTempo, idea.progression.at(1).bars * md::kTicksPerBar));
+}
+
+TEST_CASE("dragged lanes keep the bass on the grid and chords and melody within the feel",
+          "[dragfiles]")
+{
+    const juce::ScopedJuceInitialiser_GUI gui;
+    MagicDustProcessor processor;
+    setSeed(processor, kFourChordSeed);
+    REQUIRE(processor.idea() != nullptr);
+    const auto& idea = *processor.idea();
+    constexpr int kMelodyBound = 7; // the widest melody offset, at groove heavy62
+    constexpr int kChordBound = 10; // the widest chord lay-back, at groove heavy62
+
+    for (const md::LaneId lane : {md::LaneId::chords, md::LaneId::bass, md::LaneId::melody})
+    {
+        const auto& written = idea.lanes.at(static_cast<std::size_t>(lane)).events;
+        const auto dragged = md::laneTrack(idea, lane);
+        REQUIRE(dragged.notes.size() == written.size());
+        int bound = kMelodyBound;
+        if (lane == md::LaneId::bass)
+        {
+            bound = 0;
+        }
+        else if (lane == md::LaneId::chords)
+        {
+            bound = kChordBound;
+        }
+        for (std::size_t i = 0; i < written.size(); ++i)
+        {
+            CHECK(std::abs(dragged.notes.at(i).start - written.at(i).start) <= bound);
+            CHECK(dragged.notes.at(i).start + dragged.notes.at(i).length <=
+                  md::ideaLengthTicks(idea));
+        }
+        if (lane == md::LaneId::bass)
+        {
+            CHECK(dragged.notes == written);
+        }
+    }
 }

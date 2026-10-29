@@ -1544,3 +1544,28 @@ TEST_CASE("riff and call-and-response get an approach note exactly when the chan
         }
     }
 }
+
+TEST_CASE("the accent table holds per 16th step on top of the lane base", "[generate][accents]")
+{
+    // Chords and melody write every note at 100 percent, so the velocity is base + accent + spread.
+    // Replaying the lane's spread draws leaves exactly base + accent.
+    constexpr std::array<std::uint32_t, 2> slots = {detail::kChordHumanize,
+                                                    detail::kMelodyHumanize};
+    for (const Idea& idea : sampleIdeas())
+    {
+        const int base = 80 + ((30 * idea.settings.energy) / 100);
+        for (std::size_t i = 0; i < 2; ++i)
+        {
+            const Lane& lane = idea.lanes.at(i == 0 ? 0 : 2);
+            Pcg32 rng(lane.seed, slots.at(i));
+            for (const NoteEvent& e : lane.events)
+            {
+                const int spread = static_cast<int>(rng.below(7)) - 3;
+                const int step = ((e.start / 480) * 2) + (e.start % 480 == 0 ? 0 : 1);
+                const int accent = (step % 4 == 0) ? 4 : -8;
+                const int offbeat = (step % 4 == 2) ? 16 : 0; // -8 becomes +8
+                REQUIRE(e.velocity - spread == base + accent + offbeat);
+            }
+        }
+    }
+}
