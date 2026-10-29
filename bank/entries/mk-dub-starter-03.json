@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "mk-dub-starter-03",
+  "family": "mk-dub",
+  "name": "Dark organ hypnosis",
+  "source": { "kind": "hand-authored", "reference": null, "confidence": "placeholder" },
+  "tempo": { "min": 122, "max": 126 },
+  "modes": ["phrygian", "aeolian"],
+  "progressions": [
+    { "degrees": ["i7", "VI6"], "barsPerChord": 2, "weight": 1.0 },
+    { "degrees": ["i7", "VII6", "VI6", "VII6"], "barsPerChord": 1, "weight": 0.8 },
+    { "degrees": ["i9"], "barsPerChord": 4, "weight": 0.7 },
+    { "degrees": ["i9", "iv7"], "barsPerChord": 2, "weight": 0.7 },
+    { "degrees": ["VImaj7", "VII6", "i7"], "barsPerChord": [2, 2, 4], "weight": 0.6 },
+    { "degrees": ["i7", "v7", "VImaj7", "VII6"], "barsPerChord": 2, "weight": 0.6 }
+  ],
+  "voicing": { "style": "organ-stab", "parallel": true, "topNote": [67, 76] },
+  "chordRhythms": [
+    { "id": "back-stab", "bars": 1, "hits": [[1, 1], [5, 1], [9, 1], [13, 1]] },
+    { "id": "dotted-stab", "bars": 1, "hits": [[0, 1], [3, 1], [6, 1], [9, 1], [12, 1]] },
+    { "id": "skip-pair", "bars": 1, "hits": [[2, 1], [3, 1], [10, 1], [11, 1]] },
+    { "id": "ghost-stab", "bars": 1, "hits": [[2, 1], [7, 1], [10, 1], [13, 1], [15, 1]] },
+    { "id": "two-bar-dub", "bars": 2, "hits": [[2, 1], [6, 1], [10, 1], [14, 1], [19, 1], [22, 1], [27, 1], [30, 2]] },
+    { "id": "stab-rest", "bars": 2, "hits": [[2, 2], [11, 1], [14, 1], [18, 1], [22, 2], [30, 1]] }
+  ],
+  "melodyRhythms": [
+    { "id": "hyp-three", "bars": 2, "hits": [[2, 1], [10, 2], [26, 2]] },
+    { "id": "hyp-five", "bars": 2, "hits": [[3, 1], [7, 1], [18, 2], [22, 1], [27, 2]] },
+    { "id": "hyp-six", "bars": 2, "hits": [[2, 1], [3, 1], [10, 1], [18, 1], [19, 1], [26, 2]] },
+    { "id": "hyp-eight", "bars": 2, "hits": [[1, 1], [3, 1], [6, 2], [10, 1], [18, 1], [21, 1], [23, 1], [28, 2]] }
+  ],
+  "bassPatterns": ["offbeat", "octave-bounce", "riff"],
+  "melodyModes": ["pluck"],
+  "swing": 0.56,
+  "tags": ["mk-ish", "dark", "hypnotic"]
+}

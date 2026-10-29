@@ -41,7 +41,7 @@ using Catch::Approx;
 // Seeds that give exactly this many placed chords with the default style, key and settings.
 constexpr float kTolerance = 0.001F;
 constexpr int kFourChordSeed = 1;
-constexpr int kThreeChordSeed = 6;
+constexpr int kThreeChordSeed = 5;
 constexpr std::int64_t kRandomSeed = 7;
 
 extern "C"
