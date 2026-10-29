@@ -60,7 +60,7 @@ The look is the studio console in `visual/studio-console-mockup.html`; the numbe
 | Screws | 13 px circles at (34, 8), (993, 8), (34, 579) and (993, 579). |
 | Wordmark | Starts at x = 54, centred on y = 44. The tagline starts 18 px after it. |
 | Readout legends | y = 24, 12 px tall, centred over each window. |
-| Idea, style, key and tempo windows | At y = 38, 26 px tall: x = 574 (84 wide), 670 (124), 806 (84) and 902 (84). |
+| Style, key and tempo windows | At y = 38, 26 px tall: x = 670 (124 wide), 806 (84) and 902 (84). |
 | Chord cells | 202 x 40 px at x = 166 + i * 202, y = 98. The cell is drawn inset by 4 px. |
 | Lane rows | 916 x 52 px at x = 62, y = 144, 200 and 256. The label column starts at x = 66 and is 96 px wide. The piano roll is 808 x 48 px at x = 166, 2 px below the row's top. |
 | Bottom line | 908 x 18 px at (66, 312). |
@@ -117,7 +117,7 @@ Other fixed colours: the tagline is `#DFE3E8`, and the screws run from `#E2E2E2`
 | Spells panel and toast | Space Mono | 12 px | 400 and 700 | Set in the spells task |
 
 Text that does not fit its box ends in an ellipsis.
-The tagline ends at least 16 px before the spell window (x = 574), which is why its spacing and the wordmark's are slightly tighter than the mockup.
+The tagline ends at least 16 px before the style window (x = 670), which is why its spacing and the wordmark's are slightly tighter than the mockup.
 
 ## Materials
 
@@ -144,9 +144,8 @@ The numbers match the order of the console's parts, left to right and top to bot
 
 ### 2. Header readouts
 
-- Four cream windows, each with a legend above: "IDEA", "STYLE", "KEY" and "TEMPO".
-- Idea shows the idea's seed as four digits, for example "0417", with the accessible title "idea, 0417".
-  It is not clickable yet.
+- Three cream windows, each with a legend above: "STYLE", "KEY" and "TEMPO".
+- There is no idea number window; it was removed on 2026-10-29 (see `docs/DECISIONS.md`).
 - Style and key are buttons that open menus.
   Key reads as, for example, "A MIN".
 - Tempo shows the host tempo with one decimal, or "124.0" when the host sends none.
@@ -366,7 +365,7 @@ A "motion" setting turns every animation off, and the plugin also turns them off
 | --- | --- | --- |
 | `md-body` | `MagicDustEditor` (the `AudioProcessorEditor`) | Owns the scale transform; its main view paints the faceplate (`paintFaceplate`) |
 | `md-screen` | `ScreenComponent` | The display: paints the bezel and cream window; owns the cells, lanes and bottom line |
-| `md-topline` | `TopLine` | Four `ReadoutWindow`s: spell, style, key and tempo |
+| `md-topline` | `TopLine` | Three `ReadoutWindow`s: style, key and tempo |
 | `md-cell` | `ChordCell` (x4) | Custom `juce::Button`; starts an external drag after 4 px of movement |
 | `md-lane` | `LaneView` (x3) | Custom component with a `PianoRoll` child; starts an external drag after 4 px of movement |
 | `md-knob` | `Knob` (x8: mood, energy, groove, flavour, three level knobs and volume) | Subclass of `juce::Slider` in `RotaryVerticalDrag` mode with custom drawing |

@@ -76,12 +76,12 @@ inline constexpr float taglineSpacing = 0.18F; // em
 inline constexpr int taglineGap = 18;
 
 // The header readouts: the group's box, then each window and its legend within it.
-inline const juce::Rectangle<int> header{574, 24, 412, 40};
+inline const juce::Rectangle<int> header{670, 24, 316, 40};
 inline constexpr int legendHeight = 12;
 inline constexpr int readoutY = 14; // from the top of the header box
 inline constexpr int readoutHeight = 26;
-inline constexpr std::array<int, 4> readoutX{0, 96, 232, 328};
-inline constexpr std::array<int, 4> readoutWidth{84, 124, 84, 84};
+inline constexpr std::array<int, 3> readoutX{0, 136, 232};
+inline constexpr std::array<int, 3> readoutWidth{124, 84, 84};
 inline constexpr float readoutBorder = 2.0F;
 inline constexpr float readoutRadius = 2.0F;
 inline constexpr float readoutTextSize = 15.0F;

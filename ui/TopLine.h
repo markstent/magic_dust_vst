@@ -36,15 +36,15 @@ class ReadoutWindow : public juce::Button
     MD_COMPONENT_BOILERPLATE(ReadoutWindow)
 };
 
-// The header: the idea, style, key and tempo windows, each with its legend above. The component
-// IDs "spellReadout", "styleMenu", "keyMenu" and "tempoReadout" name the windows.
+// The header: the style, key and tempo windows, each with its legend above. The component
+// IDs "styleMenu", "keyMenu" and "tempoReadout" name the windows.
 class TopLine : public juce::Component
 {
   public:
     explicit TopLine(MagicDustProcessor& processor);
 
     // The legends above the windows, in header order.
-    static constexpr std::array<const char*, 4> kLegends{"IDEA", "STYLE", "KEY", "TEMPO"};
+    static constexpr std::array<const char*, 3> kLegends{"STYLE", "KEY", "TEMPO"};
 
     void refresh();
     void paint(juce::Graphics& g) override;
@@ -55,7 +55,6 @@ class TopLine : public juce::Component
     void openStyleMenu();
 
     MagicDustProcessor& processor_;
-    ReadoutWindow spell_;
     ReadoutWindow style_;
     ReadoutWindow key_;
     ReadoutWindow tempo_;

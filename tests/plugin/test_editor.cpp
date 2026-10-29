@@ -152,7 +152,6 @@ TEST_CASE("every component sits where the layout table puts it", "[editor]")
 {
     Fixture f;
     CHECK(f.boundsOf("screen") == Rect(54, 86, 932, 250));
-    CHECK(f.boundsOf("spellReadout") == Rect(574, 38, 84, 26));
     CHECK(f.boundsOf("styleMenu") == Rect(670, 38, 124, 26));
     CHECK(f.boundsOf("keyMenu") == Rect(806, 38, 84, 26));
     CHECK(f.boundsOf("tempoReadout") == Rect(902, 38, 84, 26));
@@ -196,12 +195,11 @@ TEST_CASE("the knobs move the processor's parameters", "[editor]")
     CHECK(f.find<md::ui::Knob>("flavourKnob").getValue() == Approx(2.0));
 }
 
-TEST_CASE("the header windows show the spell, style, key and tempo", "[editor]")
+TEST_CASE("the header windows show the style, key and tempo", "[editor]")
 {
     Fixture f;
     const auto& idea = f.idea(4);
     f.refresh();
-    CHECK(f.find<md::ui::ReadoutWindow>("spellReadout").getText() == "0001");
     CHECK(f.find<md::ui::ReadoutWindow>("tempoReadout").getText() == "124.0");
     CHECK(f.find<md::ui::ReadoutWindow>("styleMenu").getText().isNotEmpty());
     CHECK(f.find<md::ui::ReadoutWindow>("keyMenu").getText() == md::ui::keyText(idea.key));
@@ -336,9 +334,9 @@ TEST_CASE("the level and volume knobs' faces sit where the layout table puts the
     CHECK(face("volumeKnob") == Rect(916, 392, 40, 40));
 }
 
-TEST_CASE("the first header legend is IDEA", "[editor]")
+TEST_CASE("the header legends are style, key and tempo", "[editor]")
 {
-    CHECK(std::string(md::ui::TopLine::kLegends.at(0)) == "IDEA");
+    CHECK(std::string(md::ui::TopLine::kLegends.at(0)) == "STYLE");
 }
 
 TEST_CASE("the mute keys sit in the key row, named for their lanes", "[editor]")
@@ -937,7 +935,6 @@ TEST_CASE("every control has an accessible title", "[editor]")
     CHECK(f.find("grooveKnob").getTitle() == "groove");
     CHECK(f.find("flavourKnob").getTitle() == "flavour");
     CHECK(f.find("volumeKnob").getTitle() == "volume");
-    CHECK(f.find("spellReadout").getTitle() == "idea, 0001");
     CHECK(f.find("styleMenu").getTitle().startsWith("style, "));
     CHECK(f.find("keyMenu").getTitle() == "key, a min");
     CHECK(f.find("tempoReadout").getTitle() == "tempo, 124.0");
@@ -1030,10 +1027,10 @@ TEST_CASE("a long error ellipsizes inside the bottom line", "[editor]")
     CHECK_FALSE(bottom.drawnText().endsWith("..."));
 }
 
-TEST_CASE("the tagline ends 16 px clear of the spell window", "[editor]")
+TEST_CASE("the tagline ends 16 px clear of the style window", "[editor]")
 {
     CHECK(md::ui::taglineRight() > 400);
-    CHECK(md::ui::taglineRight() + 16 <= 574);
+    CHECK(md::ui::taglineRight() + 16 <= 670);
 }
 
 TEST_CASE("at 0.8x every child stays inside the editor", "[editor]")

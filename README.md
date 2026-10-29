@@ -169,7 +169,6 @@ The same ideas work in any daw.
 | Control | What it does |
 | --- | --- |
 | Wordmark | Opens the about panel with the version and the project link. |
-| IDEA | Shows the number of the current idea. |
 | STYLE | Click to pick a style: UK funky, MK dub, soulful, bassline, festival or NY groove. |
 | KEY | Click to pick the root note of the key. |
 | TEMPO | Shows your daw's tempo. |

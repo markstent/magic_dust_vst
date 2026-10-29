@@ -25,7 +25,6 @@ namespace
 constexpr int kStyleCount = static_cast<int>(md::Style::nyGroove) + 1;
 
 const char* const kUnknown = "----";
-constexpr int kSpellDigits = 4;
 
 // Style names are spelt with hyphens in the engine and with spaces on screen.
 juce::String styleText(md::Style style)
@@ -96,14 +95,13 @@ void ReadoutWindow::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*
 }
 
 TopLine::TopLine(MagicDustProcessor& processor)
-    : processor_(processor), spell_("spellReadout", "idea", false),
-      style_("styleMenu", "style", true), key_("keyMenu", "key", true),
+    : processor_(processor), style_("styleMenu", "style", true), key_("keyMenu", "key", true),
       tempo_("tempoReadout", "tempo", false)
 {
     setComponentID("topLine");
     style_.onClick = [this] { openStyleMenu(); };
     key_.onClick = [this] { openKeyMenu(); };
-    const std::array<ReadoutWindow*, 4> windows{&spell_, &style_, &key_, &tempo_};
+    const std::array<ReadoutWindow*, 3> windows{&style_, &key_, &tempo_};
     for (auto* window : windows)
     {
         addAndMakeVisible(*window);
@@ -113,8 +111,6 @@ TopLine::TopLine(MagicDustProcessor& processor)
 void TopLine::refresh()
 {
     const auto* idea = processor_.idea();
-    spell_.setText(idea != nullptr ? juce::String(idea->seed).paddedLeft('0', kSpellDigits)
-                                   : juce::String(kUnknown));
     style_.setText(idea != nullptr ? styleText(idea->settings.style) : juce::String(kUnknown));
     key_.setText(idea != nullptr ? keyText(idea->key) : juce::String(kUnknown));
     tempo_.setText(juce::String(processor_.hostBpm().value_or(md::kDefaultTempo), 1));
@@ -122,8 +118,8 @@ void TopLine::refresh()
 
 void TopLine::resized()
 {
-    // The windows in header order: spell, style, key, tempo.
-    const std::array<ReadoutWindow*, 4> windows{&spell_, &style_, &key_, &tempo_};
+    // The windows in header order: style, key, tempo.
+    const std::array<ReadoutWindow*, 3> windows{&style_, &key_, &tempo_};
     for (std::size_t i = 0; i < windows.size(); ++i)
     {
         windows.at(i)->setBounds(t::layout::readoutX.at(i), t::layout::readoutY,

@@ -167,7 +167,7 @@ Build first with `cmake --build --preset dev` and rescan your plug-ins as above.
    The bass goes quiet and stays pinned.
    Unmute it and it plays again.
 8. Pin all three parts and press sprinkle.
-   Nothing changes and the idea number stays the same.
+   Nothing changes and the notes stay the same.
 
 ### Saving and reopening with pins
 
