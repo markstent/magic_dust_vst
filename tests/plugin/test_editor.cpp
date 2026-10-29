@@ -536,7 +536,8 @@ TEST_CASE("level knobs bind their lanes", "[editor]")
     {
         auto& knob = f.find<md::ui::Knob>(("level" + std::to_string(i)).c_str());
         CHECK(knob.getValue() == Approx(1.0).margin(kTolerance));
-        f.processor.params.getParameter(ids.at(i))->setValueNotifyingHost(0.4F);
+        auto* parameter = f.processor.params.getParameter(ids.at(i));
+        parameter->setValueNotifyingHost(parameter->convertTo0to1(0.4F));
         CHECK(knob.getValue() == Approx(0.4).margin(kTolerance));
         knob.setValue(0.2, juce::sendNotificationSync);
         CHECK(param(f, ids.at(i)) == Approx(0.2F).margin(kTolerance));
@@ -544,7 +545,8 @@ TEST_CASE("level knobs bind their lanes", "[editor]")
                                       knob.faceBounds().getCentre().toFloat(), false));
         CHECK(param(f, ids.at(i)) == Approx(1.0F).margin(kTolerance));
     }
-    f.processor.params.getParameter("bassLevel")->setValueNotifyingHost(0.5F);
+    auto* bass = f.processor.params.getParameter("bassLevel");
+    bass->setValueNotifyingHost(bass->convertTo0to1(0.5F));
     CHECK(f.find<md::ui::Knob>("level1").getValue() == Approx(0.5).margin(kTolerance));
     CHECK(f.find<md::ui::Knob>("level0").getValue() == Approx(1.0).margin(kTolerance));
 }
@@ -1306,10 +1308,10 @@ TEST_CASE("render the editor", "[.render]")
         return;
     }
     Fixture f;
-    for (const auto& [id, level] : {std::pair{"chordsLevel", 1.0F}, std::pair{"bassLevel", 0.5F},
-                                    std::pair{"melodyLevel", 0.2F}})
+    for (const char* id : {"chordsLevel", "bassLevel", "melodyLevel"})
     {
-        f.processor.params.getParameter(id)->setValueNotifyingHost(level);
+        auto* parameter = f.processor.params.getParameter(id);
+        parameter->setValueNotifyingHost(parameter->getDefaultValue());
     }
     for (const auto& [id, octave] :
          {std::pair{"bassOctave", -1.0F}, std::pair{"melodyOctave", 1.0F}})
@@ -1557,7 +1559,7 @@ TEST_CASE("Knob title and value text", "[knob]")
     auto groove = f.make("groove");
     CHECK(groove->getTextFromValue(groove->getValue()) == "straight");
     auto chords = f.make("chordsLevel");
-    CHECK(chords->getTextFromValue(chords->getValue()) == "100%");
+    CHECK(chords->getTextFromValue(chords->getValue()) == "+0.0 dB");
 }
 
 TEST_CASE("Serif face loads", "[knob]")

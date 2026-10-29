@@ -118,7 +118,7 @@ The same ideas work in any daw.
    A moment after you let go of mood, energy or flavour, the current idea is rewritten to match, and any part you are not changing stays put.
 5. **Balance and mute.**
    Each part has a level knob.
-   Double-click a level knob to put it back to full.
+   Double-click a level knob to put it back to its default, at three quarters of the way round.
    Press a MUTE key to drop a part out, and press it again to bring it back.
    A muted part stops its built-in sound and its MIDI out.
 6. **Pin what you love.**
@@ -178,8 +178,8 @@ The same ideas work in any daw.
 | ENERGY | Low to high. Higher energy gives a busier bass, with notes that lead into each chord change above halfway. |
 | GROOVE | Straight, or one of three swing settings (54, 58, 62). |
 | FLAVOUR | Simple, soulful or jazzy chords. |
-| CHORDS, BASS and MELODY LEVEL | Level of that part's built-in sound. Double-click to reset to full. |
-| VOLUME | Master volume of the built-in sounds. |
+| CHORDS, BASS and MELODY LEVEL | Level of that part's built-in sound. Double-click to reset. Turn it up to +6 dB. |
+| VOLUME | Master volume of the built-in sounds, up to +6 dB. |
 | MUTE keys | Silence a part, both its built-in sound and its MIDI out. |
 | PIN keys | Keep a part through sprinkle, the knobs and style changes. A pinned bass or melody keeps its rhythm and follows new chords. Pinned parts move with a key change. |
 | OCT rockers | Move a part down or up in octaves, from -2 to +2. The built-in sound, the MIDI out and the MIDI you drag all follow. |

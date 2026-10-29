@@ -70,7 +70,8 @@ class AuditionSynth
     void allNotesOff();
     // Adds into the buffer; start and num must lie within it.
     void render(juce::AudioBuffer<float>& buffer, int start, int num);
-    void setLevel(float level) { level_.store(std::clamp(level, 0.0F, 1.0F)); }
+    // The level is the volume times a lane level, each up to 2.0 (+6 dB).
+    void setLevel(float level) { level_.store(std::clamp(level, 0.0F, 4.0F)); }
 
   private:
     struct Voice

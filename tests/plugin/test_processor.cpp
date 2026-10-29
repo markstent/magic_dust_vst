@@ -331,6 +331,75 @@ TEST_CASE("a voice's level is the volume times its lane level")
     CHECK(a == Catch::Approx(b).epsilon(0.001));
 }
 
+TEST_CASE("a lane level above 1.0 makes the built-in voice louder")
+{
+    const double unity = auditionEnergy("chordsLevel", 1.0F, 0.8F);
+    CHECK(auditionEnergy("chordsLevel", 2.0F, 0.8F) == Catch::Approx(2.0 * unity).epsilon(0.001));
+    CHECK(auditionEnergy("chordsLevel", 2.0F, 2.0F) == Catch::Approx(5.0 * unity).epsilon(0.001));
+}
+
+TEST_CASE("levels and volume reach +6 dB with unity at three quarters of the travel")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    for (const char* id : {"chordsLevel", "bassLevel", "melodyLevel", "volume"})
+    {
+        const auto* parameter = processor.params.getParameter(id);
+        CHECK(parameter->convertFrom0to1(1.0F) == Catch::Approx(2.0F));
+        CHECK(parameter->convertFrom0to1(0.0F) == Catch::Approx(0.0F));
+        CHECK(parameter->convertFrom0to1(0.75F) == Catch::Approx(1.0F).margin(0.001));
+        CHECK(parameter->convertTo0to1(1.0F) == Catch::Approx(0.75F).margin(0.001));
+    }
+    for (const char* id : {"chordsLevel", "bassLevel", "melodyLevel"})
+    {
+        CHECK(processor.params.getParameter(id)->getDefaultValue() ==
+              Catch::Approx(0.75F).margin(0.001));
+        CHECK(processor.params.getRawParameterValue(id)->load() == Catch::Approx(1.0F));
+    }
+    CHECK(processor.params.getRawParameterValue("volume")->load() == Catch::Approx(0.8F));
+}
+
+TEST_CASE("level text is in dB and parses back")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor processor;
+    const auto* parameter = processor.params.getParameter("bassLevel");
+    CHECK(parameter->getText(parameter->convertTo0to1(2.0F), 0) == "+6.0 dB");
+    CHECK(parameter->getText(parameter->convertTo0to1(1.0F), 0) == "+0.0 dB");
+    CHECK(parameter->getText(0.0F, 0) == "-inf dB");
+    for (const float gain : {0.0F, 0.25F, 0.5F, 1.0F, 1.5F, 2.0F})
+    {
+        const auto text = parameter->getText(parameter->convertTo0to1(gain), 0);
+        CHECK(parameter->convertFrom0to1(parameter->getValueForText(text)) ==
+              Catch::Approx(gain).margin(0.01));
+    }
+}
+
+TEST_CASE("a state saved with levels 1.0 and 0.5 loads the same gains")
+{
+    const juce::ScopedJuceInitialiser_GUI juceInit;
+    MagicDustProcessor saver;
+    juce::MemoryBlock state;
+    saver.getStateInformation(state);
+    auto saved =
+        juce::AudioProcessor::getXmlFromBinary(state.getData(), static_cast<int>(state.getSize()));
+    REQUIRE(saved != nullptr);
+    auto* params = saved->getChildByName(saver.params.state.getType());
+    REQUIRE(params != nullptr);
+    for (const auto& [id, gain] : {std::pair{"chordsLevel", 1.0}, std::pair{"bassLevel", 0.5}})
+    {
+        auto* child = params->getChildByAttribute("id", id);
+        REQUIRE(child != nullptr);
+        child->setAttribute("value", gain);
+    }
+    juce::MemoryBlock old;
+    juce::AudioProcessor::copyXmlToBinary(*saved, old);
+    MagicDustProcessor fresh;
+    fresh.setStateInformation(old.getData(), static_cast<int>(old.getSize()));
+    CHECK(fresh.params.getRawParameterValue("chordsLevel")->load() == Catch::Approx(1.0F));
+    CHECK(fresh.params.getRawParameterValue("bassLevel")->load() == Catch::Approx(0.5F));
+}
+
 TEST_CASE("lane levels round trip, and a state without them loads 1.0")
 {
     const juce::ScopedJuceInitialiser_GUI juceInit;

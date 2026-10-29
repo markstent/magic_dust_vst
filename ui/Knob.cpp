@@ -33,7 +33,6 @@ constexpr double kFullRangePixels = 160.0;
 constexpr double kShiftFactor = 4.0;
 constexpr double kHundredWheelStep = 5.0;
 constexpr double kUnitWheelStep = 0.05;
-constexpr double kHundred = 100.0;
 constexpr float kWheelNotch = 0.125F; // deltaY of one mouse wheel notch on macOS
 constexpr float kWheelTolerance = 0.001F;
 
@@ -44,12 +43,7 @@ juce::String textForValue(juce::RangedAudioParameter* parameter, double value)
         return choice->choices.getReference(
             juce::jlimit(0, choice->choices.size() - 1, static_cast<int>(std::lround(value))));
     }
-    const auto& range = parameter->getNormalisableRange();
-    if (range.start == 0.0F && range.end == 1.0F)
-    {
-        return juce::String(static_cast<int>(std::lround(value * kHundred))) + "%";
-    }
-    return juce::String(static_cast<int>(std::lround(value)));
+    return parameter->getText(parameter->convertTo0to1(static_cast<float>(value)), 0);
 }
 
 } // namespace
@@ -85,7 +79,7 @@ double Knob::step() const
     {
         return 1.0;
     }
-    return getMaximum() > 1.0 ? kHundredWheelStep : kUnitWheelStep;
+    return getMaximum() > 2.0 ? kHundredWheelStep : kUnitWheelStep;
 }
 
 juce::Rectangle<int> Knob::faceBounds() const

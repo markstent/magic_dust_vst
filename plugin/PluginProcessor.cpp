@@ -28,6 +28,37 @@ constexpr double kLocateBeats = 0.05;
 const char* const kBankFailed = "the style bank failed to load";
 const char* const kNoIdea = "couldn't write that idea";
 
+constexpr float kMaxGain = 2.0F; // +6 dB
+constexpr float kUnityTravel = 0.75F;
+constexpr float kMinusInfinityDb = -100.0F;
+
+// Gain is stored linearly (1.0 is unity, as in saved projects) and shown to the host in dB.
+std::unique_ptr<juce::AudioParameterFloat> gainParameter(const char* id, const juce::String& name,
+                                                         float defaultGain)
+{
+    // The skew puts unity at 3/4 of the knob travel, so there is room to turn up as well as down.
+    juce::NormalisableRange<float> range(0.0F, kMaxGain);
+    range.skew = std::log(kUnityTravel) / std::log(0.5F);
+    const auto attributes = juce::AudioParameterFloatAttributes()
+                                .withStringFromValueFunction(
+                                    [](float gain, int)
+                                    {
+                                        return juce::Decibels::toString(
+                                            juce::Decibels::gainToDecibels(gain, kMinusInfinityDb),
+                                            1, kMinusInfinityDb, true, "-inf");
+                                    })
+                                .withValueFromStringFunction(
+                                    [](const juce::String& text)
+                                    {
+                                        return text.containsIgnoreCase("inf")
+                                                   ? 0.0F
+                                                   : juce::Decibels::decibelsToGain(
+                                                         text.getFloatValue(), kMinusInfinityDb);
+                                    });
+    return std::make_unique<juce::AudioParameterFloat>(juce::ParameterID{id, 1}, name, range,
+                                                       defaultGain, attributes);
+}
+
 juce::AudioProcessorValueTreeState::ParameterLayout makeLayout()
 {
     using juce::ParameterID;
@@ -41,12 +72,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout makeLayout()
         juce::StringArray{"straight", "swing 54%", "uk shuffle 58%", "heavy 62%"}, 0));
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         ParameterID{"flavour", 1}, "flavour", juce::StringArray{"simple", "soulful", "jazzy"}, 1));
-    layout.add(std::make_unique<juce::AudioParameterFloat>(ParameterID{"volume", 1}, "volume", 0.0F,
-                                                           1.0F, 0.8F));
+    layout.add(gainParameter("volume", "volume", 0.8F));
     for (const char* id : {"chordsLevel", "bassLevel", "melodyLevel"})
     {
-        layout.add(std::make_unique<juce::AudioParameterFloat>(
-            ParameterID{id, 1}, juce::String(id).replace("Level", " level"), 0.0F, 1.0F, 1.0F));
+        layout.add(gainParameter(id, juce::String(id).replace("Level", " level"), 1.0F));
     }
     for (const char* id : {"chordsMute", "bassMute", "melodyMute"})
     {
