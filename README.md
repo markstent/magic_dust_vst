@@ -20,7 +20,7 @@
 
 Magic Dust is an instrument plugin for macOS that writes house music ideas for you.
 Press the sprinkle key and it writes an 8-bar idea: chords, a bass line and a melody that fit together, in the key and style you chose.
-Play it through the built-in organ, sub bass and pluck, or drag the chords and the lanes into your daw as MIDI clips and use your own sounds.
+Play it through the built-in house piano, sub bass and synth lead, or drag the chords and the lanes into your daw as MIDI clips and use your own sounds.
 
 It is made by Mark Stent Digital.
 It comes as an Audio Unit (AU) and a VST3 plugin, and it is open source under AGPLv3.
@@ -35,7 +35,7 @@ It comes as an Audio Unit (AU) and a VST3 plugin, and it is open source under AG
 - A level knob and a mute key for each part, and a master volume.
 - A PIN key for each part: pin the chords, bass or melody you love, and sprinkle and the knobs rewrite the rest.
 - An octave rocker for each part, from 2 octaves down to 2 up, for the built-in sound, MIDI out and dragged MIDI.
-- Play, stop and the spacebar, to hear the idea with the built-in organ, sub bass and pluck sounds.
+- Play, stop and the spacebar, to hear the idea with the built-in house piano, sub bass and synth lead.
 - Drag a single chord, or a whole lane, into your daw as a MIDI clip.
 - MIDI out on channels 1 to 3: chords on 1, bass on 2, melody on 3.
 - Sender mode: play a part through your own synth, even in Ableton Live, which merges plugin MIDI to one channel.

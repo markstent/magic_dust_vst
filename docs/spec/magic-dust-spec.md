@@ -240,7 +240,7 @@ Each lane encoder steps through these patterns, in this order.
 - **No clashes.**
   On strong beats, never put a melody note a half step away from a sounding chord tone.
 - **Pluck mode** (the MK sound): 1 to 3 pitches taken from chord tones, mostly 16th notes, with stutter repeats, syncopation and gaps.
-  It plays a short pluck sound, and it also suits loading a vocal into a sampler.
+  It plays short notes on the built-in synth lead, and it also suits loading a vocal into a sampler.
   It is meant to drive a sampler holding chopped vocal syllables.
 
 ### Pin, reroll and seeds
@@ -386,7 +386,7 @@ flowchart TB
   subgraph plugin["Magic Dust plugin (JUCE)"]
     ui["Interface<br/>screen, encoders, keys"]
     proc["Processor<br/>state, tempo, plays the current pattern"]
-    synth["Audition synth<br/>organ, sub bass, lead"]
+    synth["Audition synth<br/>house piano, sub bass, synth lead"]
   end
   subgraph core["Pure C++ core, no JUCE"]
     engine["engine<br/>writes all 3 lanes, seeded and tested"]
@@ -415,7 +415,7 @@ flowchart TB
 | `bank` | Load and validate JSON entries into engine types | `engine`, nlohmann/json |
 | `midiexport` | Turn an idea into Standard MIDI File bytes | `engine` |
 | `plugin` | JUCE audio processor: parameters, saved state, host tempo and transport, preview playback | JUCE, all of the above |
-| `synth` | Three audition voices: organ, sub bass, pluck | JUCE |
+| `synth` | Three audition voices: house piano, sub bass, synth lead | JUCE |
 | `ui` | Look and feel, tokens, screen, encoders, keycaps, drag sources (see the visual spec's component map) | JUCE, `plugin` |
 | `tools/bank-builder` | Draft bank entries from audio or MIDI the owner owns | Python 3, librosa |
 
