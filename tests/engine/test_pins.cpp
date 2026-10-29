@@ -1,5 +1,6 @@
 #include "md/generate.hpp"
 
+#include "ghost.hpp"
 #include "internal.hpp"
 #include "md/bank.hpp"
 #include "md/ranges.hpp"
@@ -413,6 +414,53 @@ TEST_CASE("pinned chords that revoice keep their ghosts and lengths at a lower e
         }
     }
     CHECK(ghosted > 0);
+}
+
+TEST_CASE("pinned chords revoiced twice keep every start and length", "[pins]")
+{
+    const auto moveTop = [](PlacedChord& chord, int top)
+    {
+        const int delta = top - chord.voicing.back();
+        for (int& pitch : chord.voicing)
+        {
+            pitch += delta;
+        }
+    };
+    const auto shape = [](const Idea& idea)
+    {
+        std::set<std::pair<int, int>> out;
+        for (const NoteEvent& e : laneOf(idea, LaneId::chords).events)
+        {
+            out.emplace(e.start, e.length);
+        }
+        return out;
+    };
+    int tested = 0;
+    for (std::uint32_t seed = 1; seed <= kSeeds; ++seed)
+    {
+        Settings settings;
+        settings.keyRoot = 9;
+        settings.energy = 80;
+        Idea previous = first(settings, seed);
+        if (previous.progression.size() < 2)
+        {
+            continue;
+        }
+        const auto written = shape(previous);
+        settings.energy = 20;
+        Idea idea = previous;
+        for (const int keyRoot : {0, 9})
+        {
+            moveTop(idea.progression.front(), kChordTopLow);
+            moveTop(idea.progression.back(), kChordTopHigh);
+            settings.keyRoot = keyRoot;
+            idea = next(settings, seed + kNextSeedOffset, idea, {.chords = true});
+            CHECK(validate(idea).empty());
+            CHECK(shape(idea) == written);
+        }
+        ++tested;
+    }
+    CHECK(tested > 0);
 }
 
 TEST_CASE("pinned chords keep their rhythm across a key change", "[pins]")

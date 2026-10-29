@@ -308,7 +308,7 @@ void addGhosts(std::vector<NoteEvent>& events, const std::vector<PlacedChord>& c
     std::vector<int> bars;
     for (int bar = 0; bar < settings.bars; ++bar)
     {
-        if (!isTurnaroundBar(settings.bars, bar))
+        if (!isTurnaroundBar(settings.bars, bar) && !isBreathBar(settings.bars, bar))
         {
             bars.push_back(bar);
         }

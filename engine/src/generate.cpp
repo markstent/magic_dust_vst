@@ -422,7 +422,7 @@ bool voicingFits(const Voicing& voicing, int offset)
 }
 
 // The previous progression and chord lane moved by the key shift. The shift, or an octave off it,
-// is used when every voicing stays valid; otherwise the chords are revoiced, keeping the rhythm.
+// is used when every voicing stays valid; otherwise the chords are revoiced, keeping the hits.
 void keepChords(Idea& idea, const Idea& previous, const StyleEntry& entry, int shift)
 {
     idea.key = {.root = idea.settings.keyRoot, .mode = previous.key.mode};
@@ -454,17 +454,34 @@ void keepChords(Idea& idea, const Idea& previous, const StyleEntry& entry, int s
     {
         detail::invertVoicings(entry, idea.progression, lane.seed);
     }
-    const auto cell = std::ranges::find(entry.chordRhythms, lane.pattern, &RhythmCell::id);
-    // The pinned rhythm, turnaround, breath, ghosts and lengths stay as they were whatever the
-    // energy now is.
-    Settings rhythmSettings = idea.settings;
-    rhythmSettings.energy = previous.settings.energy;
-    idea.lanes.at(0) = makeLane(
-        LaneId::chords, lane.seed, lane.pattern,
-        detail::chordEvents(idea.progression,
-                            cell == entry.chordRhythms.end() ? entry.chordRhythms.front() : *cell,
-                            rhythmSettings, entry, lane.seed),
-        detail::kChordHumanize, idea.settings.energy);
+    // The pinned hits keep their starts, lengths and velocities whatever the energy now is. Each
+    // hit sounds the new voicing, a note of the old hit to each pitch in voicing order.
+    std::vector<NoteEvent> events;
+    for (std::size_t i = 0; i < lane.events.size();)
+    {
+        std::vector<NoteEvent> hit;
+        for (; i < lane.events.size() &&
+               (hit.empty() || lane.events.at(i).start == hit.front().start);
+             ++i)
+        {
+            hit.push_back(lane.events.at(i));
+        }
+        std::ranges::sort(hit, {}, &NoteEvent::pitch);
+        const Voicing& voicing = detail::chordAt(idea.progression, hit.front().start).voicing;
+        for (std::size_t n = 0; n < voicing.size(); ++n)
+        {
+            const NoteEvent& old = hit.at(std::min(n, hit.size() - 1));
+            events.push_back({.pitch = voicing.at(n),
+                              .start = old.start,
+                              .length = old.length,
+                              .velocity = old.velocity});
+        }
+    }
+    idea.lanes.at(0) = {.id = LaneId::chords,
+                        .pattern = lane.pattern,
+                        .events = std::move(events),
+                        .muted = false,
+                        .seed = lane.seed};
 }
 
 // A previous lane moved by the key shift, each note an octave back into range where it left it.
