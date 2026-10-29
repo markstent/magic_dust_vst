@@ -63,6 +63,7 @@ class KeyButton : public juce::Button, private juce::Timer
     void buttonStateChanged() override;
     void timerCallback() override;
     void retarget();
+    void repaintWithMargin();
 
     KeyMaterial material_;
     KeyIcon icon_ = KeyIcon::none;

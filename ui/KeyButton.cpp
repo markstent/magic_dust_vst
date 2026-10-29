@@ -121,7 +121,20 @@ void KeyButton::retarget()
     stopTimer();
     press_ = isDown() ? 1.0F : 0.0F;
     ledLevel_ = lit_ ? 1.0F : 0.0F;
-    repaint(getLocalBounds().expanded(0, t::layout::keyRepaintMargin));
+    repaintWithMargin();
+}
+
+// Component::repaint clips to the key's own bounds, so the LED, shadow and legend outside them
+// are invalidated through the parent.
+void KeyButton::repaintWithMargin()
+{
+    const auto area = getBounds().expanded(0, t::layout::keyRepaintMargin);
+    if (auto* parent = getParentComponent())
+    {
+        parent->repaint(area);
+        return;
+    }
+    repaint();
 }
 
 void KeyButton::timerCallback()
@@ -138,7 +151,7 @@ void KeyButton::timerCallback()
     {
         stopTimer();
     }
-    repaint(getLocalBounds().expanded(0, t::layout::keyRepaintMargin));
+    repaintWithMargin();
 }
 
 void KeyButton::paintButton(juce::Graphics& g, bool /*highlighted*/, bool /*down*/)

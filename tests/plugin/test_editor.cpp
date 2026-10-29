@@ -44,6 +44,13 @@ constexpr int kFourChordSeed = 1;
 constexpr int kThreeChordSeed = 6;
 constexpr std::int64_t kRandomSeed = 7;
 
+extern "C"
+{
+    extern const struct __CFString* const kCFRunLoopDefaultMode;
+    int CFRunLoopRunInMode(const struct __CFString* mode, double seconds,
+                           unsigned char returnAfterHandled);
+}
+
 struct Fixture
 {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -1567,4 +1574,83 @@ TEST_CASE("the melody lane label shows PLUCK for a pluck idea", "[editor]")
     REQUIRE(melody.pattern == "pluck");
     f.refresh();
     CHECK(f.find<md::ui::LaneView>("lane2").drawnPattern() == "PLUCK");
+}
+
+TEST_CASE("every mute and pin key is the topmost component at its centre", "[editor][pin]")
+{
+    Fixture f;
+    f.editor->setVisible(true);
+    for (const char* id : {"mute0", "mute1", "mute2", "pin0", "pin1", "pin2"})
+    {
+        auto& key = f.find(id);
+        const auto centre = f.editor->getLocalArea(&key, key.getLocalBounds()).getCentre();
+        CHECK(f.editor->getComponentAt(centre) == &key);
+    }
+}
+
+TEST_CASE("an animated toggle key lights from a click, the host, and a reopened editor",
+          "[editor][pin]")
+{
+    Fixture f;
+    const std::array<std::pair<const char*, const char*>, 2> keys{
+        {{"mute1", "bassMute"}, {"pin1", "bassPin"}}};
+    for (const auto& [id, parameter] : keys)
+    {
+        auto& key = f.find<md::ui::KeyButton>(id);
+        click(key, {18.0F, 12.0F});
+        CHECK(param(f, parameter) == 1.0F);
+        CHECK(key.getToggleState());
+        CHECK(key.isLit());
+        click(key, {18.0F, 12.0F});
+        CHECK_FALSE(key.isLit());
+        f.processor.params.getParameter(parameter)->setValueNotifyingHost(1.0F);
+        CHECK(key.isLit());
+        f.processor.params.getParameter(parameter)->setValueNotifyingHost(0.0F);
+        CHECK_FALSE(key.isLit());
+    }
+    f.processor.params.getParameter("bassPin")->setValueNotifyingHost(1.0F);
+    f.processor.params.getParameter("chordsMute")->setValueNotifyingHost(1.0F);
+    f.editor.reset(f.processor.createEditor());
+    CHECK(f.find<md::ui::KeyButton>("pin1").isLit());
+    CHECK(f.find<md::ui::KeyButton>("mute0").isLit());
+}
+
+// Stands in for the host window's backing store: records what the editor asks to redraw.
+struct DirtyRecorder : juce::CachedComponentImage
+{
+    void paint(juce::Graphics& /*g*/) override {}
+    bool invalidateAll() override
+    {
+        dirty.add(bounds);
+        return true;
+    }
+    bool invalidate(const juce::Rectangle<int>& area) override
+    {
+        dirty.add(area);
+        return true;
+    }
+    void releaseResources() override {}
+
+    juce::Rectangle<int> bounds;
+    juce::RectangleList<int> dirty;
+};
+
+TEST_CASE("a clicked toggle key repaints its LED, which sits above the key", "[editor][pin]")
+{
+    Fixture f;
+    f.editor->setVisible(true);
+    auto* recorder = new DirtyRecorder;
+    recorder->bounds = f.editor->getLocalBounds();
+    f.editor->setCachedComponentImage(recorder);
+    for (const char* id : {"mute1", "pin1"})
+    {
+        auto& key = f.find<md::ui::KeyButton>(id);
+        const auto face = f.editor->getLocalArea(&key, key.getLocalBounds());
+        const auto led = juce::Rectangle<int>(6, 6).withCentre(
+            {face.getCentreX(), face.getY() - 6 - 3}); // 6 px gap above the key, 6 px LED
+        recorder->dirty.clear();
+        click(key, {18.0F, 12.0F});
+        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.3, 0);
+        CHECK(recorder->dirty.containsRectangle(led));
+    }
 }
