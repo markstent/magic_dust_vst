@@ -304,6 +304,11 @@ TEST_CASE("a bass sender mutes the main sub bass until it is destroyed")
     const juce::ScopedJuceInitialiser_GUI juceInit;
     MagicDustProcessor main;
     setSeed(main, 48213);
+    // Only the bass is measured: the chords and melody releases would ring into the next run.
+    for (const char* id : {"chordsMute", "melodyMute"})
+    {
+        main.params.getParameter(id)->setValueNotifyingHost(1.0F);
+    }
     FakeHead head;
     prepare(main, head);
     constexpr int blocks = 187;
@@ -322,8 +327,7 @@ TEST_CASE("a bass sender mutes the main sub bass until it is destroyed")
 
     CHECK(withSender > 0.0);
     CHECK(withSender < alone * 0.95);
-    // The piano and lead releases of the last run still ring into this one, so allow a few percent.
-    CHECK(after == Catch::Approx(alone).epsilon(0.03));
+    CHECK(after == Catch::Approx(alone).epsilon(0.01));
 }
 
 TEST_CASE("destroying the main instance releases a playing sender and then silences it")
