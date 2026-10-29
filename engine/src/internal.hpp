@@ -15,13 +15,15 @@
 namespace md::detail
 {
 // Every random draw is Pcg32(<lane seed>, slot) with one fixed slot per use:
-//   chords: 0 entry, 1 progression, 2 chord rhythm cell, 3 velocity humanize, 4 turnaround cell
+//   chords: 0 entry, 1 progression, 2 chord rhythm cell, 3 velocity humanize, 4 turnaround cell,
+//           5 ghosts, 6 lengths, 7 inversions
 //   bass:   0 velocity humanize
 //           1 pattern choice
 //           2 pitch variation
 //           3 approach notes
 //           4 riff motif
 //           5 call-and-response picks
+//           6 ghosts
 //           7 turnaround fill
 //   melody: 0 rhythm cell A, 1 rhythm cell B, 2 pitch walk, 3 pluck tones, 4 velocity humanize,
 //           5 answer cell, 6 answer pitches,
@@ -32,12 +34,16 @@ constexpr std::uint32_t kChordProgression = 1;
 constexpr std::uint32_t kChordCell = 2;
 constexpr std::uint32_t kChordHumanize = 3;
 constexpr std::uint32_t kChordTurnaround = 4;
+constexpr std::uint32_t kChordGhost = 5;
+constexpr std::uint32_t kChordLength = 6;
+constexpr std::uint32_t kChordInversion = 7;
 constexpr std::uint32_t kBassHumanize = 0;
 constexpr std::uint32_t kBassPattern = 1;
 constexpr std::uint32_t kBassPitch = 2;
 constexpr std::uint32_t kBassApproach = 3;
 constexpr std::uint32_t kBassRiff = 4;
 constexpr std::uint32_t kBassCall = 5;
+constexpr std::uint32_t kBassGhost = 6;
 constexpr std::uint32_t kMelodyCellA = 0;
 constexpr std::uint32_t kMelodyCellB = 1;
 constexpr std::uint32_t kMelodyWalk = 2;
@@ -52,6 +58,9 @@ constexpr std::uint32_t kBassFill = 7;
 constexpr int kMidEnergy = 30;
 constexpr int kHighEnergy = 60;
 
+// A ghost note's velocity, as a percent of the lane base.
+constexpr int kGhostVelocity = 40;
+
 // True for the bar (0-based) that ends a phrase and turns the idea around: the last bar, and bar 8
 // of a 16-bar idea.
 bool isTurnaroundBar(int bars, int bar);
@@ -64,6 +73,9 @@ struct PitchRange
     int low;
     int high;
 };
+
+// The 16th step of a swung start: an odd step lands in the second half of its pair of 16ths.
+int stepOf(int start);
 
 // Odd sixteenth steps land late: start = pairStart + 480 * swingPermille / 1000.
 int swung(int start, int swingPermille);
@@ -142,8 +154,18 @@ ChordSymbol applyFlavour(const Key& key, std::optional<Mode> borrowedFrom, const
 // Tiles the progression's chords from bar 0 and truncates the last at bars. Voicings stay empty.
 std::vector<PlacedChord> placeProgression(const Progression& progression, int bars);
 void voiceChords(const StyleEntry& entry, const Key& key, std::vector<PlacedChord>& chords);
+// Above kHighEnergy callers move some voicings up one inversion (slot 7): a chord that repeats the
+// previous span's symbol and reaches bar 3 or 4 of a 4-bar group (the voicing is one per span, so
+// it moves for the whole span), when the new voicing keeps its top note in the entry's range and
+// every voice within kMaxVoiceMove of both neighbours. Never for a parallel entry. Voicings must
+// already be set.
+void invertVoicings(const StyleEntry& entry, std::vector<PlacedChord>& chords,
+                    std::uint64_t chordSeed);
 // From kMidEnergy up a turnaround bar swaps in bar 1 of another of the entry's chord cells (slot
-// 4); above kHighEnergy the breath bar drops its last hit.
+// 4). Above kHighEnergy the breath bar drops its last hit, hits of 2 sixteenths or fewer play 70,
+// 85 or 100 percent of their length, at least 120 ticks (slot 6), and ghost notes are added (slot
+// 5): at most one a bar and bars / 2 in all, never in a turnaround bar, each the bar's voicing on
+// an odd 16th, 1 sixteenth long at kGhostVelocity.
 std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const RhythmCell& cell,
                                    const Settings& settings, const StyleEntry& entry,
                                    std::uint64_t chordSeed);

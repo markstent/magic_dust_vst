@@ -274,6 +274,55 @@ void addFill(const Idea& idea, std::uint64_t bassSeed, std::vector<NoteEvent>& e
     }
 }
 
+// 1 per 4 bars, rounded down, on empty odd 16ths (steps 1 to 13) of any bar but the last that
+// follow a bass note of their bar, each the chord root an octave up or, failing that, down at
+// kGhostVelocity. A step is empty when no note starts within a step of it or sounds over it. Events
+// must be sorted by start; the caller spares sustained and pedal. The fill and the approach notes
+// are already in the events.
+void addGhosts(const Idea& idea, std::uint64_t bassSeed, std::vector<NoteEvent>& events)
+{
+    Pcg32 rng(bassSeed, kBassGhost);
+    const int swing = swingPermille(idea.settings.groove);
+    std::vector<NoteEvent> candidates;
+    for (int bar = 0; bar < idea.settings.bars - 1; ++bar)
+    {
+        const int barStart = bar * kTicksPerBar;
+        const PlacedChord& chord = chordAt(idea.progression, barStart);
+        const int root = rootNote(chordRootPc(idea.key, chord.symbol));
+        const int pitch = root + 12 <= kBassHigh ? root + 12 : root - 12;
+        for (int step = 1; step < kStepsPerBar - 1; step += 2)
+        {
+            const NoteEvent ghost{.pitch = pitch,
+                                  .start = swung(barStart + (step * kTicksPerSixteenth), swing),
+                                  .length = kTicksPerSixteenth,
+                                  .velocity = kGhostVelocity};
+            const int ghostStep = (bar * kStepsPerBar) + step;
+            const bool empty = std::ranges::none_of(
+                events,
+                [&](const NoteEvent& e)
+                {
+                    return std::abs(stepOf(e.start) - ghostStep) < 2 ||
+                           (e.start < ghost.start && e.start + e.length > ghost.start);
+                });
+            const bool afterNote =
+                std::ranges::any_of(events, [&](const NoteEvent& e)
+                                    { return e.start >= barStart && e.start < ghost.start; });
+            if (pitch >= kBassLow && empty && afterNote && bassPitchOk(idea, ghost, {}))
+            {
+                candidates.push_back(ghost);
+            }
+        }
+    }
+    for (int n = 0; n < idea.settings.bars / 4 && !candidates.empty(); ++n)
+    {
+        const auto pick =
+            static_cast<std::ptrdiff_t>(rng.below(static_cast<std::uint32_t>(candidates.size())));
+        events.push_back(candidates.at(static_cast<std::size_t>(pick)));
+        candidates.erase(candidates.begin() + pick);
+    }
+    std::ranges::stable_sort(events, {}, &NoteEvent::start);
+}
+
 // Each chord span's first note is its root and the rest vary (slot 2) on the patterns that do.
 std::vector<NoteEvent> slotEvents(const Idea& idea, BassPattern pattern, std::uint64_t bassSeed)
 {
@@ -570,6 +619,7 @@ std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern, std::ui
         if (idea.settings.energy > kHighEnergy)
         {
             addFill(idea, bassSeed, events);
+            addGhosts(idea, bassSeed, events);
         }
     }
     clampMonophonic(events, idea.settings.bars * kTicksPerBar);

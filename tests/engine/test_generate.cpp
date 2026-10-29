@@ -1314,7 +1314,21 @@ Idea patternIdea(const Bank& only, Style style, int i, bool high)
     return generate(only, settings, static_cast<std::uint32_t>(2000 + (i * 31)));
 }
 
-const std::vector<NoteEvent>& bassNotes(const Idea& idea) { return idea.lanes.at(1).events; }
+// A ghost note is 40 percent of the lane base, with an accent of -8 and a spread of +-3, so at most
+// 44 - 8 + 3 = 39; a played note is never below 80 * 85 / 100 - 11 = 57 (an approach note at the
+// lowest base).
+constexpr int kGhostCeiling = 55;
+
+bool isGhost(const NoteEvent& e) { return e.velocity < kGhostCeiling; }
+
+// The bass lane without its ghost notes, which their own tests check.
+std::vector<NoteEvent> bassNotes(const Idea& idea)
+{
+    std::vector<NoteEvent> notes;
+    std::ranges::copy_if(idea.lanes.at(1).events, std::back_inserter(notes),
+                         [](const NoteEvent& e) { return !isGhost(e); });
+    return notes;
+}
 
 // The offsets (within the 2-bar span) of the bass onsets in each span, leaving out approach notes.
 std::vector<std::vector<int>> spanRhythms(const Idea& idea)
@@ -1614,8 +1628,8 @@ TEST_CASE("riff and call-and-response get an approach note exactly when the chan
 
 TEST_CASE("the accent table holds per 16th step on top of the lane base", "[generate][accents]")
 {
-    // Chords and melody write every note at 100 percent, so the velocity is base + accent + spread.
-    // Replaying the lane's spread draws leaves exactly base + accent.
+    // Chords and melody write every note at 100 percent (a ghost note at 40), so the velocity is
+    // base + accent + spread. Replaying the lane's spread draws leaves exactly base + accent.
     constexpr std::array<std::uint32_t, 2> slots = {detail::kChordHumanize,
                                                     detail::kMelodyHumanize};
     for (const Idea& idea : sampleIdeas())
@@ -1631,7 +1645,8 @@ TEST_CASE("the accent table holds per 16th step on top of the lane base", "[gene
                 const int step = ((e.start / 480) * 2) + (e.start % 480 == 0 ? 0 : 1);
                 const int accent = (step % 4 == 0) ? 4 : -8;
                 const int offbeat = (step % 4 == 2) ? 16 : 0; // -8 becomes +8
-                REQUIRE(e.velocity - spread == base + accent + offbeat);
+                const int percent = isGhost(e) ? detail::kGhostVelocity : 100;
+                REQUIRE(e.velocity - spread == (base * percent / 100) + accent + offbeat);
             }
         }
     }

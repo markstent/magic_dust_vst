@@ -7,6 +7,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <set>
@@ -366,6 +367,51 @@ TEST_CASE("pinned chords that revoice keep their turnaround and breath at a lowe
         }
     }
     CHECK(revoiced > 0);
+}
+
+TEST_CASE("pinned chords that revoice keep their ghosts and lengths at a lower energy", "[pins]")
+{
+    int ghosted = 0;
+    for (std::uint32_t seed = 1; seed <= kSeeds; ++seed)
+    {
+        Settings settings;
+        settings.keyRoot = 9;
+        settings.energy = 80;
+        Idea previous = first(settings, seed);
+        if (previous.progression.size() < 2)
+        {
+            continue;
+        }
+        const auto moveTop = [](PlacedChord& chord, int top)
+        {
+            const int delta = top - chord.voicing.back();
+            for (int& pitch : chord.voicing)
+            {
+                pitch += delta;
+            }
+        };
+        moveTop(previous.progression.front(), kChordTopLow);
+        moveTop(previous.progression.back(), kChordTopHigh);
+        settings.keyRoot = 0;
+        settings.energy = 20;
+        const Idea result = next(settings, seed + kNextSeedOffset, previous, {.chords = true});
+        const auto shape = [](const Idea& idea)
+        {
+            std::set<std::pair<int, int>> out; // a revoiced chord may have more or fewer notes
+            for (const NoteEvent& e : laneOf(idea, LaneId::chords).events)
+            {
+                out.emplace(e.start, e.length);
+            }
+            return out;
+        };
+        CHECK(shape(previous) == shape(result));
+        const auto& events = laneOf(previous, LaneId::chords).events;
+        if (std::ranges::any_of(events, [](const NoteEvent& e) { return e.velocity < 55; }))
+        {
+            ++ghosted;
+        }
+    }
+    CHECK(ghosted > 0);
 }
 
 TEST_CASE("pinned chords keep their rhythm across a key change", "[pins]")

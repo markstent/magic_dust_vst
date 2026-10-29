@@ -20,12 +20,24 @@ namespace
 constexpr int kFirstChordTop = 70;
 constexpr int kLeapPenalty = 1'000'000;
 constexpr int kFifth = 7;
+constexpr int kMinChordLength = kTicksPerSixteenth / 2;
+constexpr int kMaxVariedHit = 2 * kTicksPerSixteenth;
+constexpr std::array kLengthPercents = std::to_array({70, 85, 100});
+constexpr int kMinGhostGap = 2;
 
 struct TopRange
 {
     int low;
     int high;
 };
+
+TopRange topRangeOf(const StyleEntry& entry)
+{
+    return {
+        .low = std::max(kChordTopLow, entry.topNoteLow),
+        .high = std::min(kChordTopHigh, entry.topNoteHigh),
+    };
+}
 
 bool fits(const Voicing& v, TopRange top)
 {
@@ -228,10 +240,7 @@ std::optional<Voicing> parallelVoicing(const Voicing& shape, int rootMove, TopRa
 bool voiceAll(const StyleEntry& entry, VoicingStyle style, bool strict, const Key& key,
               std::vector<PlacedChord>& chords)
 {
-    const TopRange top{
-        .low = std::max(kChordTopLow, entry.topNoteLow),
-        .high = std::min(kChordTopHigh, entry.topNoteHigh),
-    };
+    const TopRange top = topRangeOf(entry);
     for (std::size_t i = 0; i < chords.size(); ++i)
     {
         std::optional<Voicing> chosen;
@@ -265,7 +274,114 @@ bool voiceAll(const StyleEntry& entry, VoicingStyle style, bool strict, const Ke
     }
     return true;
 }
+
+bool movesWithin(const Voicing& a, const Voicing& b)
+{
+    bool within = true;
+    forEachVoicePair(a, b, [&within](std::size_t, int move)
+                     { within = within && move <= kMaxVoiceMove; });
+    return within;
+}
+
+// True when the span covers bar 3 or 4 of a 4-bar group (0-based bars 2 and 3 of each 4). The
+// voicing is one per span, so a span that reaches those bars is inverted whole.
+bool coversLateBar(const PlacedChord& chord)
+{
+    return chord.bars >= 3 || (chord.startBar % 4) + chord.bars > 2;
+}
+
+// The voicing with its lowest note moved up an octave, kept sorted.
+Voicing nextInversion(const Voicing& v)
+{
+    Voicing inverted(v.begin() + 1, v.end());
+    inverted.push_back(v.front() + 12);
+    std::ranges::sort(inverted);
+    return inverted;
+}
+
+// At most one ghost a bar and bars / 2 in all, in bars that are not turnarounds. Each is the bar's
+// voicing on an odd 16th at least kMinGhostGap steps from every hit, clear of any held hit.
+void addGhosts(std::vector<NoteEvent>& events, const std::vector<PlacedChord>& chords,
+               const Settings& settings, std::uint64_t chordSeed)
+{
+    Pcg32 rng(chordSeed, kChordGhost);
+    const int swing = swingPermille(settings.groove);
+    std::vector<int> bars;
+    for (int bar = 0; bar < settings.bars; ++bar)
+    {
+        if (!isTurnaroundBar(settings.bars, bar))
+        {
+            bars.push_back(bar);
+        }
+    }
+    std::vector<NoteEvent> ghosts;
+    for (int n = 0; n < settings.bars / 2 && !bars.empty(); ++n)
+    {
+        const auto pick =
+            static_cast<std::ptrdiff_t>(rng.below(static_cast<std::uint32_t>(bars.size())));
+        const int bar = bars.at(static_cast<std::size_t>(pick));
+        bars.erase(bars.begin() + pick);
+        std::vector<int> starts;
+        for (int step = 1; step < kStepsPerBar; step += 2)
+        {
+            const int start = swung((bar * kTicksPerBar) + (step * kTicksPerSixteenth), swing);
+            const bool clear = std::ranges::all_of(
+                events,
+                [&](const NoteEvent& e)
+                {
+                    return std::abs(stepOf(e.start) - ((bar * kStepsPerBar) + step)) >=
+                               kMinGhostGap &&
+                           (e.start >= start || e.start + e.length <= start);
+                });
+            if (clear)
+            {
+                starts.push_back(start);
+            }
+        }
+        if (starts.empty())
+        {
+            continue;
+        }
+        const int start = starts.at(rng.below(static_cast<std::uint32_t>(starts.size())));
+        for (const int pitch : chordAt(chords, bar * kTicksPerBar).voicing)
+        {
+            ghosts.push_back(
+                {.pitch = pitch,
+                 .start = start,
+                 .length = std::min(kTicksPerSixteenth, ((bar + 1) * kTicksPerBar) - start),
+                 .velocity = kGhostVelocity});
+        }
+    }
+    events.insert(events.end(), ghosts.begin(), ghosts.end());
+    std::ranges::stable_sort(events, {}, &NoteEvent::start);
+}
 } // namespace
+
+void invertVoicings(const StyleEntry& entry, std::vector<PlacedChord>& chords,
+                    std::uint64_t chordSeed)
+{
+    if (entry.parallel)
+    {
+        return;
+    }
+    Pcg32 rng(chordSeed, kChordInversion);
+    const TopRange top = topRangeOf(entry);
+    for (std::size_t i = 1; i < chords.size(); ++i)
+    {
+        if (chords.at(i).symbol != chords.at(i - 1).symbol || !coversLateBar(chords.at(i)) ||
+            rng.below(2) != 0)
+        {
+            continue;
+        }
+        const Voicing inverted = nextInversion(chords.at(i).voicing);
+        if (!hasDuplicate(inverted) && fits(inverted, top) &&
+            movesWithin(inverted, chords.at(i - 1).voicing) &&
+            (i + 1 == chords.size() || movesWithin(inverted, chords.at(i + 1).voicing)))
+        {
+            chords.at(i).voicing = inverted;
+        }
+    }
+}
 
 std::vector<PlacedChord> placeProgression(const Progression& progression, int bars)
 {
@@ -335,7 +451,8 @@ std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const
     }
     Pcg32 turnaroundRng(chordSeed, kChordTurnaround);
     const bool turns = settings.energy >= kMidEnergy && !turnarounds.empty();
-    const bool breathes = settings.energy > kHighEnergy;
+    const bool high = settings.energy > kHighEnergy;
+    Pcg32 lengthRng(chordSeed, kChordLength);
     const int cellTicks = cell.bars * kTicksPerBar;
     std::vector<NoteEvent> events;
     for (const PlacedChord& chord : chords)
@@ -376,7 +493,7 @@ std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const
                 }
                 std::ranges::stable_sort(onsets, {}, &Onset::start);
             }
-            else if (breathes && isBreathBar(settings.bars, bar) &&
+            else if (high && isBreathBar(settings.bars, bar) &&
                      std::ranges::count_if(onsets, inBar) > 1)
             {
                 onsets.erase(std::ranges::find_if(onsets.rbegin(), onsets.rend(), inBar).base() -
@@ -387,10 +504,16 @@ std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const
         {
             const int limit = i + 1 < onsets.size() ? onsets.at(i + 1).start : chordEnd;
             const int start = onsets.at(i).start;
-            const int length = std::min(onsets.at(i).length, std::min(limit, chordEnd) - start);
+            int length = std::min(onsets.at(i).length, std::min(limit, chordEnd) - start);
             if (length < 1)
             {
                 continue;
+            }
+            if (high && onsets.at(i).length <= kMaxVariedHit)
+            {
+                const int percent = kLengthPercents.at(lengthRng.below(kLengthPercents.size()));
+                length = std::min(length,
+                                  std::max(kMinChordLength, onsets.at(i).length * percent / 100));
             }
             for (const int pitch : chord.voicing)
             {
@@ -403,6 +526,10 @@ std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const
                 events.push_back(note);
             }
         }
+    }
+    if (high)
+    {
+        addGhosts(events, chords, settings, chordSeed);
     }
     return events;
 }

@@ -30,6 +30,12 @@ int swung(int start, int swingPermille)
     return start - kTicksPerSixteenth + ((2 * kTicksPerSixteenth * swingPermille) / 1000);
 }
 
+int stepOf(int start)
+{
+    const int pair = 2 * kTicksPerSixteenth;
+    return ((start / pair) * 2) + (start % pair == 0 ? 0 : 1);
+}
+
 bool isTurnaroundBar(int bars, int bar) { return bar == bars - 1 || (bars == 16 && bar == 7); }
 
 bool isBreathBar(int bars, int bar) { return bars >= 8 && bar % 8 == 3; }
@@ -292,13 +298,6 @@ Mode pickMode(const StyleEntry& entry, const Progression& progression, int mood)
     return fitting.at(static_cast<std::size_t>(mood) * fitting.size() / 101);
 }
 
-// The 16th step of a swung start: an odd step lands in the second half of its pair of 16ths.
-int stepOf(int start)
-{
-    const int pair = 2 * kTicksPerSixteenth;
-    return ((start / pair) * 2) + (start % pair == 0 ? 0 : 1);
-}
-
 // The house accent for a 16th step: the beat, the offbeat 8th, or one of the other 16ths.
 int accentFor(int step)
 {
@@ -323,7 +322,7 @@ void humanize(std::vector<NoteEvent>& events, Pcg32 rng, int energy)
         // Events arrive with their velocity as a percent of the base.
         const int scaled = (base * e.velocity) / 100;
         const int spread = static_cast<int>(rng.below(kSpreadRange)) - kSpreadCentre;
-        e.velocity = std::clamp(scaled + accentFor(stepOf(e.start)) + spread, 1, 127);
+        e.velocity = std::clamp(scaled + accentFor(detail::stepOf(e.start)) + spread, 1, 127);
     }
 }
 
@@ -397,6 +396,10 @@ void buildChords(Idea& idea, const StyleEntry& entry, const LaneSeeds& laneSeeds
     }
     idea.borrowedFrom = borrowedFor(idea);
     detail::voiceChords(entry, idea.key, idea.progression);
+    if (settings.energy > detail::kHighEnergy)
+    {
+        detail::invertVoicings(entry, idea.progression, laneSeeds.chords);
+    }
 
     Pcg32 rhythmRng(laneSeeds.chords, detail::kChordCell);
     const RhythmCell& chordCell = entry.chordRhythms.at(
@@ -446,8 +449,14 @@ void keepChords(Idea& idea, const Idea& previous, const StyleEntry& entry, int s
         return;
     }
     detail::voiceChords(entry, idea.key, idea.progression);
+    // The pinned inversions, like the rhythm below, stay as they were whatever the energy now is.
+    if (previous.settings.energy > detail::kHighEnergy)
+    {
+        detail::invertVoicings(entry, idea.progression, lane.seed);
+    }
     const auto cell = std::ranges::find(entry.chordRhythms, lane.pattern, &RhythmCell::id);
-    // The pinned rhythm, turnaround and breath stay as they were whatever the energy now is.
+    // The pinned rhythm, turnaround, breath, ghosts and lengths stay as they were whatever the
+    // energy now is.
     Settings rhythmSettings = idea.settings;
     rhythmSettings.energy = previous.settings.energy;
     idea.lanes.at(0) = makeLane(
