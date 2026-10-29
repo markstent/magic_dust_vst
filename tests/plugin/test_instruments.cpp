@@ -16,7 +16,9 @@
 #include "SeedHelper.h"
 #include "md/bank.hpp"
 #include "md/ranges.hpp"
+#include "plugin/AuditionSynth.h"
 #include "plugin/HousePiano.h"
+#include "plugin/LeadSynth.h"
 #include "plugin/PluginProcessor.h"
 
 namespace
@@ -30,6 +32,13 @@ struct PianoTraits
     static constexpr double kReleaseMs = 180.0;
     // The loudest single note, at velocity 127, stays below this.
     static constexpr float kPeakBound = 0.65F;
+};
+
+struct LeadTraits
+{
+    using Type = md::LeadSynth;
+    static constexpr double kReleaseMs = 120.0;
+    static constexpr float kPeakBound = 0.4F;
 };
 
 int samplesFor(double ms) { return static_cast<int>(kRate * ms / 1000.0); }
@@ -95,9 +104,30 @@ double power(const juce::AudioBuffer<float>& b, double frequency, int from, int 
     return (re * re) + (im * im);
 }
 
+// The centroid of the power within span (a fraction) of guess, over [fromMs, toMs). Two detuned
+// saws beat, so their pitch is the middle of the pair, which a peak search would miss.
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+double centroidHz(const juce::AudioBuffer<float>& b, double guess, double span, double fromMs,
+                  double toMs)
+{
+    double weighted = 0.0;
+    double total = 0.0;
+    const int steps = static_cast<int>(guess * 2.0 * span / 0.5);
+    for (int i = 0; i <= steps; ++i)
+    {
+        const double f = (guess * (1.0 - span)) + (0.5 * i);
+        const double p = power(b, f, samplesFor(fromMs), samplesFor(toMs));
+        weighted += f * p;
+        total += p;
+    }
+    return weighted / total;
+}
+
+double cents(double hz, double target) { return 1200.0 * std::log2(hz / target); }
+
 } // namespace
 
-TEMPLATE_TEST_CASE("no notes make no sound", "[instruments]", PianoTraits)
+TEMPLATE_TEST_CASE("no notes make no sound", "[instruments]", PianoTraits, LeadTraits)
 {
     typename TestType::Type synth;
     synth.prepare(kRate);
@@ -106,7 +136,8 @@ TEMPLATE_TEST_CASE("no notes make no sound", "[instruments]", PianoTraits)
     CHECK(peakOf(buf) == 0.0F);
 }
 
-TEMPLATE_TEST_CASE("every note and velocity is finite and bounded", "[instruments]", PianoTraits)
+TEMPLATE_TEST_CASE("every note and velocity is finite and bounded", "[instruments]", PianoTraits,
+                   LeadTraits)
 {
     typename TestType::Type synth;
     synth.prepare(kRate);
@@ -127,7 +158,7 @@ TEMPLATE_TEST_CASE("every note and velocity is finite and bounded", "[instrument
 }
 
 TEMPLATE_TEST_CASE("a released note is silent after its release and 50 ms", "[instruments]",
-                   PianoTraits)
+                   PianoTraits, LeadTraits)
 {
     for (const bool all : {false, true})
     {
@@ -151,7 +182,7 @@ TEMPLATE_TEST_CASE("a released note is silent after its release and 50 ms", "[in
     }
 }
 
-TEMPLATE_TEST_CASE("the same input gives the same output", "[instruments]", PianoTraits)
+TEMPLATE_TEST_CASE("the same input gives the same output", "[instruments]", PianoTraits, LeadTraits)
 {
     typename TestType::Type a;
     typename TestType::Type b;
@@ -172,7 +203,8 @@ TEMPLATE_TEST_CASE("the same input gives the same output", "[instruments]", Pian
     }
 }
 
-TEMPLATE_TEST_CASE("note on, note off and render do not allocate", "[instruments]", PianoTraits)
+TEMPLATE_TEST_CASE("note on, note off and render do not allocate", "[instruments]", PianoTraits,
+                   LeadTraits)
 {
     typename TestType::Type synth;
     synth.prepare(kRate);
@@ -194,7 +226,7 @@ TEMPLATE_TEST_CASE("note on, note off and render do not allocate", "[instruments
 }
 
 TEMPLATE_TEST_CASE("level 0 is silent, level 2 doubles the peak and levels clamp at 4",
-                   "[instruments]", PianoTraits)
+                   "[instruments]", PianoTraits, LeadTraits)
 {
     const auto peakAt = [](float level)
     {
@@ -221,6 +253,19 @@ TEST_CASE("a piano chord peaks about as high as the old organ chord", "[instrume
     auto buf = blank(samplesFor(1000.0));
     piano.render(buf, 0, buf.getNumSamples());
     CHECK(peakOf(buf) == Catch::Approx(kOldOrganChordPeak).epsilon(0.15));
+}
+
+TEST_CASE("a held lead note peaks about as high as the old pluck", "[instruments]")
+{
+    constexpr double kOldPluckPeak = 0.224; // any note at velocity 100, level 1
+    for (const int note : {48, 60, 69, 81})
+    {
+        md::LeadSynth lead;
+        lead.prepare(kRate);
+        lead.setLevel(1.0F);
+        const auto buf = playNote(lead, note, 100, 1000.0);
+        CHECK(peakOf(buf) == Catch::Approx(kOldPluckPeak).epsilon(0.2));
+    }
 }
 
 TEST_CASE("the piano plays A4 at 440 Hz", "[instruments]")
@@ -292,6 +337,106 @@ TEST_CASE("the ninth piano note steals the oldest voice", "[instruments]")
     piano.render(after, 0, after.getNumSamples());
     CHECK(finite(after));
     CHECK(peakOf(after) > 0.0F);
+}
+
+TEST_CASE("two overlapping lead notes give one pitch", "[instruments]")
+{
+    md::LeadSynth lead;
+    lead.prepare(kRate);
+    auto buf = blank(samplesFor(240.0));
+    lead.noteOn(60, 100);
+    lead.render(buf, 0, samplesFor(100.0));
+    lead.noteOn(67, 100);
+    lead.render(buf, samplesFor(100.0), samplesFor(140.0));
+    const int from = samplesFor(150.0);
+    const int to = samplesFor(240.0);
+    const double oldNote = power(buf, juce::MidiMessage::getMidiNoteInHertz(60), from, to);
+    const double newNote = power(buf, juce::MidiMessage::getMidiNoteInHertz(67), from, to);
+    CHECK(oldNote < 1e-3 * newNote);
+}
+
+TEST_CASE("a legato lead glides to the new note within 2 cents in 45 ms", "[instruments]")
+{
+    md::LeadSynth lead;
+    lead.prepare(kRate);
+    auto buf = blank(samplesFor(240.0));
+    lead.noteOn(60, 100);
+    lead.render(buf, 0, samplesFor(100.0));
+    lead.noteOn(67, 100);
+    lead.render(buf, samplesFor(100.0), samplesFor(140.0));
+    const double target = juce::MidiMessage::getMidiNoteInHertz(67);
+    CHECK(std::abs(cents(centroidHz(buf, target, 0.15, 150.0, 240.0), target)) < 2.0);
+    // Halfway through the glide the pitch is between the two notes.
+    const double mid = centroidHz(buf, 330.0, 0.3, 105.0, 135.0);
+    CHECK(mid > juce::MidiMessage::getMidiNoteInHertz(60) * 1.05);
+    CHECK(mid < target * 0.95);
+}
+
+TEST_CASE("only the sounding lead note can be released", "[instruments]")
+{
+    md::LeadSynth lead;
+    lead.prepare(kRate);
+    auto buf = blank(samplesFor(600.0));
+    lead.noteOn(60, 100);
+    lead.noteOn(67, 100);
+    lead.noteOff(60);
+    lead.noteOff(65);
+    lead.render(buf, 0, samplesFor(300.0));
+    CHECK(rms(buf, samplesFor(200.0), samplesFor(300.0)) > 0.0);
+    lead.noteOff(67);
+    lead.render(buf, samplesFor(300.0), samplesFor(300.0));
+    CHECK(rms(buf, samplesFor(580.0), samplesFor(600.0)) == 0.0);
+}
+
+TEST_CASE("a separate lead note retriggers its envelope and a legato one does not", "[instruments]")
+{
+    // A retriggered filter opens again, so the high band is far stronger just after the note on
+    // than at the sustain.
+    const auto burst = [](bool legato)
+    {
+        md::LeadSynth lead;
+        lead.prepare(kRate);
+        auto first = blank(samplesFor(1200.0));
+        lead.noteOn(60, 100);
+        lead.render(first, 0, first.getNumSamples());
+        if (!legato)
+        {
+            lead.noteOff(60);
+            auto gap = blank(samplesFor(300.0));
+            lead.render(gap, 0, gap.getNumSamples());
+        }
+        auto buf = blank(samplesFor(600.0));
+        lead.noteOn(62, 100);
+        lead.render(buf, 0, buf.getNumSamples());
+        const auto band = [&](double fromMs, double toMs)
+        {
+            double sum = 0.0;
+            for (int i = 0; i <= 30; ++i)
+            {
+                const double f = 3000.0 + (100.0 * i);
+                sum += power(buf, f, samplesFor(fromMs), samplesFor(toMs));
+            }
+            return sum / (toMs - fromMs);
+        };
+        return band(5.0, 35.0) / band(500.0, 600.0);
+    };
+    CHECK(burst(false) > 3.0);
+    CHECK(burst(true) < 1.5);
+}
+
+TEST_CASE("the lead vibrato is absent for the first 200 ms and present later", "[instruments]")
+{
+    md::LeadSynth lead;
+    lead.prepare(kRate);
+    const auto buf = playNote(lead, 69, 100, 1000.0);
+    const double target = juce::MidiMessage::getMidiNoteInHertz(69);
+    const auto at = [&](double fromMs, double toMs)
+    { return cents(centroidHz(buf, target, 0.15, fromMs, toMs), target); };
+    CHECK(std::abs(at(20.0, 120.0)) < 3.0);
+    CHECK(std::abs(at(100.0, 200.0)) < 3.0);
+    // Later the pitch swings by up to 12 cents each way.
+    const double swing = std::abs(at(724.0, 824.0) - at(815.0, 915.0));
+    CHECK(swing > 8.0);
 }
 
 namespace
@@ -372,12 +517,36 @@ TEST_CASE("render the sound check files", "[.render]")
     constexpr float kDefault = 0.8F;
 
     md::HousePiano piano;
-    piano.prepare(kRate);
-    piano.setLevel(kDefault);
+    md::AuditionSynth bass(md::kSubBass);
+    md::LeadSynth lead;
+    for (md::Instrument* synth :
+         {static_cast<md::Instrument*>(&piano), static_cast<md::Instrument*>(&bass),
+          static_cast<md::Instrument*>(&lead)})
+    {
+        synth->prepare(kRate);
+        synth->setLevel(kDefault);
+    }
 
     auto chords = blank(total);
     play(piano, edgesOf(processor, 0, kBpm), chords);
     writeWav(out, "piano-chords.wav", chords);
+
+    auto melody = blank(total);
+    play(lead, edgesOf(processor, 2, kBpm), melody);
+    writeWav(out, "lead-melody.wav", melody);
+
+    auto bassLine = blank(total);
+    play(bass, edgesOf(processor, 1, kBpm), bassLine);
+
+    auto full = blank(total);
+    for (const auto* part : {&chords, &bassLine, &melody})
+    {
+        for (int c = 0; c < 2; ++c)
+        {
+            full.addFrom(c, 0, *part, c, 0, total);
+        }
+    }
+    writeWav(out, "full-idea.wav", full);
 
     piano.allNotesOff();
     piano.prepare(kRate);
@@ -393,26 +562,50 @@ TEST_CASE("render the sound check files", "[.render]")
     auto scaleBuf = blank(at + samplesFor(500.0));
     play(piano, scale, scaleBuf);
     writeWav(out, "piano-scale.wav", scaleBuf);
+
+    // A slow legato line: the notes overlap, so each one glides, and the long holds show the
+    // vibrato.
+    lead.prepare(kRate);
+    lead.setLevel(1.0F);
+    std::vector<Edge> line;
+    at = 0;
+    for (const int note : {60, 67, 64, 72, 69, 62, 65, 60})
+    {
+        line.push_back({.sample = at, .note = note, .velocity = 100});
+        line.push_back({.sample = at + samplesFor(1400.0), .note = note, .velocity = 0});
+        at += samplesFor(1200.0);
+    }
+    auto legato = blank(at + samplesFor(800.0));
+    play(lead, line, legato);
+    writeWav(out, "lead-legato.wav", legato);
 }
 
 // Prints the time to render 512 samples with every voice busy; does nothing unless asked.
 TEST_CASE("time the instruments", "[.measure]")
 {
     md::HousePiano piano;
+    md::LeadSynth lead;
     piano.prepare(kRate);
+    lead.prepare(kRate);
     for (const int note : {36, 38, 40, 41, 43, 45, 47, 48})
     {
         piano.noteOn(note, 127);
     }
+    lead.noteOn(40, 127);
     auto buf = blank(512);
     constexpr int kBlocks = 200;
-    const auto t0 = std::chrono::steady_clock::now();
-    for (int i = 0; i < kBlocks; ++i)
+    for (md::Instrument* synth :
+         {static_cast<md::Instrument*>(&piano), static_cast<md::Instrument*>(&lead)})
     {
-        piano.render(buf, 0, 512);
+        const auto t0 = std::chrono::steady_clock::now();
+        for (int i = 0; i < kBlocks; ++i)
+        {
+            synth->render(buf, 0, 512);
+        }
+        const auto us =
+            std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t0)
+                .count();
+        std::cout << "render per 512-sample block: " << us / kBlocks << " us (budget "
+                  << 512.0 / kRate * 1e6 << " us)\n";
     }
-    const auto us =
-        std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - t0).count();
-    std::cout << "render per 512-sample block: " << us / kBlocks << " us (budget "
-              << 512.0 / kRate * 1e6 << " us)\n";
 }

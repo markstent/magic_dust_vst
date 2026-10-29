@@ -18,8 +18,6 @@ struct VoiceRecipe
 {
     std::array<float, 8> partials;
     float attackMs;
-    // The time for a held note to fall to 1/e of its peak; 0 sustains at full level.
-    float decayMs;
     float releaseMs;
     float gain;
     int voices;
@@ -27,23 +25,13 @@ struct VoiceRecipe
 
 inline constexpr VoiceRecipe kSubBass{.partials = {1.0F, 0.15F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F},
                                       .attackMs = 3.0F,
-                                      .decayMs = 0.0F,
                                       .releaseMs = 40.0F,
                                       .gain = 0.3F,
                                       .voices = 1};
 
-// A bright saw-like pluck: a fast attack, then a decay to silence even while the note is held.
-inline constexpr VoiceRecipe kPluck{.partials = {1.0F, 0.5F, 0.33F, 0.25F, 0.2F, 0.0F, 0.0F, 0.0F},
-                                    .attackMs = 2.0F,
-                                    .decayMs = 220.0F,
-                                    .releaseMs = 60.0F,
-                                    .gain = 0.18F,
-                                    .voices = 4};
-
 static_assert(kSubBass.voices >= 1 && kSubBass.voices <= kMaxAuditionVoices);
-static_assert(kPluck.voices >= 1 && kPluck.voices <= kMaxAuditionVoices);
 
-// A small additive synth driven by a recipe.
+// The sub bass: a small additive synth driven by a recipe.
 class AuditionSynth final : public Instrument
 {
   public:
@@ -60,7 +48,6 @@ class AuditionSynth final : public Instrument
     {
         bool active = false;
         bool releasing = false;
-        bool decaying = false;
         int note = 0;
         std::uint64_t age = 0;
         double frequency = 0.0;

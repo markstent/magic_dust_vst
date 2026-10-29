@@ -17,6 +17,7 @@
 #include "plugin/AuditionSynth.h"
 #include "plugin/HousePiano.h"
 #include "plugin/Instrument.h"
+#include "plugin/LeadSynth.h"
 #include "plugin/Playback.h"
 
 enum class InstanceMode : std::uint8_t
@@ -194,7 +195,7 @@ class MagicDustProcessor : public juce::AudioProcessor, private juce::Timer
     std::atomic<double> hostBpm_{0.0};
     md::HousePiano piano_;
     md::AuditionSynth subBass_{md::kSubBass};
-    md::AuditionSynth pluck_{md::kPluck};
+    md::LeadSynth lead_;
     md::InternalClock internal_;
     md::SoundingNotes sounding_;
     const md::PlaybackPattern* lastPattern_ = nullptr;
