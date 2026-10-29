@@ -214,6 +214,56 @@ void addApproachNotes(const Idea& idea, std::uint64_t bassSeed, std::vector<Note
     std::ranges::stable_sort(events, {}, &NoteEvent::start);
 }
 
+constexpr std::array kFillSteps = std::to_array({9, 10, 11, 13, 14});
+constexpr int kFillTries = 8;
+
+// Replaces steps 8 to 15 of the last bar with 3 or 4 sixteenths on kFillSteps that walk scale tones
+// toward the first bass note, leaving step 15 to the approach note. A draw whose notes break the
+// pitch rules is redrawn, up to kFillTries times, then the bar is left as it is. Events must be
+// sorted by start; the caller spares sustained and pedal.
+void addFill(const Idea& idea, std::uint64_t bassSeed, std::vector<NoteEvent>& events)
+{
+    const int lastBar = (idea.settings.bars - 1) * kTicksPerBar;
+    const int fillStart = lastBar + (8 * kTicksPerSixteenth);
+    // The first note of the last bar is what the approach into it leads to, so it must stay.
+    if (std::ranges::none_of(events, [&](const NoteEvent& e)
+                             { return e.start >= lastBar && e.start < fillStart; }))
+    {
+        return;
+    }
+    Pcg32 rng(bassSeed, kBassFill);
+    const std::vector<int> scale = scalePitchClasses(idea.key);
+    const int swing = swingPermille(idea.settings.groove);
+    const int target = events.front().pitch;
+    for (int attempt = 0; attempt < kFillTries; ++attempt)
+    {
+        std::vector<int> steps(kFillSteps.begin(), kFillSteps.end());
+        const std::size_t count = 3 + rng.below(2);
+        while (steps.size() > count)
+        {
+            steps.erase(steps.begin() + rng.below(static_cast<std::uint32_t>(steps.size())));
+        }
+        const int dir = rng.below(2) == 0 ? -1 : 1;
+        std::vector<NoteEvent> fill;
+        int pitch = target;
+        for (std::size_t k = steps.size(); k-- > 0;)
+        {
+            pitch = scaleStep(scale, pitch, dir);
+            fill.insert(fill.begin(),
+                        {.pitch = pitch,
+                         .start = swung(lastBar + (steps.at(k) * kTicksPerSixteenth), swing),
+                         .length = kTicksPerSixteenth,
+                         .velocity = 100});
+        }
+        if (std::ranges::all_of(fill, [&](const NoteEvent& e) { return bassPitchOk(idea, e, {}); }))
+        {
+            std::erase_if(events, [&](const NoteEvent& e) { return e.start >= fillStart; });
+            events.insert(events.end(), fill.begin(), fill.end());
+            return;
+        }
+    }
+}
+
 // Each chord span's first note is its root and the rest vary (slot 2) on the patterns that do.
 std::vector<NoteEvent> slotEvents(const Idea& idea, BassPattern pattern, std::uint64_t bassSeed)
 {
@@ -503,6 +553,11 @@ BassPattern bassPatternFor(const StyleEntry& entry, int energy, Pcg32& rng)
 std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern, std::uint64_t bassSeed)
 {
     std::vector<NoteEvent> events = patternEvents(idea, pattern, bassSeed);
+    if (idea.settings.energy > kHighEnergy && pattern != BassPattern::sustained &&
+        pattern != BassPattern::pedal)
+    {
+        addFill(idea, bassSeed, events);
+    }
     if (idea.settings.energy > 50 && pattern != BassPattern::sustained &&
         pattern != BassPattern::pedal)
     {

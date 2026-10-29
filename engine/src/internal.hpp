@@ -15,20 +15,23 @@
 namespace md::detail
 {
 // Every random draw is Pcg32(<lane seed>, slot) with one fixed slot per use:
-//   chords: 0 entry, 1 progression, 2 chord rhythm cell, 3 velocity humanize
+//   chords: 0 entry, 1 progression, 2 chord rhythm cell, 3 velocity humanize, 4 turnaround cell
 //   bass:   0 velocity humanize
 //           1 pattern choice
 //           2 pitch variation
 //           3 approach notes
 //           4 riff motif
 //           5 call-and-response picks
+//           7 turnaround fill
 //   melody: 0 rhythm cell A, 1 rhythm cell B, 2 pitch walk, 3 pluck tones, 4 velocity humanize,
+//           5 answer cell, 6 answer pitches,
 //           7 timing feel (drawn by performedNotes, not the generator)
 // Entry, progression, mode and chord-cell choices belong to the chords lane.
 constexpr std::uint32_t kChordEntry = 0;
 constexpr std::uint32_t kChordProgression = 1;
 constexpr std::uint32_t kChordCell = 2;
 constexpr std::uint32_t kChordHumanize = 3;
+constexpr std::uint32_t kChordTurnaround = 4;
 constexpr std::uint32_t kBassHumanize = 0;
 constexpr std::uint32_t kBassPattern = 1;
 constexpr std::uint32_t kBassPitch = 2;
@@ -40,6 +43,20 @@ constexpr std::uint32_t kMelodyCellB = 1;
 constexpr std::uint32_t kMelodyWalk = 2;
 constexpr std::uint32_t kMelodyPluck = 3;
 constexpr std::uint32_t kMelodyHumanize = 4;
+constexpr std::uint32_t kMelodyAnswerCell = 5;
+constexpr std::uint32_t kMelodyAnswerWalk = 6;
+constexpr std::uint32_t kBassFill = 7;
+
+// Energy tiers: the turnaround and the answer phrase from kMidEnergy up; the bass fill and the
+// breath above kHighEnergy.
+constexpr int kMidEnergy = 30;
+constexpr int kHighEnergy = 60;
+
+// True for the bar (0-based) that ends a phrase and turns the idea around: the last bar, and bar 8
+// of a 16-bar idea.
+bool isTurnaroundBar(int bars, int bar);
+// True for the bar that breathes: bar 4 of each 8 (a 4-bar idea has none).
+bool isBreathBar(int bars, int bar);
 
 // An inclusive pitch range.
 struct PitchRange
@@ -125,14 +142,19 @@ ChordSymbol applyFlavour(const Key& key, std::optional<Mode> borrowedFrom, const
 // Tiles the progression's chords from bar 0 and truncates the last at bars. Voicings stay empty.
 std::vector<PlacedChord> placeProgression(const Progression& progression, int bars);
 void voiceChords(const StyleEntry& entry, const Key& key, std::vector<PlacedChord>& chords);
+// From kMidEnergy up a turnaround bar swaps in bar 1 of another of the entry's chord cells (slot
+// 4); above kHighEnergy the breath bar drops its last hit.
 std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const RhythmCell& cell,
-                                   const Settings& settings);
+                                   const Settings& settings, const StyleEntry& entry,
+                                   std::uint64_t chordSeed);
 
 // The entry's allowed patterns run sparse to busy and the energy picks along them (slot 1).
 BassPattern bassPatternFor(const StyleEntry& entry, int energy, Pcg32& rng);
 // Pitch variation draws from Pcg32(bassSeed, kBassPitch), approach notes from kBassApproach, the
 // riff motif from kBassRiff and the call-and-response picks from kBassCall. The call-and-response
 // pattern reads the chords lane, which must already be in the idea.
+// Above kHighEnergy the last bar's steps 8 to 15 become a fill (slot 7) of 3 or 4 sixteenths on
+// steps 9, 10, 11, 13 or 14, walking scale tones to the first bass note, before the approach note.
 // Velocity is a percent of the lane base: 100, or 85 for approach notes.
 std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern, std::uint64_t bassSeed);
 

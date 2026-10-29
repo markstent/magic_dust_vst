@@ -8,7 +8,9 @@
 #include <array>
 #include <cstddef>
 #include <cstdlib>
+#include <iterator>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <tuple>
 
@@ -36,17 +38,18 @@ int hitsPerTwoBars(const RhythmCell& cell)
     return static_cast<int>(cell.hits.size()) * 2 / cell.bars;
 }
 
-// Among the cells (skipping one index), a random one with the hit count nearest the target.
-// Throws std::invalid_argument when no cell is left to pick.
+// Among the cells (skipping some indices), a random one with the hit count nearest the target.
+// Throws std::out_of_range when no cell is left to pick.
 std::size_t pickCell(const std::vector<RhythmCell>& cells, int target,
-                     std::optional<std::size_t> skip, Pcg32& rng)
+                     std::span<const std::size_t> skip, Pcg32& rng)
 {
     int bestDistance = -1;
     std::vector<std::size_t> nearest;
     for (std::size_t i = 0; i < cells.size(); ++i)
     {
         const int distance = std::abs(hitsPerTwoBars(cells.at(i)) - target);
-        if (i == skip || (bestDistance >= 0 && distance > bestDistance))
+        if (std::ranges::find(skip, i) != skip.end() ||
+            (bestDistance >= 0 && distance > bestDistance))
         {
             continue;
         }
@@ -60,19 +63,41 @@ std::size_t pickCell(const std::vector<RhythmCell>& cells, int target,
     return nearest.at(rng.below(static_cast<std::uint32_t>(nearest.size())));
 }
 
+bool hasAnswer(const StyleEntry& entry, const Idea& idea)
+{
+    return idea.settings.energy >= kMidEnergy && entry.melodyRhythms.size() > 1;
+}
+
+// True for a step in the last block of a 4-bar phrase.
+bool inAnswerBlock(int step)
+{
+    return (step / kBlockSteps) % kBlocksPerPhrase == kBlocksPerPhrase - 1;
+}
+
 std::vector<Onset> rhythm(const StyleEntry& entry, const Idea& idea, std::uint64_t seed)
 {
     const int target = 3 + ((7 * idea.settings.energy) / 100);
     Pcg32 rngA(seed, kMelodyCellA);
     Pcg32 rngB(seed, kMelodyCellB);
-    const std::size_t a = pickCell(entry.melodyRhythms, target, std::nullopt, rngA);
+    const std::size_t a = pickCell(entry.melodyRhythms, target, {}, rngA);
     const std::size_t b =
-        entry.melodyRhythms.size() > 1 ? pickCell(entry.melodyRhythms, target, a, rngB) : a;
+        entry.melodyRhythms.size() > 1 ? pickCell(entry.melodyRhythms, target, {&a, 1}, rngB) : a;
+    // From kMidEnergy up the answer phrase, the last 2 bars of each 4-bar phrase in an idea of 8
+    // bars or more, uses a cell other than A and B when the entry has a third, else B.
+    const std::array<std::size_t, 2> used = {a, b};
+    Pcg32 rngAnswer(seed, kMelodyAnswerCell);
+    const std::size_t answer =
+        !hasAnswer(entry, idea)
+            ? b
+            : pickCell(entry.melodyRhythms, target,
+                       entry.melodyRhythms.size() > 2 ? std::span<const std::size_t>(used)
+                                                      : std::span<const std::size_t>(&a, 1),
+                       rngAnswer);
     std::vector<Onset> onsets;
     for (int block = 0; block < idea.settings.bars / kBlockBars; ++block)
     {
         const bool lastOfPhrase = block % kBlocksPerPhrase == kBlocksPerPhrase - 1;
-        const RhythmCell& cell = entry.melodyRhythms.at(lastOfPhrase ? b : a);
+        const RhythmCell& cell = entry.melodyRhythms.at(lastOfPhrase ? answer : a);
         auto hits = cell.hits;
         std::ranges::stable_sort(hits, {}, &Hit::step);
         for (int tile = 0; tile < std::max(1, kBlockBars / cell.bars); ++tile)
@@ -178,6 +203,34 @@ const PlacedChord& homeChord(const Idea& idea)
     return it == idea.progression.end() ? idea.progression.front() : *it;
 }
 
+// The breath: in each breath bar the last note goes, when its block keeps a note and the leap over
+// the gap stays legal.
+void dropBreathNote(int bars, std::vector<NoteEvent>& events)
+{
+    for (int bar = 0; bar < bars; ++bar)
+    {
+        if (!isBreathBar(bars, bar))
+        {
+            continue;
+        }
+        const auto inBar = [bar](const NoteEvent& e) { return e.start / kTicksPerBar == bar; };
+        const auto found = std::ranges::find_if(events.rbegin(), events.rend(), inBar);
+        const int blockStart = (bar / kBlockBars) * kBlockBars * kTicksPerBar;
+        const auto inBlock = [blockStart](const NoteEvent& e)
+        { return e.start >= blockStart && e.start < blockStart + (kBlockBars * kTicksPerBar); };
+        if (found == events.rend() || std::ranges::count_if(events, inBlock) < 2)
+        {
+            continue;
+        }
+        const auto last = std::prev(found.base());
+        const bool bridged = last != events.begin() && std::next(last) != events.end();
+        if (bridged && !melodyLeapOk(std::prev(last)->pitch, std::next(last)->pitch))
+        {
+            continue;
+        }
+        events.erase(last);
+    }
+}
 } // namespace
 
 std::vector<int> pluckPitches(const std::vector<int>& allowedPcs, Pcg32& rng)
@@ -252,6 +305,8 @@ std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea,
         }
     }
     Pcg32 walk(melodySeed, kMelodyWalk);
+    Pcg32 answerWalk(melodySeed, kMelodyAnswerWalk);
+    const bool answers = hasAnswer(entry, idea);
     Pcg32 pluckRng(melodySeed, kMelodyPluck);
     const std::vector<int> pluckTones =
         pluck ? pluckPitches(allowedPitchClasses(homePcs), pluckRng) : std::vector<int>{};
@@ -277,8 +332,9 @@ std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea,
                                                     std::tuple(std::abs(b - *previous), b);
                                          });
             const int index = static_cast<int>(nearest - scalePitches.begin());
-            const int steps = 1 + static_cast<int>(walk.below(2));
-            const int moved = index + (walk.below(2) == 0 ? -steps : steps);
+            Pcg32& rng = answers && inAnswerBlock(onsets.at(i).step) ? answerWalk : walk;
+            const int steps = 1 + static_cast<int>(rng.below(2));
+            const int moved = index + (rng.below(2) == 0 ? -steps : steps);
             target = scalePitches.at(static_cast<std::size_t>(
                 std::clamp(moved, 0, static_cast<int>(scalePitches.size()) - 1)));
         }
@@ -293,6 +349,10 @@ std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea,
         events.push_back(note);
     }
     clampMonophonic(events, idea.settings.bars * kTicksPerBar);
+    if (idea.settings.energy > kHighEnergy)
+    {
+        dropBreathNote(idea.settings.bars, events);
+    }
     return events;
 }
 } // namespace md::detail

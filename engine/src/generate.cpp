@@ -30,6 +30,10 @@ int swung(int start, int swingPermille)
     return start - kTicksPerSixteenth + ((2 * kTicksPerSixteenth * swingPermille) / 1000);
 }
 
+bool isTurnaroundBar(int bars, int bar) { return bar == bars - 1 || (bars == 16 && bar == 7); }
+
+bool isBreathBar(int bars, int bar) { return bars >= 8 && bar % 8 == 3; }
+
 const PlacedChord& chordAt(std::span<const PlacedChord> progression, int tick)
 {
     const PlacedChord* chord = findChord(progression, tick);
@@ -397,9 +401,10 @@ void buildChords(Idea& idea, const StyleEntry& entry, const LaneSeeds& laneSeeds
     Pcg32 rhythmRng(laneSeeds.chords, detail::kChordCell);
     const RhythmCell& chordCell = entry.chordRhythms.at(
         rhythmRng.below(static_cast<std::uint32_t>(entry.chordRhythms.size())));
-    idea.lanes.at(0) = makeLane(LaneId::chords, laneSeeds.chords, chordCell.id,
-                                detail::chordEvents(idea.progression, chordCell, settings),
-                                detail::kChordHumanize, settings.energy);
+    idea.lanes.at(0) = makeLane(
+        LaneId::chords, laneSeeds.chords, chordCell.id,
+        detail::chordEvents(idea.progression, chordCell, settings, entry, laneSeeds.chords),
+        detail::kChordHumanize, settings.energy);
 }
 
 bool voicingFits(const Voicing& voicing, int offset)
@@ -446,7 +451,7 @@ void keepChords(Idea& idea, const Idea& previous, const StyleEntry& entry, int s
         LaneId::chords, lane.seed, lane.pattern,
         detail::chordEvents(idea.progression,
                             cell == entry.chordRhythms.end() ? entry.chordRhythms.front() : *cell,
-                            idea.settings),
+                            idea.settings, entry, lane.seed),
         detail::kChordHumanize, idea.settings.energy);
 }
 

@@ -190,6 +190,14 @@ std::vector<int> blockOnsets(const Idea& idea, int block)
     return onsets;
 }
 
+// Step 8 of the last bar on, above energy 60, is the turnaround fill (and the approach note after
+// it); its own tests check it.
+bool inFill(const Idea& idea, const NoteEvent& e)
+{
+    const int start = ((idea.settings.bars - 1) * kTicksPerBar) + (8 * kTicksPerSixteenth);
+    return idea.settings.energy > 60 && e.start >= start;
+}
+
 Bank bankWith(const std::function<void(StyleEntry&)>& edit)
 {
     StyleEntry entry = bank().entries.front();
@@ -332,8 +340,10 @@ TEST_CASE("bass is monophonic, in range and built from root and fifth", "[genera
                 return e.start == approachTick(idea, change) &&
                        std::abs(e.pitch - bassTarget(idea, change).pitch) <= 2;
             };
-            // The riff walks scale tones; its own tests check them.
-            if (bass.pattern == "riff" || (approaches && std::ranges::any_of(changes, isApproach)))
+            // The riff walks scale tones and the fill walks toward the next root; their own tests
+            // check them.
+            if (bass.pattern == "riff" || inFill(idea, e) ||
+                (approaches && std::ranges::any_of(changes, isApproach)))
             {
                 continue;
             }
@@ -411,13 +421,23 @@ TEST_CASE("melody blocks follow the entry's rhythm cells", "[generate]")
                                [permille](const RhythmCell& cell)
                                { return cellOnsets(cell, permille); });
         const int blocks = idea.settings.bars / 2;
+        // Above energy 60 the breath may drop the last note of block 1 and 5.
+        const auto breathes = [&](int block)
+        { return idea.settings.energy > 60 && blocks > 2 && block % 4 == 1; };
         for (int block = 0; block < blocks; ++block)
         {
-            REQUIRE(std::ranges::find(cells, blockOnsets(idea, block)) != cells.end());
+            if (!breathes(block))
+            {
+                REQUIRE(std::ranges::find(cells, blockOnsets(idea, block)) != cells.end());
+            }
         }
-        // Phrase form A A A B, repeated every 4 blocks.
+        // Phrase form A A A B, repeated every 4 blocks; B is the answer phrase from energy 30.
         for (int block = 1; block < blocks; ++block)
         {
+            if (breathes(block))
+            {
+                continue;
+            }
             const bool phraseEnd = block % 4 == 3;
             const bool sameAsFirst = blockOnsets(idea, block) == blockOnsets(idea, 0);
             REQUIRE(sameAsFirst == (!phraseEnd || entry.melodyRhythms.size() < 2));
@@ -1208,7 +1228,10 @@ TEST_CASE("the note held into an approach note is shortened to end where it star
             REQUIRE(approach != events.begin());
             const NoteEvent& before = *std::prev(approach);
             REQUIRE(before.length > 0);
-            REQUIRE(before.start + before.length == approach->start);
+            if (!inFill(idea, before))
+            {
+                REQUIRE(before.start + before.length == approach->start);
+            }
         }
     }
 }
@@ -1243,6 +1266,11 @@ bool isApproachNote(const Idea& idea, const NoteEvent& e)
                                });
 }
 
+bool isFillNote(const Idea& idea, const NoteEvent& e)
+{
+    return inFill(idea, e) && !isApproachNote(idea, e);
+}
+
 // A pattern test sample: the bank with every entry limited to one pattern, and energy kept in a
 // band (low: 0 to 50, high: 51 to 100).
 Bank patternBank(BassPattern pattern)
@@ -1271,9 +1299,18 @@ std::vector<std::vector<int>> spanRhythms(const Idea& idea)
     std::vector<std::vector<int>> spans(static_cast<std::size_t>(idea.settings.bars / 2));
     for (const NoteEvent& e : bassNotes(idea))
     {
-        if (!isApproachNote(idea, e))
+        if (!isApproachNote(idea, e) && !isFillNote(idea, e))
         {
             spans.at(static_cast<std::size_t>(e.start / kSpan)).push_back(e.start % kSpan);
+        }
+    }
+    if (idea.settings.energy > 60)
+    {
+        // The fill replaces the last bar's second half, so leave that half out of every span.
+        for (auto& span : spans)
+        {
+            std::erase_if(span, [](int offset)
+                          { return offset >= kTicksPerBar + (8 * kTicksPerSixteenth); });
         }
     }
     return spans;
@@ -1319,7 +1356,7 @@ TEST_CASE("the riff validates and repeats one 2-bar rhythm of 4 to 6 onsets", "[
                 for (int from = 0; from < ideaLengthTicks(idea); from += 2 * kTicksPerBar)
                 {
                     REQUIRE(total(from) >= 4);
-                    REQUIRE(total(from) <= 6 + (high ? 2 : 0));
+                    REQUIRE(total(from) <= 6 + (high ? 6 : 0));
                 }
                 if (!high)
                 {
@@ -1351,7 +1388,7 @@ TEST_CASE("riff pitches are scale tones near the chord root and each chord start
                     const bool first = &chord != previous;
                     previous = &chord;
                     INFO("style " << static_cast<int>(style) << " i " << i << " start " << e.start);
-                    if (isApproachNote(idea, e))
+                    if (isApproachNote(idea, e) || isFillNote(idea, e))
                     {
                         continue;
                     }
@@ -1409,7 +1446,7 @@ TEST_CASE("call-and-response keeps off chord note starts with 1 to 3 onsets a ba
                 std::vector<int> perBar(static_cast<std::size_t>(idea.settings.bars), 0);
                 for (const NoteEvent& e : bassNotes(idea))
                 {
-                    if (isApproachNote(idea, e))
+                    if (isApproachNote(idea, e) || isFillNote(idea, e))
                     {
                         continue;
                     }

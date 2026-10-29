@@ -1,5 +1,6 @@
 #include "internal.hpp"
 
+#include "md/pcg32.hpp"
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
 
@@ -305,7 +306,8 @@ void voiceChords(const StyleEntry& entry, const Key& key, std::vector<PlacedChor
 }
 
 std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const RhythmCell& cell,
-                                   const Settings& settings)
+                                   const Settings& settings, const StyleEntry& entry,
+                                   std::uint64_t chordSeed)
 {
     const int swing = swingPermille(settings.groove);
     const int ideaEnd = settings.bars * kTicksPerBar;
@@ -314,8 +316,26 @@ std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const
         int start;
         int length;
     };
-    auto hits = cell.hits;
-    std::ranges::stable_sort(hits, {}, &Hit::step);
+    auto sortedHits = [](std::vector<Hit> cellHits)
+    {
+        std::ranges::stable_sort(cellHits, {}, &Hit::step);
+        return cellHits;
+    };
+    const auto hits = sortedHits(cell.hits);
+    // Bar 1 of each other cell of the entry that has a hit there.
+    std::vector<std::vector<Hit>> turnarounds;
+    for (const RhythmCell& other : entry.chordRhythms)
+    {
+        auto first = sortedHits(other.hits);
+        std::erase_if(first, [](const Hit& hit) { return hit.step >= kStepsPerBar; });
+        if (other.id != cell.id && !first.empty())
+        {
+            turnarounds.push_back(std::move(first));
+        }
+    }
+    Pcg32 turnaroundRng(chordSeed, kChordTurnaround);
+    const bool turns = settings.energy >= kMidEnergy && !turnarounds.empty();
+    const bool breathes = settings.energy > kHighEnergy;
     const int cellTicks = cell.bars * kTicksPerBar;
     std::vector<NoteEvent> events;
     for (const PlacedChord& chord : chords)
@@ -336,6 +356,31 @@ std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const
                     };
                     onsets.push_back(onset);
                 }
+            }
+        }
+        for (int bar = chord.startBar; bar * kTicksPerBar < chordEnd; ++bar)
+        {
+            const auto inBar = [bar](const Onset& onset)
+            { return onset.start / kTicksPerBar == bar; };
+            if (turns && isTurnaroundBar(settings.bars, bar))
+            {
+                const auto& turn = turnarounds.at(
+                    turnaroundRng.below(static_cast<std::uint32_t>(turnarounds.size())));
+                std::erase_if(onsets, inBar);
+                for (const Hit& hit : turn)
+                {
+                    onsets.push_back(
+                        {.start =
+                             swung((bar * kTicksPerBar) + (hit.step * kTicksPerSixteenth), swing),
+                         .length = hit.length * kTicksPerSixteenth});
+                }
+                std::ranges::stable_sort(onsets, {}, &Onset::start);
+            }
+            else if (breathes && isBreathBar(settings.bars, bar) &&
+                     std::ranges::count_if(onsets, inBar) > 1)
+            {
+                onsets.erase(std::ranges::find_if(onsets.rbegin(), onsets.rend(), inBar).base() -
+                             1);
             }
         }
         for (std::size_t i = 0; i < onsets.size(); ++i)
