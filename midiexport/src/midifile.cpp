@@ -212,36 +212,47 @@ std::vector<std::uint8_t> writeMidiFile(std::span<const MidiTrack> tracks, int t
 
 int ideaLengthTicks(const Idea& idea) { return idea.settings.bars * kTicksPerBar; }
 
-int feelOffsetTicks(const Idea& idea, LaneId lane, std::size_t noteIndex)
+namespace
+{
+// The feel offsets of the first `count` notes of a lane, drawn in one pass.
+std::vector<int> feelOffsets(const Idea& idea, LaneId lane, std::size_t count)
 {
     const auto groove = static_cast<std::size_t>(idea.settings.groove);
+    std::vector<int> offsets(count, 0);
     switch (lane)
     {
     case LaneId::chords:
-        return kChordLayBack.at(groove);
+        std::ranges::fill(offsets, kChordLayBack.at(groove));
+        break;
     case LaneId::melody:
     {
         const auto bound = static_cast<std::uint32_t>(4 + (3 * groove)); // 2 * (2 + groove * 1.5)
         Pcg32 rng(idea.lanes.at(2).seed, kMelodyFeelSlot);
-        std::uint32_t draw = 0;
-        for (std::size_t i = 0; i <= noteIndex; ++i)
+        for (int& offset : offsets)
         {
-            draw = rng.below((2 * bound) + 1);
+            offset = static_cast<int>(rng.below((2 * bound) + 1)) - static_cast<int>(bound);
         }
-        return static_cast<int>(draw) - static_cast<int>(bound);
+        break;
     }
     case LaneId::bass:
         break;
     }
-    return 0;
+    return offsets;
+}
+} // namespace
+
+int feelOffsetTicks(const Idea& idea, LaneId lane, std::size_t noteIndex)
+{
+    return feelOffsets(idea, lane, noteIndex + 1).at(noteIndex);
 }
 
 std::vector<NoteEvent> performedNotes(const Idea& idea, LaneId lane)
 {
     std::vector<NoteEvent> notes = idea.lanes.at(static_cast<std::size_t>(lane)).events;
+    const std::vector<int> offsets = feelOffsets(idea, lane, notes.size());
     for (std::size_t i = 0; i < notes.size(); ++i)
     {
-        notes.at(i).start = std::max(0, notes.at(i).start + feelOffsetTicks(idea, lane, i));
+        notes.at(i).start = std::max(0, notes.at(i).start + offsets.at(i));
     }
     const int end = ideaLengthTicks(idea);
     for (std::size_t i = 0; i < notes.size(); ++i)

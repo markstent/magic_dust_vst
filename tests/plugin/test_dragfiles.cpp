@@ -205,6 +205,7 @@ TEST_CASE("dragged lanes keep the bass on the grid and chords and melody within 
         const auto& written = idea.lanes.at(static_cast<std::size_t>(lane)).events;
         const auto dragged = md::laneTrack(idea, lane);
         REQUIRE(dragged.notes.size() == written.size());
+        REQUIRE_FALSE(written.empty());
         int bound = kMelodyBound;
         if (lane == md::LaneId::bass)
         {
@@ -214,6 +215,8 @@ TEST_CASE("dragged lanes keep the bass on the grid and chords and melody within 
         {
             bound = kChordBound;
         }
+        CHECK(std::abs(dragged.notes.front().start - written.front().start) <= bound);
+        CHECK_NOTHROW(md::writeMidiFile(std::vector{dragged}, kTempo, md::ideaLengthTicks(idea)));
         for (std::size_t i = 0; i < written.size(); ++i)
         {
             CHECK(std::abs(dragged.notes.at(i).start - written.at(i).start) <= bound);
