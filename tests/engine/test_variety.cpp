@@ -666,8 +666,7 @@ TEST_CASE("chords: no ghost note falls in a breath bar", "[variety][chords][ghos
 namespace
 {
 // The finished notes that start where the engine wrote a ghost, before humanize.
-std::vector<NoteEvent> finishedGhosts(const std::vector<NoteEvent>& written,
-                                      const std::vector<NoteEvent>& finished)
+std::vector<NoteEvent> finishedGhosts(const std::vector<NoteEvent>& written, const Lane& lane)
 {
     std::set<int> ghostStarts;
     for (const NoteEvent& e : written)
@@ -678,16 +677,15 @@ std::vector<NoteEvent> finishedGhosts(const std::vector<NoteEvent>& written,
         }
     }
     std::vector<NoteEvent> out;
-    std::ranges::copy_if(finished, std::back_inserter(out),
+    std::ranges::copy_if(lane.events, std::back_inserter(out),
                          [&](const NoteEvent& e) { return ghostStarts.contains(e.start); });
     return out;
 }
 
-int lowestPlayed(const std::vector<NoteEvent>& finished, const std::vector<NoteEvent>& ghosts,
-                 int bar)
+int lowestPlayed(const Lane& lane, const std::vector<NoteEvent>& ghosts, int bar)
 {
     int lowest = 128;
-    for (const NoteEvent& e : finished)
+    for (const NoteEvent& e : lane.events)
     {
         if (barOf(e) == bar &&
             std::ranges::none_of(ghosts, [&](const NoteEvent& g) { return g.start == e.start; }))
@@ -715,7 +713,7 @@ TEST_CASE("every ghost note is quieter than the other notes of its bar in the fi
         };
         for (std::size_t lane = 0; lane < 2; ++lane)
         {
-            const auto& finished = s.idea.lanes.at(lane).events;
+            const Lane& finished = s.idea.lanes.at(lane);
             const auto ghosts = finishedGhosts(written.at(lane), finished);
             for (const NoteEvent& g : ghosts)
             {
