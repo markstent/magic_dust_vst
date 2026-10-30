@@ -463,6 +463,35 @@ Learned learnedOf(Family family, RhythmKind kind)
     return learned;
 }
 
+// The onset steps within the beat of every chunk the family's cells have at each beat.
+std::array<std::set<std::vector<int>>, kBeats> learnedBeats(Family family, RhythmKind kind)
+{
+    std::array<std::set<std::vector<int>>, kBeats> beats;
+    for (const StyleEntry& entry : bank().entries)
+    {
+        for (const RhythmCell& cell : learnedCells(entry, kind))
+        {
+            for (int bar = 0; entry.family == family && bar < cell.bars; ++bar)
+            {
+                const auto steps = barSteps(cell, bar);
+                for (int beat = 0; beat < kBeats; ++beat)
+                {
+                    std::vector<int> chunk;
+                    for (const int step : steps)
+                    {
+                        if (step / kBeatSteps == beat)
+                        {
+                            chunk.push_back(step % kBeatSteps);
+                        }
+                    }
+                    beats.at(static_cast<std::size_t>(beat)).insert(chunk);
+                }
+            }
+        }
+    }
+    return beats;
+}
+
 bool writtenRhythm(Family family, RhythmKind kind, const RhythmCell& cell)
 {
     return std::ranges::any_of(
@@ -501,12 +530,57 @@ TEST_CASE("invented rhythm cells over 500 seeds per family", "[invent]")
                     for (int bar = 0; bar < cell.bars; ++bar)
                     {
                         const int count = static_cast<int>(barSteps(cell, bar).size());
-                        CHECK(count >= std::max(1, learned.minOnsets - 1));
+                        CHECK(count >= std::max(1, learned.minOnsets));
                         CHECK(count <= learned.maxOnsets + 1);
                     }
                 }
                 INFO("family " << static_cast<int>(family));
                 CHECK(cells.fallbacks * 100 < kRhythmSeeds * 2);
+            }
+        }
+    }
+
+    SECTION("a chord bar has an onset in its first half and a melody cell at least 2 onsets")
+    {
+        for (const Family family : kFamilies)
+        {
+            for (const RhythmCell& cell : inventedCells(family, RhythmKind::chords, -1).made)
+            {
+                CHECK(cell.hits.front().step < kStepsPerBar / 2);
+            }
+            for (const RhythmCell& cell : inventedCells(family, RhythmKind::melody, -1).made)
+            {
+                CHECK(cell.hits.size() >= 2);
+            }
+        }
+    }
+
+    SECTION("every beat of an invented cell is a chunk learned at that beat")
+    {
+        for (const Family family : kFamilies)
+        {
+            for (const RhythmKind kind : kKinds)
+            {
+                const auto learned = learnedBeats(family, kind);
+                for (const RhythmCell& cell : inventedCells(family, kind, -1).made)
+                {
+                    for (int bar = 0; bar < cell.bars; ++bar)
+                    {
+                        const auto steps = barSteps(cell, bar);
+                        for (int beat = 0; beat < kBeats; ++beat)
+                        {
+                            std::vector<int> chunk;
+                            for (const int step : steps)
+                            {
+                                if (step / kBeatSteps == beat)
+                                {
+                                    chunk.push_back(step % kBeatSteps);
+                                }
+                            }
+                            CHECK(learned.at(static_cast<std::size_t>(beat)).contains(chunk));
+                        }
+                    }
+                }
             }
         }
     }

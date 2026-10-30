@@ -13,6 +13,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace md::detail
@@ -210,26 +211,39 @@ enum class RhythmKind : std::uint8_t
     melody,
 };
 
-// Per-step onset counts over the 1-bar slices (a 2-bar cell gives two) of a family's chord or
-// melody cells, with the lengths learned at each step, the onsets-per-slice range and the least
-// gap between onsets.
+// The (step in the beat, length) of each onset in one 4-step beat of a slice.
+using Chunk = std::vector<std::pair<int, int>>;
+constexpr int kBeatSteps = 4;
+constexpr int kBeats = kStepsPerBar / kBeatSteps;
+
+// The beat chunks of a family's chord or melody cells, cut from their 1-bar slices (a 2-bar cell
+// gives two). chunks[b] are the distinct chunks seen at beat b. starts counts the chunks at beat 0
+// and next[b][prev][cur] counts a chunk at beat b after prev at beat b - 1 (next[0] is unused).
+// The onsets-per-slice range, the least gap between onsets and the mean onsets in a chunk are
+// learned too.
 struct RhythmModel
 {
     std::string name; // "fresh-stabs" or "fresh-hook"
-    std::array<int, kStepsPerBar> onsets{};
-    std::array<std::vector<int>, kStepsPerBar> lengths;
+    RhythmKind kind = RhythmKind::chords;
+    std::array<std::vector<Chunk>, kBeats> chunks;
+    std::vector<int> starts;
+    std::array<std::vector<std::vector<int>>, kBeats> next;
     int slices = 0;
     int minOnsets = 0;
     int maxOnsets = 0;
     int minGap = kStepsPerBar;
+    double meanChunkOnsets = 0;
 };
 
 RhythmModel buildRhythmModel(const Bank& bank, Family family, RhythmKind kind);
-// A cell of the given bars made of 1-bar slices. Each step fires with its learned probability
-// times 0.7 + 0.6 * energy / 100, capped at 0.95. A slice must hold at least one onset and a count
-// within the learned range widened by 1, keep the learned least gap, and, after the first, differ
-// from the slice before it. Lengths are drawn from the learned ones and clamped to the next onset
-// and the end of the cell. Gives up after 24 tries a slice.
+// A cell of the given bars made of 1-bar slices, each drawn as four beat chunks: beat 0 from the
+// starts, then each beat from the bigram row of the chunk before. A learned count weighs 1000 and
+// any chunk seen at that beat gets 100 more. The weight is scaled by 1 + 0.6 * (energy / 100 -
+// 0.5) * (onsets in the chunk - mean onsets), floored at 0.1. A slice is kept when its onset count
+// is within the learned range with the maximum widened by 1 and is at least 1, it keeps the least
+// gap, a chord slice has an onset in steps 0 to 7 and, after the first, a slice differs from the
+// one before it. A melody cell needs 2 onsets in all. Lengths are clamped to the next onset and
+// the end of the cell. Gives up after 24 tries.
 std::optional<RhythmCell> inventRhythm(const RhythmModel& model, int bars, int energy, Pcg32& rng);
 // Above kHighEnergy callers move some voicings up one inversion (slot 7): a chord that repeats the
 // previous span's symbol and reaches bar 3 or 4 of a 4-bar group (the voicing is one per span, so

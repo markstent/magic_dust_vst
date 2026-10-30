@@ -252,7 +252,10 @@ RhythmModel buildRhythmModel(const Bank& bank, Family family, RhythmKind kind)
 {
     RhythmModel model;
     model.name = kind == RhythmKind::chords ? "fresh-stabs" : "fresh-hook";
+    model.kind = kind;
     model.minOnsets = kStepsPerBar;
+    std::vector<std::array<Chunk, kBeats>> slices;
+    int onsets = 0;
     for (const StyleEntry& entry : bank.entries)
     {
         if (entry.family != family)
@@ -262,25 +265,59 @@ RhythmModel buildRhythmModel(const Bank& bank, Family family, RhythmKind kind)
         for (const RhythmCell& cell :
              kind == RhythmKind::chords ? entry.chordRhythms : entry.melodyRhythms)
         {
-            std::vector<int> perSlice(static_cast<std::size_t>(cell.bars), 0);
+            const std::size_t first = slices.size();
+            slices.resize(first + static_cast<std::size_t>(cell.bars));
             for (std::size_t i = 0; i < cell.hits.size(); ++i)
             {
                 const Hit& hit = cell.hits.at(i);
-                const auto step = static_cast<std::size_t>(hit.step % kStepsPerBar);
-                ++model.onsets.at(step);
-                model.lengths.at(step).push_back(hit.length);
-                ++perSlice.at(static_cast<std::size_t>(hit.step / kStepsPerBar));
+                auto& slice = slices.at(first + static_cast<std::size_t>(hit.step / kStepsPerBar));
+                const int inBar = hit.step % kStepsPerBar;
+                slice.at(static_cast<std::size_t>(inBar / kBeatSteps))
+                    .emplace_back(inBar % kBeatSteps, hit.length);
+                ++onsets;
                 if (i > 0)
                 {
                     model.minGap = std::min(model.minGap, hit.step - cell.hits.at(i - 1).step);
                 }
             }
-            for (const int count : perSlice)
+        }
+    }
+    for (const auto& slice : slices)
+    {
+        int count = 0;
+        for (std::size_t beat = 0; beat < kBeats; ++beat)
+        {
+            count += static_cast<int>(slice.at(beat).size());
+            if (std::ranges::find(model.chunks.at(beat), slice.at(beat)) ==
+                model.chunks.at(beat).end())
             {
-                ++model.slices;
-                model.minOnsets = std::min(model.minOnsets, count);
-                model.maxOnsets = std::max(model.maxOnsets, count);
+                model.chunks.at(beat).push_back(slice.at(beat));
             }
+        }
+        model.minOnsets = std::min(model.minOnsets, count);
+        model.maxOnsets = std::max(model.maxOnsets, count);
+    }
+    model.slices = static_cast<int>(slices.size());
+    model.meanChunkOnsets = static_cast<double>(onsets) / std::max(1, model.slices * kBeats);
+    model.starts.assign(model.chunks.front().size(), 0);
+    for (std::size_t beat = 1; beat < kBeats; ++beat)
+    {
+        model.next.at(beat).assign(model.chunks.at(beat - 1).size(),
+                                   std::vector<int>(model.chunks.at(beat).size(), 0));
+    }
+    const auto chunkIndex = [&model](std::size_t beat, const Chunk& chunk)
+    {
+        return static_cast<std::size_t>(std::ranges::find(model.chunks.at(beat), chunk) -
+                                        model.chunks.at(beat).begin());
+    };
+    for (const auto& slice : slices)
+    {
+        ++model.starts.at(chunkIndex(0, slice.front()));
+        for (std::size_t beat = 1; beat < kBeats; ++beat)
+        {
+            ++model.next.at(beat)
+                  .at(chunkIndex(beat - 1, slice.at(beat - 1)))
+                  .at(chunkIndex(beat, slice.at(beat)));
         }
     }
     return model;
@@ -288,46 +325,76 @@ RhythmModel buildRhythmModel(const Bank& bank, Family family, RhythmKind kind)
 
 namespace
 {
-// Where a slice sits: its first absolute step, the last onset before it and the energy.
-struct SliceAt
-{
-    int base;
-    int lastStep;
-    int energy;
-};
+constexpr int kChunkSmoothing = 100;
+constexpr double kMinEnergyScale = 0.1;
+constexpr double kEnergySwing = 0.6;
+constexpr int kMinMelodyOnsets = 2;
 
-// The onset steps of one slice, or none when it breaks the rules: a count in the learned range
-// widened by 1 and at least 1, no gap under the learned least (counting the last onset of the
-// slice before, at absolute step lastStep), and not the same steps as the slice before.
-std::optional<std::vector<int>> drawSlice(const RhythmModel& model, const SliceAt& at,
-                                          const std::vector<int>& before, Pcg32& rng)
+// A learned count plus smoothing for each chunk of a beat, scaled so energy favours denser chunks
+// when high and sparser ones when low.
+std::vector<int> chunkWeights(const RhythmModel& model, std::size_t beat,
+                              const std::vector<int>& counts, int energy)
 {
-    constexpr std::uint32_t kPermille = 1000;
-    constexpr int kMostLikely = 950;
-    std::vector<int> steps;
-    for (int step = 0; step < kStepsPerBar; ++step)
+    std::vector<int> weights;
+    const double lean = kEnergySwing * ((energy / 100.0) - 0.5);
+    for (std::size_t i = 0; i < counts.size(); ++i)
     {
-        const int learned = model.onsets.at(static_cast<std::size_t>(step)) * 1000 / model.slices;
-        const int chance =
-            std::min(kMostLikely, learned * (700 + (6 * at.energy)) / 1000); // 0.7 + 0.6 * energy
-        if (rng.below(kPermille) < static_cast<std::uint32_t>(chance))
+        const auto onsets = static_cast<double>(model.chunks.at(beat).at(i).size());
+        const double scale =
+            std::max(kMinEnergyScale, 1 + (lean * (onsets - model.meanChunkOnsets)));
+        weights.push_back(
+            static_cast<int>(((counts.at(i) * kCountWeight) + kChunkSmoothing) * scale));
+    }
+    return weights;
+}
+
+// One slice drawn beat by beat, as hits at steps within the bar.
+std::vector<Hit> drawSlice(const RhythmModel& model, int energy, Pcg32& rng)
+{
+    std::vector<Hit> hits;
+    std::size_t chunk = 0;
+    for (std::size_t beat = 0; beat < kBeats; ++beat)
+    {
+        const auto& counts = beat == 0 ? model.starts : model.next.at(beat).at(chunk);
+        chunk = rng.pickWeighted(chunkWeights(model, beat, counts, energy));
+        for (const auto& [step, length] : model.chunks.at(beat).at(chunk))
         {
-            steps.push_back(step);
+            hits.push_back(
+                {.step = (static_cast<int>(beat) * kBeatSteps) + step, .length = length});
         }
     }
-    const int count = static_cast<int>(steps.size());
-    bool gapsOk = true;
-    for (std::size_t i = 0; i < steps.size(); ++i)
+    return hits;
+}
+
+// Whether a drawn slice keeps the learned onset range (the maximum widened by 1) and least gap,
+// has an onset, and for chords one in the first half bar. lastStep is the last onset before the
+// slice, as a step relative to its start.
+bool sliceOk(const RhythmModel& model, const std::vector<Hit>& slice, int lastStep)
+{
+    const int count = static_cast<int>(slice.size());
+    if (count < std::max(1, model.minOnsets) || count > model.maxOnsets + 1)
     {
-        const int previous = i == 0 ? at.lastStep : at.base + steps.at(i - 1);
-        gapsOk = gapsOk && at.base + steps.at(i) - previous >= model.minGap;
+        return false;
     }
-    const bool fits = count >= std::max(1, model.minOnsets - 1) && count <= model.maxOnsets + 1;
-    if (!fits || !gapsOk || steps == before)
+    if (model.kind == RhythmKind::chords && slice.front().step >= kStepsPerBar / 2)
     {
-        return std::nullopt;
+        return false;
     }
-    return steps;
+    int previous = lastStep;
+    for (const Hit& hit : slice)
+    {
+        if (hit.step - previous < model.minGap)
+        {
+            return false;
+        }
+        previous = hit.step;
+    }
+    return true;
+}
+
+bool sameSteps(const std::vector<Hit>& a, const std::vector<Hit>& b)
+{
+    return std::ranges::equal(a, b, {}, &Hit::step, &Hit::step);
 }
 } // namespace
 
@@ -338,37 +405,39 @@ std::optional<RhythmCell> inventRhythm(const RhythmModel& model, int bars, int e
     {
         return std::nullopt;
     }
-    RhythmCell cell{.id = model.name, .bars = bars, .hits = {}};
-    std::vector<int> before;
-    for (int bar = 0; bar < bars; ++bar)
+    for (int attempt = 0; attempt < kTries; ++attempt)
     {
-        const int base = bar * kStepsPerBar;
-        const int lastStep = cell.hits.empty() ? -kStepsPerBar : cell.hits.back().step;
-        std::optional<std::vector<int>> slice;
-        for (int attempt = 0; attempt < kTries && !slice; ++attempt)
+        RhythmCell cell{.id = model.name, .bars = bars, .hits = {}};
+        std::vector<Hit> before;
+        bool ok = true;
+        for (int bar = 0; bar < bars && ok; ++bar)
         {
-            slice = drawSlice(model, {.base = base, .lastStep = lastStep, .energy = energy}, before,
-                              rng);
+            const int base = bar * kStepsPerBar;
+            std::vector<Hit> slice = drawSlice(model, energy, rng);
+            const int lastStep = cell.hits.empty() ? -kStepsPerBar : cell.hits.back().step - base;
+            ok = sliceOk(model, slice, lastStep) && (bar == 0 || !sameSteps(slice, before));
+            before = slice;
+            for (Hit& hit : slice)
+            {
+                hit.step += base;
+            }
+            cell.hits.insert(cell.hits.end(), slice.begin(), slice.end());
         }
-        if (!slice)
+        const bool enough = model.kind == RhythmKind::chords ||
+                            static_cast<int>(cell.hits.size()) >= kMinMelodyOnsets;
+        if (!ok || !enough)
         {
-            return std::nullopt;
+            continue;
         }
-        for (const int step : *slice)
+        for (std::size_t i = 0; i < cell.hits.size(); ++i)
         {
-            const auto& learned = model.lengths.at(static_cast<std::size_t>(step));
-            cell.hits.push_back(
-                {.step = base + step,
-                 .length = learned.at(rng.below(static_cast<std::uint32_t>(learned.size())))});
+            const int end =
+                i + 1 < cell.hits.size() ? cell.hits.at(i + 1).step : bars * kStepsPerBar;
+            Hit& hit = cell.hits.at(i);
+            hit.length = std::min(hit.length, end - hit.step);
         }
-        before = *slice;
+        return cell;
     }
-    for (std::size_t i = 0; i < cell.hits.size(); ++i)
-    {
-        const int end = i + 1 < cell.hits.size() ? cell.hits.at(i + 1).step : bars * kStepsPerBar;
-        Hit& hit = cell.hits.at(i);
-        hit.length = std::min(hit.length, end - hit.step);
-    }
-    return cell;
+    return std::nullopt;
 }
 } // namespace md::detail
