@@ -269,6 +269,46 @@ TEST_CASE("a key change moves pinned chords and keeps the bass valid", "[pins]")
     }
 }
 
+TEST_CASE("pinned chords keep their invented progression and rhythm across a key change", "[pins]")
+{
+    int kept = 0;
+    for (std::uint32_t seed = 1; seed <= kSeeds; ++seed)
+    {
+        Settings settings;
+        settings.keyRoot = 9;
+        settings.energy = 80;
+        const Idea previous = first(settings, seed);
+        if (laneOf(previous, LaneId::chords).pattern != "fresh-stabs")
+        {
+            continue;
+        }
+        ++kept;
+        settings.keyRoot = 0;
+        const Idea result = next(settings, seed + kNextSeedOffset, previous, {.chords = true});
+        REQUIRE(validate(result).empty());
+        REQUIRE(result.key.root == 0);
+        REQUIRE(laneOf(result, LaneId::chords).pattern == "fresh-stabs");
+        REQUIRE(onsets(result) == onsets(previous));
+        REQUIRE(result.progression.size() == previous.progression.size());
+        for (std::size_t i = 0; i < result.progression.size(); ++i)
+        {
+            REQUIRE(result.progression.at(i).symbol == previous.progression.at(i).symbol);
+            std::set<int> moved;
+            for (const int pitch : previous.progression.at(i).voicing)
+            {
+                moved.insert((pitch + 3) % 12);
+            }
+            std::set<int> actual;
+            for (const int pitch : result.progression.at(i).voicing)
+            {
+                actual.insert(pitch % 12);
+            }
+            REQUIRE(actual == moved);
+        }
+    }
+    REQUIRE(kept > 0);
+}
+
 TEST_CASE("a bar count change ignores the pins", "[pins]")
 {
     for (std::uint32_t seed = 1; seed <= kSeeds; ++seed)
