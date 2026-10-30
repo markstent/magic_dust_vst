@@ -128,6 +128,7 @@ struct Bank
 {
     std::vector<StyleEntry> entries; // sorted by id
     std::uint64_t version;
+    // Never assign a bank while another thread generates from it: assignment empties the cache.
     // The initializer lets a designated initializer leave the cache out.
     ModelCache models{}; // NOLINT(readability-redundant-member-init)
 };
