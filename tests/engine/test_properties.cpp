@@ -121,7 +121,7 @@ TEST_CASE("properties: every generated idea is valid and generation is determini
                     chooseChordRhythm(&models, *entry, settings, lanes.chords).source,
                     chooseMelodyRhythm(&models, *entry, settings, lanes.melody).source,
                 };
-                fallbacks += std::ranges::count(sources, Source::fallback);
+                fallbacks += static_cast<int>(std::ranges::count(sources, Source::fallback));
 
                 if (seed < kDeterminismSeeds)
                 {
