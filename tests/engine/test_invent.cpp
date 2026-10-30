@@ -3,6 +3,7 @@
 #include "md/pcg32.hpp"
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
+#include "md/validate.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -157,6 +158,23 @@ TEST_CASE("an entry learns from the mode groups its modes span", "[invent]")
     CHECK(major.templates.size() == both.progressions.size());
 }
 
+TEST_CASE("move weights are 1000 a count, 150 between learned tokens and 50 for smoothing",
+          "[invent]")
+{
+    ProgressionModel model;
+    model.tokens = {{.degree = 1, .quality = Quality::min},
+                    {.degree = 4, .quality = Quality::min},
+                    {.degree = 5, .quality = Quality::dom7}};
+    model.transitions = {{0, 2, 0}, {0, 0, 0}, {0, 0, 0}};
+    std::vector<ChordSymbol> states = model.tokens;
+    states.push_back({.degree = 6, .quality = Quality::maj});
+    CHECK(moveWeight(model, states, 0, 1) == 2150);
+    CHECK(moveWeight(model, states, 0, 2) == 150);
+    CHECK(moveWeight(model, states, 0, 0) == 0);
+    CHECK(moveWeight(model, states, 0, 3) == 50);
+    CHECK(moveWeight(model, states, 3, 1) == 50);
+}
+
 // One test case, so the 2500 inventions are made once per run.
 TEST_CASE("invented progressions over 500 seeds per family", "[invent]")
 {
@@ -225,7 +243,7 @@ TEST_CASE("invented progressions over 500 seeds per family", "[invent]")
             }
             INFO("family " << static_cast<int>(family));
             REQUIRE(chords > 0);
-            CHECK(smoothed * 100 < chords * 15);
+            CHECK(smoothed * 100 < chords * 6); // measured 1 to 3.5%
         }
     }
 
@@ -306,6 +324,284 @@ TEST_CASE("invented progressions over 500 seeds per family", "[invent]")
                 {
                     CHECK(again->chords == item.progression->chords);
                     CHECK(again->barsPerChord == item.progression->barsPerChord);
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE("invented progressions voice and validate at the key root", "[invent]")
+{
+    for (const Family family : kFamilies)
+    {
+        const auto& items = invented(family);
+        for (std::size_t seed = 0; seed < items.size(); seed += 10)
+        {
+            const Invented& item = items.at(seed);
+            if (!item.progression)
+            {
+                continue;
+            }
+            for (const Mode mode : fittingModes(*item.entry, *item.progression))
+            {
+                for (const Flavour flavour : {Flavour::simple, Flavour::soulful, Flavour::jazzy})
+                {
+                    Idea idea{};
+                    idea.settings.bars = 16;
+                    idea.settings.flavour = flavour;
+                    idea.key = {.root = item.keyRoot, .mode = mode};
+                    idea.parallel = item.entry->parallel;
+                    placeChords(idea, *item.progression);
+                    voiceChords(*item.entry, idea.key, idea.progression);
+                    CHECK(validate(idea).empty());
+                }
+            }
+        }
+    }
+}
+
+namespace
+{
+constexpr int kRhythmSeeds = 500;
+
+Pcg32 rhythmRng(int seed)
+{
+    return {laneSeed(static_cast<std::uint32_t>(seed), Stream::chords, kChordCell), 9};
+}
+
+int bars(RhythmKind kind) { return kind == RhythmKind::chords ? 1 : 2; }
+
+struct Cells
+{
+    std::vector<RhythmCell> made;
+    int fallbacks = 0;
+};
+
+// An invented cell per seed, with the energy cycling over 0 to 100 when it is negative.
+Cells inventedCells(Family family, RhythmKind kind, int energy)
+{
+    const RhythmModel model = buildRhythmModel(bank(), family, kind);
+    Cells cells;
+    for (int seed = 0; seed < kRhythmSeeds; ++seed)
+    {
+        Pcg32 rng = rhythmRng(seed);
+        auto cell = inventRhythm(model, bars(kind), energy < 0 ? seed % 101 : energy, rng);
+        if (cell)
+        {
+            cells.made.push_back(std::move(*cell));
+        }
+        else
+        {
+            ++cells.fallbacks;
+        }
+    }
+    return cells;
+}
+
+std::vector<std::pair<int, int>> stepsOf(const RhythmCell& cell)
+{
+    std::vector<std::pair<int, int>> steps;
+    steps.reserve(cell.hits.size());
+    for (const Hit& hit : cell.hits)
+    {
+        steps.emplace_back(hit.step, hit.length);
+    }
+    return steps;
+}
+
+// The onset steps of one bar of a cell.
+std::vector<int> barSteps(const RhythmCell& cell, int bar)
+{
+    std::vector<int> steps;
+    for (const Hit& hit : cell.hits)
+    {
+        if (hit.step / kStepsPerBar == bar)
+        {
+            steps.push_back(hit.step % kStepsPerBar);
+        }
+    }
+    return steps;
+}
+
+const std::vector<RhythmCell>& learnedCells(const StyleEntry& entry, RhythmKind kind)
+{
+    return kind == RhythmKind::chords ? entry.chordRhythms : entry.melodyRhythms;
+}
+
+// The onsets per bar and the least gap over every learned cell of the family.
+struct Learned
+{
+    int minOnsets = 99;
+    int maxOnsets = 0;
+    int minGap = 99;
+};
+
+Learned learnedOf(Family family, RhythmKind kind)
+{
+    Learned learned;
+    for (const StyleEntry& entry : bank().entries)
+    {
+        for (const RhythmCell& cell : learnedCells(entry, kind))
+        {
+            if (entry.family != family)
+            {
+                continue;
+            }
+            for (int bar = 0; bar < cell.bars; ++bar)
+            {
+                const int count = static_cast<int>(barSteps(cell, bar).size());
+                learned.minOnsets = std::min(learned.minOnsets, count);
+                learned.maxOnsets = std::max(learned.maxOnsets, count);
+            }
+            for (std::size_t i = 1; i < cell.hits.size(); ++i)
+            {
+                learned.minGap =
+                    std::min(learned.minGap, cell.hits.at(i).step - cell.hits.at(i - 1).step);
+            }
+        }
+    }
+    return learned;
+}
+
+bool writtenRhythm(Family family, RhythmKind kind, const RhythmCell& cell)
+{
+    return std::ranges::any_of(
+        bank().entries,
+        [&](const StyleEntry& entry)
+        {
+            return entry.family == family &&
+                   std::ranges::any_of(learnedCells(entry, kind), [&](const RhythmCell& written)
+                                       { return stepsOf(written) == stepsOf(cell); });
+        });
+}
+
+constexpr std::array kKinds = {RhythmKind::chords, RhythmKind::melody};
+} // namespace
+
+TEST_CASE("invented rhythm cells over 500 seeds per family", "[invent]")
+{
+    SECTION("the model is named for its lane")
+    {
+        CHECK(buildRhythmModel(bank(), Family::soulful, RhythmKind::chords).name == "fresh-stabs");
+        CHECK(buildRhythmModel(bank(), Family::soulful, RhythmKind::melody).name == "fresh-hook");
+    }
+
+    SECTION("cells are the right size, in the learned range and fall back rarely")
+    {
+        for (const Family family : kFamilies)
+        {
+            for (const RhythmKind kind : kKinds)
+            {
+                const Learned learned = learnedOf(family, kind);
+                const Cells cells = inventedCells(family, kind, -1);
+                for (const RhythmCell& cell : cells.made)
+                {
+                    CHECK(cell.bars == bars(kind));
+                    CHECK(cell.id == (kind == RhythmKind::chords ? "fresh-stabs" : "fresh-hook"));
+                    for (int bar = 0; bar < cell.bars; ++bar)
+                    {
+                        const int count = static_cast<int>(barSteps(cell, bar).size());
+                        CHECK(count >= std::max(1, learned.minOnsets - 1));
+                        CHECK(count <= learned.maxOnsets + 1);
+                    }
+                }
+                INFO("family " << static_cast<int>(family));
+                CHECK(cells.fallbacks * 100 < kRhythmSeeds * 2);
+            }
+        }
+    }
+
+    SECTION("lengths never reach the next onset or the end of the cell, and gaps stay learned")
+    {
+        for (const Family family : kFamilies)
+        {
+            for (const RhythmKind kind : kKinds)
+            {
+                const int minGap = learnedOf(family, kind).minGap;
+                for (const RhythmCell& cell : inventedCells(family, kind, -1).made)
+                {
+                    for (std::size_t i = 0; i < cell.hits.size(); ++i)
+                    {
+                        const Hit& hit = cell.hits.at(i);
+                        const int end = i + 1 < cell.hits.size() ? cell.hits.at(i + 1).step
+                                                                 : cell.bars * kStepsPerBar;
+                        CHECK(hit.length >= 1);
+                        CHECK(hit.step + hit.length <= end);
+                        CHECK((i + 1 == cell.hits.size() ||
+                               cell.hits.at(i + 1).step - hit.step >= minGap));
+                    }
+                }
+            }
+        }
+    }
+
+    SECTION("energy 100 gives more onsets on average than energy 0")
+    {
+        const auto mean = [](const Cells& cells)
+        {
+            int hits = 0;
+            for (const RhythmCell& cell : cells.made)
+            {
+                hits += static_cast<int>(cell.hits.size());
+            }
+            return static_cast<double>(hits) /
+                   std::max(1.0, static_cast<double>(cells.made.size()));
+        };
+        for (const Family family : kFamilies)
+        {
+            for (const RhythmKind kind : kKinds)
+            {
+                CHECK(mean(inventedCells(family, kind, 100)) >
+                      mean(inventedCells(family, kind, 0)));
+            }
+        }
+    }
+
+    SECTION("cells are mostly new and varied")
+    {
+        for (const Family family : kFamilies)
+        {
+            for (const RhythmKind kind : kKinds)
+            {
+                const Cells cells = inventedCells(family, kind, -1);
+                const int count = static_cast<int>(cells.made.size());
+                int fresh = 0;
+                std::set<std::vector<std::pair<int, int>>> distinct;
+                for (const RhythmCell& cell : cells.made)
+                {
+                    fresh += writtenRhythm(family, kind, cell) ? 0 : 1;
+                    distinct.insert(stepsOf(cell));
+                }
+                INFO("family " << static_cast<int>(family));
+                CHECK(fresh * 100 >= count * 60);
+                CHECK(distinct.size() >= 15);
+            }
+        }
+    }
+
+    SECTION("a melody answer bar differs from its first bar")
+    {
+        for (const Family family : kFamilies)
+        {
+            for (const RhythmCell& cell : inventedCells(family, RhythmKind::melody, -1).made)
+            {
+                CHECK(barSteps(cell, 0) != barSteps(cell, 1));
+            }
+        }
+    }
+
+    SECTION("inventing a rhythm is deterministic")
+    {
+        for (const Family family : kFamilies)
+        {
+            for (const RhythmKind kind : kKinds)
+            {
+                const auto first = inventedCells(family, kind, 50);
+                const auto second = inventedCells(family, kind, 50);
+                REQUIRE(first.made.size() == second.made.size());
+                for (std::size_t i = 0; i < first.made.size(); ++i)
+                {
+                    CHECK(stepsOf(first.made.at(i)) == stepsOf(second.made.at(i)));
                 }
             }
         }

@@ -6,11 +6,13 @@
 #include "md/types.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace md::detail
@@ -196,6 +198,39 @@ std::vector<ChordSymbol> smoothingTokens(const ProgressionModel& model, const St
 // fitting mode and flavour. Gives up after 24 tries.
 std::optional<Progression> inventProgression(const ProgressionModel& model, const StyleEntry& entry,
                                              int keyRoot, Pcg32& rng);
+// The weight of a move between states (the model's tokens first, then smoothing tokens), in
+// thousandths: 1000 per learned count plus 150 between learned tokens, 50 for any move to or from
+// a smoothing token, and 0 for staying on the same degree.
+int moveWeight(const ProgressionModel& model, const std::vector<ChordSymbol>& states,
+               std::size_t from, std::size_t to);
+
+enum class RhythmKind : std::uint8_t
+{
+    chords,
+    melody,
+};
+
+// Per-step onset counts over the 1-bar slices (a 2-bar cell gives two) of a family's chord or
+// melody cells, with the lengths learned at each step, the onsets-per-slice range and the least
+// gap between onsets.
+struct RhythmModel
+{
+    std::string name; // "fresh-stabs" or "fresh-hook"
+    std::array<int, kStepsPerBar> onsets{};
+    std::array<std::vector<int>, kStepsPerBar> lengths;
+    int slices = 0;
+    int minOnsets = 0;
+    int maxOnsets = 0;
+    int minGap = kStepsPerBar;
+};
+
+RhythmModel buildRhythmModel(const Bank& bank, Family family, RhythmKind kind);
+// A cell of the given bars made of 1-bar slices. Each step fires with its learned probability
+// times 0.7 + 0.6 * energy / 100, capped at 0.95. A slice must hold at least one onset and a count
+// within the learned range widened by 1, keep the learned least gap, and, after the first, differ
+// from the slice before it. Lengths are drawn from the learned ones and clamped to the next onset
+// and the end of the cell. Gives up after 24 tries a slice.
+std::optional<RhythmCell> inventRhythm(const RhythmModel& model, int bars, int energy, Pcg32& rng);
 // Above kHighEnergy callers move some voicings up one inversion (slot 7): a chord that repeats the
 // previous span's symbol and reaches bar 3 or 4 of a 4-bar group (the voicing is one per span, so
 // it moves for the whole span), when the new voicing keeps its top note in the entry's range and

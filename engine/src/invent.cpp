@@ -48,23 +48,6 @@ std::size_t indexOf(const std::vector<ChordSymbol>& tokens, const ChordSymbol& c
     return static_cast<std::size_t>(std::ranges::find(tokens, chord) - tokens.begin());
 }
 
-// A learned count plus smoothing for a move between states (learned tokens first, then smoothing
-// tokens), and 0 for staying on the same degree.
-int moveWeight(const ProgressionModel& model, const std::vector<ChordSymbol>& states,
-               std::size_t from, std::size_t to)
-{
-    const std::size_t learned = model.tokens.size();
-    if (states.at(from).degree == states.at(to).degree)
-    {
-        return 0;
-    }
-    if (from < learned && to < learned)
-    {
-        return (model.transitions.at(from).at(to) * kCountWeight) + kLearnedSmoothing;
-    }
-    return kNewSmoothing;
-}
-
 // True when the progression fits one of the entry's modes and passes validate at the key root in
 // every fitting mode and flavour. A flavour that leaves the chords as another did is not voiced
 // again.
@@ -112,6 +95,21 @@ bool accepted(const StyleEntry& entry, const Progression& progression, int keyRo
     return true;
 }
 } // namespace
+
+int moveWeight(const ProgressionModel& model, const std::vector<ChordSymbol>& states,
+               std::size_t from, std::size_t to)
+{
+    const std::size_t learned = model.tokens.size();
+    if (states.at(from).degree == states.at(to).degree)
+    {
+        return 0;
+    }
+    if (from < learned && to < learned)
+    {
+        return (model.transitions.at(from).at(to) * kCountWeight) + kLearnedSmoothing;
+    }
+    return kNewSmoothing;
+}
 
 ModeGroup modeGroup(const StyleEntry& entry)
 {
@@ -248,5 +246,129 @@ std::optional<Progression> inventProgression(const ProgressionModel& model, cons
         }
     }
     return std::nullopt;
+}
+
+RhythmModel buildRhythmModel(const Bank& bank, Family family, RhythmKind kind)
+{
+    RhythmModel model;
+    model.name = kind == RhythmKind::chords ? "fresh-stabs" : "fresh-hook";
+    model.minOnsets = kStepsPerBar;
+    for (const StyleEntry& entry : bank.entries)
+    {
+        if (entry.family != family)
+        {
+            continue;
+        }
+        for (const RhythmCell& cell :
+             kind == RhythmKind::chords ? entry.chordRhythms : entry.melodyRhythms)
+        {
+            std::vector<int> perSlice(static_cast<std::size_t>(cell.bars), 0);
+            for (std::size_t i = 0; i < cell.hits.size(); ++i)
+            {
+                const Hit& hit = cell.hits.at(i);
+                const auto step = static_cast<std::size_t>(hit.step % kStepsPerBar);
+                ++model.onsets.at(step);
+                model.lengths.at(step).push_back(hit.length);
+                ++perSlice.at(static_cast<std::size_t>(hit.step / kStepsPerBar));
+                if (i > 0)
+                {
+                    model.minGap = std::min(model.minGap, hit.step - cell.hits.at(i - 1).step);
+                }
+            }
+            for (const int count : perSlice)
+            {
+                ++model.slices;
+                model.minOnsets = std::min(model.minOnsets, count);
+                model.maxOnsets = std::max(model.maxOnsets, count);
+            }
+        }
+    }
+    return model;
+}
+
+namespace
+{
+// Where a slice sits: its first absolute step, the last onset before it and the energy.
+struct SliceAt
+{
+    int base;
+    int lastStep;
+    int energy;
+};
+
+// The onset steps of one slice, or none when it breaks the rules: a count in the learned range
+// widened by 1 and at least 1, no gap under the learned least (counting the last onset of the
+// slice before, at absolute step lastStep), and not the same steps as the slice before.
+std::optional<std::vector<int>> drawSlice(const RhythmModel& model, const SliceAt& at,
+                                          const std::vector<int>& before, Pcg32& rng)
+{
+    constexpr std::uint32_t kPermille = 1000;
+    constexpr int kMostLikely = 950;
+    std::vector<int> steps;
+    for (int step = 0; step < kStepsPerBar; ++step)
+    {
+        const int learned = model.onsets.at(static_cast<std::size_t>(step)) * 1000 / model.slices;
+        const int chance =
+            std::min(kMostLikely, learned * (700 + (6 * at.energy)) / 1000); // 0.7 + 0.6 * energy
+        if (rng.below(kPermille) < static_cast<std::uint32_t>(chance))
+        {
+            steps.push_back(step);
+        }
+    }
+    const int count = static_cast<int>(steps.size());
+    bool gapsOk = true;
+    for (std::size_t i = 0; i < steps.size(); ++i)
+    {
+        const int previous = i == 0 ? at.lastStep : at.base + steps.at(i - 1);
+        gapsOk = gapsOk && at.base + steps.at(i) - previous >= model.minGap;
+    }
+    const bool fits = count >= std::max(1, model.minOnsets - 1) && count <= model.maxOnsets + 1;
+    if (!fits || !gapsOk || steps == before)
+    {
+        return std::nullopt;
+    }
+    return steps;
+}
+} // namespace
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): (bars, energy) is the planned signature.
+std::optional<RhythmCell> inventRhythm(const RhythmModel& model, int bars, int energy, Pcg32& rng)
+{
+    if (model.slices == 0)
+    {
+        return std::nullopt;
+    }
+    RhythmCell cell{.id = model.name, .bars = bars, .hits = {}};
+    std::vector<int> before;
+    for (int bar = 0; bar < bars; ++bar)
+    {
+        const int base = bar * kStepsPerBar;
+        const int lastStep = cell.hits.empty() ? -kStepsPerBar : cell.hits.back().step;
+        std::optional<std::vector<int>> slice;
+        for (int attempt = 0; attempt < kTries && !slice; ++attempt)
+        {
+            slice = drawSlice(model, {.base = base, .lastStep = lastStep, .energy = energy}, before,
+                              rng);
+        }
+        if (!slice)
+        {
+            return std::nullopt;
+        }
+        for (const int step : *slice)
+        {
+            const auto& learned = model.lengths.at(static_cast<std::size_t>(step));
+            cell.hits.push_back(
+                {.step = base + step,
+                 .length = learned.at(rng.below(static_cast<std::uint32_t>(learned.size())))});
+        }
+        before = *slice;
+    }
+    for (std::size_t i = 0; i < cell.hits.size(); ++i)
+    {
+        const int end = i + 1 < cell.hits.size() ? cell.hits.at(i + 1).step : bars * kStepsPerBar;
+        Hit& hit = cell.hits.at(i);
+        hit.length = std::min(hit.length, end - hit.step);
+    }
+    return cell;
 }
 } // namespace md::detail
