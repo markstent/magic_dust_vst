@@ -7,6 +7,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <utility>
 
@@ -438,4 +440,87 @@ std::optional<RhythmCell> inventRhythm(const RhythmModel& model, int bars, int e
     }
     return std::nullopt;
 }
+
+std::optional<RhythmCell> inventOther(const RhythmModel& model, int bars, int energy,
+                                      const std::vector<std::vector<Hit>>& others, Pcg32& rng)
+{
+    for (int attempt = 0; attempt < kTries; ++attempt)
+    {
+        auto cell = inventRhythm(model, bars, energy, rng);
+        if (!cell)
+        {
+            return std::nullopt;
+        }
+        if (std::ranges::none_of(others, [&cell](const std::vector<Hit>& other)
+                                 { return sameSteps(cell->hits, other); }))
+        {
+            return cell;
+        }
+    }
+    return std::nullopt;
+}
+
+const ProgressionModel& Models::progression(const StyleEntry& entry) const
+{
+    return progressions.at(static_cast<std::size_t>(entry.family))
+        .at(static_cast<std::size_t>(modeGroup(entry)));
+}
+
+const RhythmModel& Models::rhythm(Family family, RhythmKind kind) const
+{
+    return rhythms.at(static_cast<std::size_t>(family)).at(static_cast<std::size_t>(kind));
+}
+
+Models buildModels(const Bank& bank)
+{
+    static_assert(Models::kFamilyCount == static_cast<std::size_t>(Family::nyGroove) + 1);
+    Models models;
+    for (std::size_t family = 0; family < Models::kFamilyCount; ++family)
+    {
+        for (const ModeGroup group : {ModeGroup::minor, ModeGroup::major, ModeGroup::both})
+        {
+            models.progressions.at(family).at(static_cast<std::size_t>(group)) =
+                buildProgressionModel(bank, static_cast<Family>(family), group);
+        }
+        for (const RhythmKind kind : {RhythmKind::chords, RhythmKind::melody})
+        {
+            models.rhythms.at(family).at(static_cast<std::size_t>(kind)) =
+                buildRhythmModel(bank, static_cast<Family>(family), kind);
+        }
+    }
+    return models;
+}
 } // namespace md::detail
+
+namespace md
+{
+ModelCache::ModelCache() = default;
+ModelCache::ModelCache(const ModelCache& /*other*/) {}
+ModelCache::ModelCache(ModelCache&& /*other*/) noexcept {}
+ModelCache& ModelCache::operator=(const ModelCache& other)
+{
+    if (this != &other)
+    {
+        const std::scoped_lock lock(mutex_);
+        models_.reset();
+    }
+    return *this;
+}
+ModelCache& ModelCache::operator=(ModelCache&& /*other*/) noexcept
+{
+    const std::scoped_lock lock(mutex_);
+    models_.reset();
+    return *this;
+}
+ModelCache::~ModelCache() = default;
+
+const detail::Models& ModelCache::get(const Bank& bank) const
+{
+    const std::scoped_lock lock(mutex_);
+    if (!models_)
+    {
+        models_ = std::make_unique<const detail::Models>(detail::buildModels(bank));
+    }
+    return *models_;
+}
+} // namespace md

@@ -454,8 +454,97 @@ void placeChords(Idea& idea, const Progression& progression)
     idea.borrowedFrom = borrowedFor(idea);
 }
 
-std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const RhythmCell& cell,
-                                   const Settings& settings, const StyleEntry& entry,
+namespace
+{
+std::vector<Hit> sortedHits(std::vector<Hit> hits)
+{
+    std::ranges::stable_sort(hits, {}, &Hit::step);
+    return hits;
+}
+
+// Bar 1 of a cell, sorted.
+std::vector<Hit> firstBar(const RhythmCell& cell)
+{
+    auto hits = sortedHits(cell.hits);
+    std::erase_if(hits, [](const Hit& hit) { return hit.step >= kStepsPerBar; });
+    return hits;
+}
+
+int turnaroundCount(int bars)
+{
+    int count = 0;
+    for (int bar = 0; bar < bars; ++bar)
+    {
+        count += isTurnaroundBar(bars, bar) ? 1 : 0;
+    }
+    return count;
+}
+
+// For each turnaround bar, bar 1 of another of the entry's cells that has a hit there.
+std::vector<std::vector<Hit>> writtenTurnarounds(const StyleEntry& entry, const RhythmCell& cell,
+                                                 int bars, Pcg32& rng)
+{
+    std::vector<std::vector<Hit>> others;
+    for (const RhythmCell& other : entry.chordRhythms)
+    {
+        auto first = firstBar(other);
+        if (other.id != cell.id && !first.empty())
+        {
+            others.push_back(std::move(first));
+        }
+    }
+    std::vector<std::vector<Hit>> turnarounds;
+    for (int n = 0; n < turnaroundCount(bars) && !others.empty(); ++n)
+    {
+        turnarounds.push_back(others.at(rng.below(static_cast<std::uint32_t>(others.size()))));
+    }
+    return turnarounds;
+}
+} // namespace
+
+ChordRhythm chooseChordRhythm(const Models* models, const StyleEntry& entry,
+                              const Settings& settings, std::uint64_t chordSeed)
+{
+    Pcg32 cellRng(chordSeed, kChordCell);
+    Pcg32 turnaroundRng(chordSeed, kChordTurnaround);
+    const auto written = [&](Source source)
+    {
+        const RhythmCell& cell = entry.chordRhythms.at(
+            cellRng.below(static_cast<std::uint32_t>(entry.chordRhythms.size())));
+        return ChordRhythm{.cell = cell,
+                           .turnarounds =
+                               writtenTurnarounds(entry, cell, settings.bars, turnaroundRng),
+                           .source = source};
+    };
+    if (models == nullptr || cellRng.below(kWrittenShare) == 0)
+    {
+        return written(Source::written);
+    }
+    const RhythmModel& model = models->rhythm(entry.family, RhythmKind::chords);
+    const auto cell = inventRhythm(model, 1, settings.energy, cellRng);
+    if (!cell)
+    {
+        return written(Source::fallback);
+    }
+    ChordRhythm rhythm{.cell = *cell, .turnarounds = {}, .source = Source::invented};
+    const std::vector<std::vector<Hit>> main = {firstBar(*cell)};
+    for (int n = 0; n < turnaroundCount(settings.bars); ++n)
+    {
+        const auto turn = inventOther(model, 1, settings.energy, main, turnaroundRng);
+        if (!turn)
+        {
+            rhythm.turnarounds =
+                writtenTurnarounds(entry, rhythm.cell, settings.bars, turnaroundRng);
+            rhythm.source = Source::fallback;
+            break;
+        }
+        rhythm.turnarounds.push_back(turn->hits);
+    }
+    return rhythm;
+}
+
+std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords,
+                                   const ChordRhythm& rhythm, const Settings& settings,
                                    std::uint64_t chordSeed)
 {
     const int swing = swingPermille(settings.groove);
@@ -465,25 +554,10 @@ std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const
         int start;
         int length;
     };
-    auto sortedHits = [](std::vector<Hit> cellHits)
-    {
-        std::ranges::stable_sort(cellHits, {}, &Hit::step);
-        return cellHits;
-    };
+    const RhythmCell& cell = rhythm.cell;
     const auto hits = sortedHits(cell.hits);
-    // Bar 1 of each other cell of the entry that has a hit there.
-    std::vector<std::vector<Hit>> turnarounds;
-    for (const RhythmCell& other : entry.chordRhythms)
-    {
-        auto first = sortedHits(other.hits);
-        std::erase_if(first, [](const Hit& hit) { return hit.step >= kStepsPerBar; });
-        if (other.id != cell.id && !first.empty())
-        {
-            turnarounds.push_back(std::move(first));
-        }
-    }
-    Pcg32 turnaroundRng(chordSeed, kChordTurnaround);
-    const bool turns = settings.energy >= kMidEnergy && !turnarounds.empty();
+    auto nextTurn = rhythm.turnarounds.begin();
+    const bool turns = settings.energy >= kMidEnergy && !rhythm.turnarounds.empty();
     const bool high = settings.energy > kHighEnergy;
     Pcg32 lengthRng(chordSeed, kChordLength);
     const int cellTicks = cell.bars * kTicksPerBar;
@@ -514,8 +588,7 @@ std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const
             { return onset.start / kTicksPerBar == bar; };
             if (turns && isTurnaroundBar(settings.bars, bar))
             {
-                const auto& turn = turnarounds.at(
-                    turnaroundRng.below(static_cast<std::uint32_t>(turnarounds.size())));
+                const auto& turn = *nextTurn++;
                 std::erase_if(onsets, inBar);
                 for (const Hit& hit : turn)
                 {

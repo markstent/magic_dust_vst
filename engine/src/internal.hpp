@@ -1,5 +1,6 @@
 #pragma once
 
+#include "md/generate.hpp"
 #include "md/pcg32.hpp"
 #include "md/ranges.hpp"
 #include "md/style.hpp"
@@ -258,13 +259,70 @@ std::optional<RhythmCell> inventRhythm(const RhythmModel& model, int bars, int e
 // already be set.
 void invertVoicings(const StyleEntry& entry, std::vector<PlacedChord>& chords,
                     std::uint64_t chordSeed);
-// From kMidEnergy up a turnaround bar swaps in bar 1 of another of the entry's chord cells (slot
-// 4). Above kHighEnergy the breath bar drops its last hit, hits of 2 sixteenths or fewer play 70,
-// 85 or 100 percent of their length, at least 120 ticks (slot 6), and ghost notes are added (slot
-// 5): at most one a bar and bars / 2 in all, never in a turnaround bar, each the bar's voicing on
-// an odd 16th, 1 sixteenth long at kGhostVelocity.
-std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const RhythmCell& cell,
-                                   const Settings& settings, const StyleEntry& entry,
+
+// Where a lane's material came from: invented by a model, written by the share that keeps the
+// bank's own, or written because the invention gave up.
+enum class Source : std::uint8_t
+{
+    invented,
+    written,
+    fallback,
+};
+
+// One draw in kWrittenShare takes the written material as is.
+constexpr std::uint32_t kWrittenShare = 5;
+
+// The models of every family, built from a bank's entries.
+struct Models
+{
+    static constexpr std::size_t kFamilyCount = 5;
+    std::array<std::array<ProgressionModel, 3>, kFamilyCount> progressions; // [family][mode group]
+    std::array<std::array<RhythmModel, 2>, kFamilyCount> rhythms;           // [family][kind]
+
+    [[nodiscard]] const ProgressionModel& progression(const StyleEntry& entry) const;
+    [[nodiscard]] const RhythmModel& rhythm(Family family, RhythmKind kind) const;
+};
+Models buildModels(const Bank& bank);
+
+// An invented cell whose hit steps differ from every one of the others, or none when inventRhythm
+// gives up or kTries cells in a row match one.
+std::optional<RhythmCell> inventOther(const RhythmModel& model, int bars, int energy,
+                                      const std::vector<std::vector<Hit>>& others, Pcg32& rng);
+
+// The chords lane's progression, drawn from Pcg32(chordSeed, kChordProgression). Without models it
+// is a written one, picked by weight. With models one draw in kWrittenShare picks a written one,
+// else it is invented in the settings' key, or picked written when the invention gives up.
+struct ChosenProgression
+{
+    Progression progression;
+    Source source = Source::written;
+};
+ChosenProgression chooseProgression(const Models* models, const StyleEntry& entry,
+                                    const Settings& settings, std::uint64_t chordSeed);
+
+// A chord cell and the bar-1 hits each turnaround bar of the idea swaps in, in bar order.
+struct ChordRhythm
+{
+    RhythmCell cell;
+    std::vector<std::vector<Hit>> turnarounds; // empty when the entry has no other cell
+    Source source = Source::written;
+};
+// The cell is drawn from Pcg32(chordSeed, kChordCell) and the turnarounds from kChordTurnaround.
+// Without models the cell is one of the entry's and each turnaround is bar 1 of another of its
+// cells. With models one draw in kWrittenShare takes that written rhythm, else the cell is a 1-bar
+// invention at the settings' energy and each turnaround another that differs from it; when either
+// invention gives up the rhythm falls back to written, the turnarounds drawn from the entry's
+// cells.
+ChordRhythm chooseChordRhythm(const Models* models, const StyleEntry& entry,
+                              const Settings& settings, std::uint64_t chordSeed);
+
+// From kMidEnergy up a turnaround bar swaps in its turnaround hits (when there are any). Above
+// kHighEnergy the breath bar drops its last hit, hits of 2 sixteenths or fewer play 70, 85 or 100
+// percent of their length, at least 120 ticks (slot 6), and ghost notes are added (slot 5): at most
+// one a bar and bars / 2 in all, never in a turnaround bar, each the bar's voicing on an odd 16th,
+// 1 sixteenth long at kGhostVelocity.
+std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords,
+                                   const ChordRhythm& rhythm, const Settings& settings,
                                    std::uint64_t chordSeed);
 
 // The entry's allowed patterns run sparse to busy and the energy picks along them (slot 1).
@@ -280,6 +338,38 @@ std::vector<NoteEvent> bassEvents(const Idea& idea, BassPattern pattern, std::ui
 // 1 to 3 of the allowed tones nearest the centre, cycled by the pluck.
 // Throws std::logic_error when no tone is allowed.
 std::vector<int> pluckPitches(const std::vector<int>& allowedPcs, Pcg32& rng);
+
+// The melody's cells: a plays every 2-bar block but the last of each 8-bar phrase, which plays the
+// answer from kMidEnergy up when answers is set, else b.
+struct MelodyRhythm
+{
+    RhythmCell a;
+    RhythmCell b;
+    RhythmCell answer;
+    bool answers = false;
+    Source source = Source::written;
+};
+// Cells a, b and the answer are drawn from Pcg32(melodySeed, kMelodyCellA), kMelodyCellB and
+// kMelodyAnswerCell. Without models they are the entry's cells with the hit count nearest
+// 3 + 7 * energy / 100: b other than a, and the answer other than a, and other than b too when
+// the entry has a third (no answer for an entry of one cell). With models one draw in
+// kWrittenShare takes that written rhythm, else each is a 2-bar invention at the energy, b
+// differing from a and the answer from both; when any invention gives up the rhythm falls back to
+// written.
+MelodyRhythm chooseMelodyRhythm(const Models* models, const StyleEntry& entry,
+                                const Settings& settings, std::uint64_t melodySeed);
 std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea,
-                                    std::uint64_t melodySeed);
+                                    const MelodyRhythm& cells, std::uint64_t melodySeed);
+
+// Which lanes take material invented by the bank's models; the others take the entry's written
+// material as generate always did.
+struct Invent
+{
+    bool chords = true;
+    bool melody = true;
+};
+// generate with each lane's material as given. Throws std::logic_error when the idea fails
+// validate. generate tries everything invented, then a written melody, then all written.
+Idea generateWith(const Bank& bank, const Settings& settings, std::uint32_t seed,
+                  const LaneSeeds& laneSeeds, const Idea& previous, Pins pins, Invent invent);
 } // namespace md::detail

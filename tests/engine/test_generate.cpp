@@ -51,6 +51,33 @@ Settings settingsFor(Style style, int i)
     return settings;
 }
 
+// An idea from the entries' written material only, as generate writes a fifth of each lane and
+// every fallback.
+Idea writtenIdea(const Bank& from, const Settings& settings, std::uint32_t seed)
+{
+    return detail::generateWith(from, settings, seed, defaultLaneSeeds(seed), Idea{}, Pins{},
+                                {.chords = false, .melody = false});
+}
+
+std::vector<Idea> writtenIdeas(int energyOverride = -1)
+{
+    std::vector<Idea> ideas;
+    for (const Style style : kStyles)
+    {
+        for (int i = 0; i < kSeedsPerStyle; ++i)
+        {
+            Settings settings = settingsFor(style, i);
+            if (energyOverride >= 0)
+            {
+                settings.energy = energyOverride;
+            }
+            ideas.push_back(
+                writtenIdea(bank(), settings, static_cast<std::uint32_t>(1000 + (i * 37))));
+        }
+    }
+    return ideas;
+}
+
 std::vector<Idea> sampleIdeas(int energyOverride = -1)
 {
     std::vector<Idea> ideas;
@@ -413,9 +440,9 @@ TEST_CASE("the final melody note lands on the home chord when it can", "[generat
     REQUIRE(checked > 0);
 }
 
-TEST_CASE("melody blocks follow the entry's rhythm cells", "[generate]")
+TEST_CASE("written melody blocks follow the entry's rhythm cells", "[generate]")
 {
-    for (const Idea& idea : allIdeas())
+    for (const Idea& idea : writtenIdeas())
     {
         const StyleEntry& entry = entryOf(idea);
         const int permille = swingPermille(idea.settings.groove);
@@ -474,11 +501,11 @@ TEST_CASE("melody blocks follow the entry's rhythm cells", "[generate]")
     }
 }
 
-TEST_CASE("energy picks the sparsest and the busiest melody rhythm", "[generate]")
+TEST_CASE("energy picks the sparsest and the busiest written melody rhythm", "[generate]")
 {
     for (const int energy : {0, 100})
     {
-        for (const Idea& idea : sampleIdeas(energy))
+        for (const Idea& idea : writtenIdeas(energy))
         {
             const StyleEntry& entry = entryOf(idea);
             std::vector<std::size_t> counts;
@@ -900,8 +927,9 @@ TEST_CASE("drop 2 voicings are wider than the close voicing of the same chord",
           "[generate][voicing]")
 {
     const StyleEntry& entry = entryWithStyle(VoicingStyle::drop2);
-    const Idea dropped = generate(bankOf(entry, VoicingStyle::drop2), settingsOf(entry), 0);
-    const Idea close = generate(bankOf(entry, VoicingStyle::close), settingsOf(entry), 0);
+    // The written progression, the same for both shapes.
+    const Idea dropped = writtenIdea(bankOf(entry, VoicingStyle::drop2), settingsOf(entry), 0);
+    const Idea close = writtenIdea(bankOf(entry, VoicingStyle::close), settingsOf(entry), 0);
     REQUIRE(dropped.progression.size() == close.progression.size());
     for (std::size_t i = 0; i < close.progression.size(); ++i)
     {
@@ -964,8 +992,9 @@ TEST_CASE("a progression a shape can only leap through is voiced in close positi
     const auto it = std::ranges::find(bank().entries, "soulful-starter-01", &StyleEntry::id);
     REQUIRE(it != bank().entries.end());
     const Settings settings = settingsFor(Style::soulful, 1);
-    const Idea spread = generate(bankOf(*it, VoicingStyle::pianoSpread), settings, 1);
-    const Idea close = generate(bankOf(*it, VoicingStyle::close), settings, 1);
+    // The written progression the piano spread can only leap through.
+    const Idea spread = writtenIdea(bankOf(*it, VoicingStyle::pianoSpread), settings, 1);
+    const Idea close = writtenIdea(bankOf(*it, VoicingStyle::close), settings, 1);
     REQUIRE(spread.progression.size() == close.progression.size());
     for (std::size_t i = 0; i < close.progression.size(); ++i)
     {

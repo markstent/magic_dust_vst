@@ -117,13 +117,30 @@ std::vector<NoteEvent> withoutGhosts(std::vector<NoteEvent> events)
 
 int barOf(const NoteEvent& e) { return e.start / kTicksPerBar; }
 
+// The chord rhythm the sample was written with: invented, or written when generate fell back.
+detail::ChordRhythm chordRhythmOf(const Sample& s)
+{
+    const Lane& lane = s.idea.lanes.at(0);
+    auto rhythm =
+        detail::chooseChordRhythm(&bank().models.get(bank()), *s.entry, s.idea.settings, lane.seed);
+    if (rhythm.cell.id != lane.pattern)
+    {
+        rhythm = detail::chooseChordRhythm(nullptr, *s.entry, s.idea.settings, lane.seed);
+    }
+    REQUIRE(rhythm.cell.id == lane.pattern);
+    return rhythm;
+}
+
+detail::MelodyRhythm melodyRhythmOf(const Sample& s)
+{
+    return detail::chooseMelodyRhythm(&bank().models.get(bank()), *s.entry, s.idea.settings,
+                                      s.idea.lanes.at(2).seed);
+}
+
 std::vector<NoteEvent> chordsAt(const Sample& s, int energy)
 {
     const Idea idea = atEnergy(s.idea, energy);
-    const auto cell =
-        std::ranges::find(s.entry->chordRhythms, idea.lanes.at(0).pattern, &RhythmCell::id);
-    REQUIRE(cell != s.entry->chordRhythms.end());
-    auto events = detail::chordEvents(idea.progression, *cell, idea.settings, *s.entry,
+    auto events = detail::chordEvents(idea.progression, chordRhythmOf(s), idea.settings,
                                       idea.lanes.at(0).seed);
     std::erase_if(events, [](const NoteEvent& e) { return detail::isGhost(e); });
     return events;
@@ -181,23 +198,6 @@ std::set<int> cellStarts(const RhythmCell& cell, Groove groove, Span span)
     return out;
 }
 
-// The bar-1 starts of every chord cell of the entry except the one named.
-bool matchesOtherCell(const Sample& s, const std::string& main, int bar,
-                      const std::set<int>& actual)
-{
-    for (const RhythmCell& cell : s.entry->chordRhythms)
-    {
-        RhythmCell first = cell;
-        first.bars = 1;
-        std::erase_if(first.hits, [](const Hit& h) { return h.step >= kStepsPerBar; });
-        if (cell.id != main && !first.hits.empty() &&
-            cellStarts(first, s.idea.settings.groove, {.firstBar = bar, .bars = 1}) == actual)
-        {
-            return true;
-        }
-    }
-    return false;
-}
 } // namespace
 
 TEST_CASE("chords: no turnaround or breath below energy 30, and none changes the other bars",
@@ -219,15 +219,18 @@ TEST_CASE("chords: no turnaround or breath below energy 30, and none changes the
             }
             REQUIRE(pitchStarts(mid, bar) == pitchStarts(low, bar));
         }
-        for (const int bar : turnaroundBars(s.bars))
+        const auto turnarounds = chordRhythmOf(s).turnarounds;
+        for (std::size_t n = 0; n < turnaroundBars(s.bars).size(); ++n)
         {
+            const int bar = turnaroundBars(s.bars).at(n);
             if (pitchStarts(mid, bar) == pitchStarts(low, bar))
             {
                 continue;
             }
             ++turned;
-            const std::string main = s.idea.lanes.at(0).pattern;
-            REQUIRE(matchesOtherCell(s, main, bar, starts(mid, bar, bar)));
+            const RhythmCell turn{.id = "turnaround", .bars = 1, .hits = turnarounds.at(n)};
+            REQUIRE(cellStarts(turn, s.idea.settings.groove, {.firstBar = bar, .bars = 1}) ==
+                    starts(mid, bar, bar));
         }
     }
     REQUIRE(turned > 0);
@@ -264,7 +267,7 @@ TEST_CASE("chords: the breath drops the last hit of bar 4 of each 8, above energ
     REQUIRE(breathed > 0);
 }
 
-TEST_CASE("melody: the answer phrase uses another of the entry's cells over the last half-phrase",
+TEST_CASE("melody: the answer phrase plays its own cell over the last half-phrase",
           "[variety][melody]")
 {
     int answered = 0;
@@ -272,10 +275,11 @@ TEST_CASE("melody: the answer phrase uses another of the entry's cells over the 
     {
         const Idea low = atEnergy(s.idea, kLow);
         const Idea mid = atEnergy(s.idea, kMid);
-        const auto lowEvents = detail::melodyEvents(*s.entry, low, low.lanes.at(2).seed);
-        const auto midEvents = detail::melodyEvents(*s.entry, mid, mid.lanes.at(2).seed);
+        const detail::MelodyRhythm cells = melodyRhythmOf(s);
+        const auto lowEvents = detail::melodyEvents(*s.entry, low, cells, low.lanes.at(2).seed);
+        const auto midEvents = detail::melodyEvents(*s.entry, mid, cells, mid.lanes.at(2).seed);
         const Groove groove = s.idea.settings.groove;
-        const bool changes = s.bars > 4 && s.entry->melodyRhythms.size() > 1;
+        const bool changes = s.bars > 4 && cells.answers;
         if (!changes)
         {
             REQUIRE(midEvents == lowEvents);
@@ -298,15 +302,8 @@ TEST_CASE("melody: the answer phrase uses another of the entry's cells over the 
         {
             const int bar = block * 2;
             const auto actual = starts(midEvents, bar, bar + 1);
-            const bool other = std::ranges::any_of(
-                s.entry->melodyRhythms,
-                [&](const RhythmCell& cell)
-                {
-                    const auto cellSet = cellStarts(cell, groove, {.firstBar = bar, .bars = 2});
-                    return cellSet == actual &&
-                           cellStarts(cell, groove, {.firstBar = 0, .bars = 2}) != first;
-                });
-            REQUIRE(other);
+            REQUIRE(cellStarts(cells.answer, groove, {.firstBar = bar, .bars = 2}) == actual);
+            REQUIRE(cellStarts(cells.answer, groove, {.firstBar = 0, .bars = 2}) != first);
             ++answered;
         }
     }
@@ -321,8 +318,9 @@ TEST_CASE("melody: the breath drops only the last note of bar 4 of each 8, above
     {
         const Idea top = atEnergy(s.idea, kTop);
         const Idea high = atEnergy(s.idea, kHigh);
-        const auto topEvents = detail::melodyEvents(*s.entry, top, top.lanes.at(2).seed);
-        const auto highEvents = detail::melodyEvents(*s.entry, high, high.lanes.at(2).seed);
+        const detail::MelodyRhythm cells = melodyRhythmOf(s);
+        const auto topEvents = detail::melodyEvents(*s.entry, top, cells, top.lanes.at(2).seed);
+        const auto highEvents = detail::melodyEvents(*s.entry, high, cells, high.lanes.at(2).seed);
         REQUIRE(highEvents.size() <= topEvents.size());
         REQUIRE(topEvents.size() - highEvents.size() <= breathBars(s.bars).size());
         std::vector<NoteEvent> missing;
@@ -476,10 +474,7 @@ const std::vector<Sample>& highSamples()
 std::vector<NoteEvent> rawChords(const Sample& s, int energy)
 {
     const Idea idea = atEnergy(s.idea, energy);
-    const auto cell =
-        std::ranges::find(s.entry->chordRhythms, idea.lanes.at(0).pattern, &RhythmCell::id);
-    REQUIRE(cell != s.entry->chordRhythms.end());
-    return detail::chordEvents(idea.progression, *cell, idea.settings, *s.entry,
+    return detail::chordEvents(idea.progression, chordRhythmOf(s), idea.settings,
                                idea.lanes.at(0).seed);
 }
 

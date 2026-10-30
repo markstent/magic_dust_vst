@@ -18,7 +18,9 @@ struct LaneSeeds
 // Each lane's seed for an idea that has not been rerolled: laneSeed(ideaSeed, <lane stream>, 0).
 LaneSeeds defaultLaneSeeds(std::uint32_t ideaSeed);
 
-// Writes an idea from the bank, deterministically from the seed.
+// Writes an idea from the bank, deterministically from the seed. The progression and the chord
+// and melody rhythms are invented from models learned from the bank's entries, a fifth of each
+// taken as written; a lane whose invented material fails validate takes written material instead.
 // Throws std::invalid_argument for a seed above kSeedMax, bars other than 4, 8 or 16, a key root
 // outside 0 to 11, mood or energy outside 0 to 100, or a bank with no entry for the style.
 // Throws std::logic_error listing the violations if the result fails validate(), which is a bug.

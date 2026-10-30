@@ -180,6 +180,30 @@ ChordSymbol applyFlavour(const Key& key, std::optional<Mode> borrowedFrom, const
     }
     return result;
 }
+
+ChosenProgression chooseProgression(const Models* models, const StyleEntry& entry,
+                                    const Settings& settings, std::uint64_t chordSeed)
+{
+    Pcg32 rng(chordSeed, kChordProgression);
+    const auto written = [&](Source source)
+    {
+        std::vector<int> weights;
+        std::ranges::transform(entry.progressions, std::back_inserter(weights),
+                               &Progression::weightMilli);
+        return ChosenProgression{.progression = entry.progressions.at(rng.pickWeighted(weights)),
+                                 .source = source};
+    };
+    if (models == nullptr || rng.below(kWrittenShare) == 0)
+    {
+        return written(Source::written);
+    }
+    auto invented = inventProgression(models->progression(entry), entry, settings.keyRoot, rng);
+    if (!invented)
+    {
+        return written(Source::fallback);
+    }
+    return {.progression = std::move(*invented), .source = Source::invented};
+}
 } // namespace detail
 
 namespace
@@ -359,16 +383,14 @@ const StyleEntry& pickEntry(const Bank& bank, Style style, const LaneSeeds& lane
     return *entries.at(entryRng.pickWeighted(entryWeights));
 }
 
-// The chosen entry's progression, key mode, flavour, voicings and the chord lane.
-void buildChords(Idea& idea, const StyleEntry& entry, const LaneSeeds& laneSeeds)
+// The chosen entry's progression, key mode, flavour, voicings and the chord lane, invented when
+// there are models.
+void buildChords(Idea& idea, const StyleEntry& entry, const LaneSeeds& laneSeeds,
+                 const detail::Models* models)
 {
     const Settings& settings = idea.settings;
-    std::vector<int> progressionWeights;
-    std::ranges::transform(entry.progressions, std::back_inserter(progressionWeights),
-                           &Progression::weightMilli);
-    Pcg32 progressionRng(laneSeeds.chords, detail::kChordProgression);
-    const Progression& progression =
-        entry.progressions.at(progressionRng.pickWeighted(progressionWeights));
+    const Progression progression =
+        detail::chooseProgression(models, entry, settings, laneSeeds.chords).progression;
 
     idea.key = {.root = settings.keyRoot, .mode = pickMode(entry, progression, settings.mood)};
     detail::placeChords(idea, progression);
@@ -378,13 +400,12 @@ void buildChords(Idea& idea, const StyleEntry& entry, const LaneSeeds& laneSeeds
         detail::invertVoicings(entry, idea.progression, laneSeeds.chords);
     }
 
-    Pcg32 rhythmRng(laneSeeds.chords, detail::kChordCell);
-    const RhythmCell& chordCell = entry.chordRhythms.at(
-        rhythmRng.below(static_cast<std::uint32_t>(entry.chordRhythms.size())));
-    idea.lanes.at(0) = makeLane(
-        LaneId::chords, laneSeeds.chords, chordCell.id,
-        detail::chordEvents(idea.progression, chordCell, settings, entry, laneSeeds.chords),
-        detail::kChordHumanize, settings.energy);
+    const detail::ChordRhythm rhythm =
+        detail::chooseChordRhythm(models, entry, settings, laneSeeds.chords);
+    idea.lanes.at(0) =
+        makeLane(LaneId::chords, laneSeeds.chords, rhythm.cell.id,
+                 detail::chordEvents(idea.progression, rhythm, settings, laneSeeds.chords),
+                 detail::kChordHumanize, settings.energy);
 }
 
 bool voicingFits(const Voicing& voicing, int offset)
@@ -506,6 +527,29 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
               const LaneSeeds& laneSeeds, const Idea& previous, Pins pins)
 {
     checkSettings(settings, seed);
+    for (const detail::Invent invent : {detail::Invent{.chords = true, .melody = true},
+                                        detail::Invent{.chords = true, .melody = false}})
+    {
+        try
+        {
+            return detail::generateWith(bank, settings, seed, laneSeeds, previous, pins, invent);
+        }
+        catch (const std::logic_error&)
+        {
+            // Invented material that fails validate falls back to the written material.
+            continue;
+        }
+    }
+    return detail::generateWith(bank, settings, seed, laneSeeds, previous, pins,
+                                {.chords = false, .melody = false});
+}
+
+namespace detail
+{
+Idea generateWith(const Bank& bank, const Settings& settings, std::uint32_t seed,
+                  const LaneSeeds& laneSeeds, const Idea& previous, Pins pins, Invent invent)
+{
+    checkSettings(settings, seed);
     if (previous.settings.bars != settings.bars || previous.entryId.empty())
     {
         pins = {};
@@ -517,6 +561,7 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
     const int shift = keyShift(previous.key.root, settings.keyRoot);
     const StyleEntry& entry = pins.chords ? *keptEntry : pickEntry(bank, settings.style, laneSeeds);
     checkEntry(entry);
+    const Models* models = invent.chords || invent.melody ? &bank.models.get(bank) : nullptr;
 
     Idea idea{};
     idea.seed = keepAll ? previous.seed : seed;
@@ -530,7 +575,7 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
     }
     else
     {
-        buildChords(idea, entry, laneSeeds);
+        buildChords(idea, entry, laneSeeds, invent.chords ? models : nullptr);
     }
 
     if (pins.bass)
@@ -541,13 +586,11 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
     }
     else
     {
-        Pcg32 bassPatternRng(laneSeeds.bass, detail::kBassPattern);
-        const BassPattern bassPattern =
-            detail::bassPatternFor(entry, settings.energy, bassPatternRng);
+        Pcg32 bassPatternRng(laneSeeds.bass, kBassPattern);
+        const BassPattern bassPattern = bassPatternFor(entry, settings.energy, bassPatternRng);
         idea.lanes.at(1) =
             makeLane(LaneId::bass, laneSeeds.bass, std::string(bassPatternName(bassPattern)),
-                     detail::bassEvents(idea, bassPattern, laneSeeds.bass), detail::kBassHumanize,
-                     settings.energy);
+                     bassEvents(idea, bassPattern, laneSeeds.bass), kBassHumanize, settings.energy);
     }
     if (pins.melody)
     {
@@ -557,10 +600,12 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
     }
     else
     {
+        const MelodyRhythm melodyRhythm =
+            chooseMelodyRhythm(invent.melody ? models : nullptr, entry, settings, laneSeeds.melody);
         idea.lanes.at(2) = makeLane(LaneId::melody, laneSeeds.melody,
                                     std::string(melodyModeName(entry.melodyModes.front())),
-                                    detail::melodyEvents(entry, idea, laneSeeds.melody),
-                                    detail::kMelodyHumanize, settings.energy);
+                                    melodyEvents(entry, idea, melodyRhythm, laneSeeds.melody),
+                                    kMelodyHumanize, settings.energy);
     }
 
     const auto violations = validate(idea);
@@ -575,4 +620,5 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
     }
     return idea;
 }
+} // namespace detail
 } // namespace md

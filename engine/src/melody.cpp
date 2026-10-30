@@ -63,9 +63,9 @@ std::size_t pickCell(const std::vector<RhythmCell>& cells, int target,
     return nearest.at(rng.below(static_cast<std::uint32_t>(nearest.size())));
 }
 
-bool hasAnswer(const StyleEntry& entry, const Idea& idea)
+bool hasAnswer(const MelodyRhythm& rhythm, const Idea& idea)
 {
-    return idea.settings.energy >= kMidEnergy && entry.melodyRhythms.size() > 1;
+    return idea.settings.energy >= kMidEnergy && rhythm.answers;
 }
 
 // True for a step in the last block of an 8-bar phrase (bars 7 and 8).
@@ -74,30 +74,42 @@ bool inAnswerBlock(int step)
     return (step / kBlockSteps) % kBlocksPerPhrase == kBlocksPerPhrase - 1;
 }
 
-std::vector<Onset> rhythm(const StyleEntry& entry, const Idea& idea, std::uint64_t seed)
+MelodyRhythm writtenMelodyRhythm(const StyleEntry& entry, int energy, std::array<Pcg32, 3>& rngs,
+                                 Source source)
 {
-    const int target = 3 + ((7 * idea.settings.energy) / 100);
-    Pcg32 rngA(seed, kMelodyCellA);
-    Pcg32 rngB(seed, kMelodyCellB);
-    const std::size_t a = pickCell(entry.melodyRhythms, target, {}, rngA);
-    const std::size_t b =
-        entry.melodyRhythms.size() > 1 ? pickCell(entry.melodyRhythms, target, {&a, 1}, rngB) : a;
-    // From kMidEnergy up the answer phrase, bars 7 and 8 of each 8-bar phrase, uses a cell other
-    // than A and B when the entry has a third, else B.
+    const auto& cells = entry.melodyRhythms;
+    const int target = 3 + ((7 * energy) / 100);
+    const std::size_t a = pickCell(cells, target, {}, rngs.at(0));
+    if (cells.size() == 1)
+    {
+        return {.a = cells.at(a),
+                .b = cells.at(a),
+                .answer = cells.at(a),
+                .answers = false,
+                .source = source};
+    }
+    const std::size_t b = pickCell(cells, target, {&a, 1}, rngs.at(1));
+    // The answer is a cell other than A and B when the entry has a third, else other than A.
     const std::array<std::size_t, 2> used = {a, b};
-    Pcg32 rngAnswer(seed, kMelodyAnswerCell);
-    const std::size_t answer =
-        !hasAnswer(entry, idea)
-            ? b
-            : pickCell(entry.melodyRhythms, target,
-                       entry.melodyRhythms.size() > 2 ? std::span<const std::size_t>(used)
-                                                      : std::span<const std::size_t>(&a, 1),
-                       rngAnswer);
+    const std::size_t answer = pickCell(cells, target,
+                                        cells.size() > 2 ? std::span<const std::size_t>(used)
+                                                         : std::span<const std::size_t>(&a, 1),
+                                        rngs.at(2));
+    return {.a = cells.at(a),
+            .b = cells.at(b),
+            .answer = cells.at(answer),
+            .answers = true,
+            .source = source};
+}
+
+std::vector<Onset> rhythm(const MelodyRhythm& cells, const Idea& idea)
+{
+    const RhythmCell& last = hasAnswer(cells, idea) ? cells.answer : cells.b;
     std::vector<Onset> onsets;
     for (int block = 0; block < idea.settings.bars / kBlockBars; ++block)
     {
         const bool lastOfPhrase = block % kBlocksPerPhrase == kBlocksPerPhrase - 1;
-        const RhythmCell& cell = entry.melodyRhythms.at(lastOfPhrase ? answer : a);
+        const RhythmCell& cell = lastOfPhrase ? last : cells.a;
         auto hits = cell.hits;
         std::ranges::stable_sort(hits, {}, &Hit::step);
         for (int tile = 0; tile < std::max(1, kBlockBars / cell.bars); ++tile)
@@ -255,11 +267,33 @@ std::vector<int> pluckPitches(const std::vector<int>& allowedPcs, Pcg32& rng)
     return pitches;
 }
 
+MelodyRhythm chooseMelodyRhythm(const Models* models, const StyleEntry& entry,
+                                const Settings& settings, std::uint64_t melodySeed)
+{
+    const int energy = settings.energy;
+    std::array<Pcg32, 3> rngs = {Pcg32(melodySeed, kMelodyCellA), Pcg32(melodySeed, kMelodyCellB),
+                                 Pcg32(melodySeed, kMelodyAnswerCell)};
+    if (models == nullptr || rngs.at(0).below(kWrittenShare) == 0)
+    {
+        return writtenMelodyRhythm(entry, energy, rngs, Source::written);
+    }
+    const RhythmModel& model = models->rhythm(entry.family, RhythmKind::melody);
+    const auto a = inventRhythm(model, kBlockBars, energy, rngs.at(0));
+    const auto b = a ? inventOther(model, kBlockBars, energy, {a->hits}, rngs.at(1)) : std::nullopt;
+    const auto answer =
+        b ? inventOther(model, kBlockBars, energy, {a->hits, b->hits}, rngs.at(2)) : std::nullopt;
+    if (!answer)
+    {
+        return writtenMelodyRhythm(entry, energy, rngs, Source::fallback);
+    }
+    return {.a = *a, .b = *b, .answer = *answer, .answers = true, .source = Source::invented};
+}
+
 std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea,
-                                    std::uint64_t melodySeed)
+                                    const MelodyRhythm& cells, std::uint64_t melodySeed)
 {
     const bool pluck = entry.melodyModes.front() == MelodyMode::pluck;
-    const std::vector<Onset> onsets = rhythm(entry, idea, melodySeed);
+    const std::vector<Onset> onsets = rhythm(cells, idea);
     if (onsets.empty())
     {
         throw std::logic_error("melody rhythm has no onsets");
@@ -306,7 +340,7 @@ std::vector<NoteEvent> melodyEvents(const StyleEntry& entry, const Idea& idea,
     }
     Pcg32 walk(melodySeed, kMelodyWalk);
     Pcg32 answerWalk(melodySeed, kMelodyAnswerWalk);
-    const bool answers = hasAnswer(entry, idea);
+    const bool answers = hasAnswer(cells, idea);
     Pcg32 pluckRng(melodySeed, kMelodyPluck);
     const std::vector<int> pluckTones =
         pluck ? pluckPitches(allowedPitchClasses(homePcs), pluckRng) : std::vector<int>{};
