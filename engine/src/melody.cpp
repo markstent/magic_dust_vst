@@ -78,7 +78,7 @@ MelodyRhythm writtenMelodyRhythm(const StyleEntry& entry, int energy, std::array
                                  Source source)
 {
     const auto& cells = entry.melodyRhythms;
-    const int target = 3 + ((7 * energy) / 100);
+    const int target = 3 + ((7 * inventEnergy(energy)) / 100);
     const std::size_t a = pickCell(cells, target, {}, rngs.at(0));
     if (cells.size() == 1)
     {

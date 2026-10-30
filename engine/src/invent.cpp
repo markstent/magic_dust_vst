@@ -10,6 +10,7 @@
 #include <memory>
 #include <mutex>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
 namespace md::detail
@@ -50,10 +51,23 @@ std::size_t indexOf(const std::vector<ChordSymbol>& tokens, const ChordSymbol& c
     return static_cast<std::size_t>(std::ranges::find(tokens, chord) - tokens.begin());
 }
 
-// True when the progression fits one of the entry's modes and passes validate at the key root in
-// every fitting mode and flavour. A flavour that leaves the chords as another did is not voiced
-// again.
-bool accepted(const StyleEntry& entry, const Progression& progression, int keyRoot)
+std::string memoKey(const StyleEntry& entry, const Progression& progression)
+{
+    std::string key = entry.id;
+    for (std::size_t i = 0; i < progression.chords.size(); ++i)
+    {
+        const ChordSymbol& chord = progression.chords.at(i);
+        key += ' ' + std::to_string(chord.degree) + ':' +
+               std::to_string(static_cast<int>(chord.quality)) + ':' +
+               std::to_string(progression.barsPerChord.at(i));
+    }
+    return key;
+}
+
+// True when the progression fits one of the entry's modes and passes validate at every key root in
+// every fitting mode and flavour, so the draws never depend on the key. A flavour that leaves the
+// chords as another did is not voiced again.
+bool accepted(const StyleEntry& entry, const Progression& progression)
 {
     const bool fits = std::ranges::any_of(
         entry.modes, [&](Mode mode) { return checkProgression(mode, progression.chords).ok; });
@@ -63,34 +77,37 @@ bool accepted(const StyleEntry& entry, const Progression& progression, int keyRo
     }
     for (const Mode mode : fittingModes(entry, progression))
     {
-        std::vector<std::vector<ChordSymbol>> voiced;
-        for (const Flavour flavour : kFlavours)
+        for (int keyRoot = 0; keyRoot < 12; ++keyRoot)
         {
-            Idea idea{};
-            idea.settings.bars = kLongestIdea;
-            idea.settings.flavour = flavour;
-            idea.key = {.root = keyRoot, .mode = mode};
-            idea.parallel = entry.parallel;
-            placeChords(idea, progression);
-            std::vector<ChordSymbol> symbols;
-            std::ranges::transform(idea.progression, std::back_inserter(symbols),
-                                   &PlacedChord::symbol);
-            if (std::ranges::find(voiced, symbols) != voiced.end())
+            std::vector<std::vector<ChordSymbol>> voiced;
+            for (const Flavour flavour : kFlavours)
             {
-                continue;
-            }
-            voiced.push_back(std::move(symbols));
-            try
-            {
-                voiceChords(entry, idea.key, idea.progression);
-            }
-            catch (const std::logic_error&)
-            {
-                return false; // no voicing fits a chord
-            }
-            if (!validate(idea).empty())
-            {
-                return false;
+                Idea idea{};
+                idea.settings.bars = kLongestIdea;
+                idea.settings.flavour = flavour;
+                idea.key = {.root = keyRoot, .mode = mode};
+                idea.parallel = entry.parallel;
+                placeChords(idea, progression);
+                std::vector<ChordSymbol> symbols;
+                std::ranges::transform(idea.progression, std::back_inserter(symbols),
+                                       &PlacedChord::symbol);
+                if (std::ranges::find(voiced, symbols) != voiced.end())
+                {
+                    continue;
+                }
+                voiced.push_back(std::move(symbols));
+                try
+                {
+                    voiceChords(entry, idea.key, idea.progression);
+                }
+                catch (const std::logic_error&)
+                {
+                    return false; // no voicing fits a chord
+                }
+                if (!validate(idea).empty())
+                {
+                    return false;
+                }
             }
         }
     }
@@ -190,7 +207,7 @@ std::vector<ChordSymbol> smoothingTokens(const ProgressionModel& model, const St
 }
 
 std::optional<Progression> inventProgression(const ProgressionModel& model, const StyleEntry& entry,
-                                             int keyRoot, Pcg32& rng)
+                                             Pcg32& rng)
 {
     if (model.templates.empty())
     {
@@ -242,7 +259,22 @@ std::optional<Progression> inventProgression(const ProgressionModel& model, cons
         {
             progression.chords.push_back(states.at(state));
         }
-        if (accepted(entry, progression, keyRoot))
+        const std::string key = memoKey(entry, progression);
+        std::optional<bool> known;
+        {
+            const std::scoped_lock lock(model.memo->mutex);
+            if (const auto it = model.memo->results.find(key); it != model.memo->results.end())
+            {
+                known = it->second;
+            }
+        }
+        if (!known)
+        {
+            known = accepted(entry, progression);
+            const std::scoped_lock lock(model.memo->mutex);
+            model.memo->results.emplace(key, *known);
+        }
+        if (*known)
         {
             return progression;
         }

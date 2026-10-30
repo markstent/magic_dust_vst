@@ -94,7 +94,7 @@ Sources sourcesOf(const Settings& settings, std::uint32_t seed)
         const Idea idea = generateWith(bank(), settings, seed, lanes, Idea{}, Pins{}, Invent{});
         const StyleEntry& entry = entryOf(idea);
         return {
-            .progression = chooseProgression(&models(), entry, settings, lanes.chords).source,
+            .progression = chooseProgression(&models(), entry, lanes.chords).source,
             .chords = chooseChordRhythm(&models(), entry, settings, lanes.chords).source,
             .melody = chooseMelodyRhythm(&models(), entry, settings, lanes.melody).source,
         };
@@ -153,7 +153,7 @@ TEST_CASE("sprinkle invents most progressions and rhythms and keeps about a fift
         const StyleEntry& entry = entryOf(idea);
         const LaneSeeds lanes = defaultLaneSeeds(id);
         const std::array sources = {
-            chooseProgression(&models(), entry, settings, lanes.chords).source,
+            chooseProgression(&models(), entry, lanes.chords).source,
             chooseChordRhythm(&models(), entry, settings, lanes.chords).source,
             chooseMelodyRhythm(&models(), entry, settings, lanes.melody).source,
         };
@@ -162,8 +162,7 @@ TEST_CASE("sprinkle invents most progressions and rhythms and keeps about a fift
             writtenShare.at(i) += sources.at(i) == Source::written ? 1 : 0;
         }
         freshChords += idea.lanes.at(0).pattern == "fresh-stabs" ? 1 : 0;
-        const auto progression =
-            chooseProgression(&models(), entry, settings, lanes.chords).progression;
+        const auto progression = chooseProgression(&models(), entry, lanes.chords).progression;
         freshProgressions += written(entry, progression) ? 0 : 1;
     }
     for (const int share : writtenShare)
@@ -189,7 +188,7 @@ TEST_CASE("generate plays the chosen progression and the invented cells", "[spri
         const Idea idea = generate(bank(), settings, id);
         const StyleEntry& entry = entryOf(idea);
         const LaneSeeds lanes = defaultLaneSeeds(id);
-        const auto chosen = chooseProgression(&models(), entry, settings, lanes.chords);
+        const auto chosen = chooseProgression(&models(), entry, lanes.chords);
         const auto rhythm = chooseChordRhythm(&models(), entry, settings, lanes.chords);
         if (chosen.source != Source::invented || rhythm.source != Source::invented ||
             idea.lanes.at(0).pattern != "fresh-stabs")
@@ -271,6 +270,7 @@ std::vector<std::pair<int, int>> hitsOf(const std::vector<Hit>& hits)
 TEST_CASE("energy within a tier keeps the invented rhythms", "[sprinkle]")
 {
     int compared = 0;
+    int written = 0;
     for (int seed = 0; seed < kSeeds; ++seed)
     {
         for (const auto& [low, high] : {std::pair{31, 59}, std::pair{61, 100}})
@@ -295,18 +295,39 @@ TEST_CASE("energy within a tier keeps the invented rhythms", "[sprinkle]")
             const auto melodyLow = chooseMelodyRhythm(&models(), entry, lower, lanes.melody);
             const auto melodyHigh = chooseMelodyRhythm(&models(), entry, upper, lanes.melody);
             REQUIRE(melodyLow.source == melodyHigh.source);
-            // Written melody cells follow the energy's hit-count target, as they always did.
-            if (melodyLow.source != Source::invented)
-            {
-                continue;
-            }
-            ++compared;
+            compared += melodyLow.source == Source::invented ? 1 : 0;
+            written += melodyLow.source == Source::invented ? 0 : 1;
             REQUIRE(hitsOf(melodyLow.a.hits) == hitsOf(melodyHigh.a.hits));
             REQUIRE(hitsOf(melodyLow.b.hits) == hitsOf(melodyHigh.b.hits));
             REQUIRE(hitsOf(melodyLow.answer.hits) == hitsOf(melodyHigh.answer.hits));
         }
     }
     REQUIRE(compared > 0);
+    REQUIRE(written > 0);
+}
+
+TEST_CASE("a key change keeps the degrees and bar lengths", "[sprinkle]")
+{
+    for (int seed = 0; seed < kSeeds; ++seed)
+    {
+        Settings settings = varied(seed);
+        const auto id = static_cast<std::uint32_t>(seed);
+        settings.keyRoot = 0;
+        const Idea first = generate(bank(), settings, id);
+        for (int root = 1; root < kPitchClasses; ++root)
+        {
+            settings.keyRoot = root;
+            const Idea other = generate(bank(), settings, id);
+            REQUIRE(other.entryId == first.entryId);
+            REQUIRE(other.progression.size() == first.progression.size());
+            for (std::size_t i = 0; i < first.progression.size(); ++i)
+            {
+                REQUIRE(other.progression.at(i).symbol.degree ==
+                        first.progression.at(i).symbol.degree);
+                REQUIRE(other.progression.at(i).bars == first.progression.at(i).bars);
+            }
+        }
+    }
 }
 
 TEST_CASE("pinned chords keep their invented progression and rhythm", "[sprinkle][pins]")
@@ -339,28 +360,6 @@ TEST_CASE("pinned chords keep their invented progression and rhythm", "[sprinkle
         REQUIRE(validate(next).empty());
     }
     REQUIRE(kept > 0);
-}
-
-TEST_CASE("generate never falls back to written material across the property grid", "[sprinkle]")
-{
-    int ideas = 0;
-    int fallbacks = 0;
-    for (int seed = 0; seed < 100; ++seed)
-    {
-        for (const Style style : kStyles)
-        {
-            for (const auto& corner : kCorners)
-            {
-                ++ideas;
-                fallbacks += fellBack(sourcesOf(sweep(seed, style, corner),
-                                                static_cast<std::uint32_t>(seed)))
-                                 ? 1
-                                 : 0;
-            }
-        }
-    }
-    INFO(fallbacks << " fallbacks in " << ideas << " ideas");
-    REQUIRE(fallbacks == 0);
 }
 
 TEST_CASE("bench: generate time, fallback rate and written share", "[.bench]")

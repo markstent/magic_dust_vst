@@ -501,7 +501,7 @@ TEST_CASE("written melody blocks follow the entry's rhythm cells", "[generate]")
     }
 }
 
-TEST_CASE("energy picks the sparsest and the busiest written melody rhythm", "[generate]")
+TEST_CASE("the energy tier picks the nearest written melody rhythm", "[generate]")
 {
     for (const int energy : {0, 100})
     {
@@ -512,9 +512,12 @@ TEST_CASE("energy picks the sparsest and the busiest written melody rhythm", "[g
             std::ranges::transform(entry.melodyRhythms, std::back_inserter(counts),
                                    [](const RhythmCell& cell)
                                    { return cellOnsets(cell, 500).size(); });
-            const std::size_t expected =
-                energy == 0 ? *std::ranges::min_element(counts) : *std::ranges::max_element(counts);
-            REQUIRE(blockOnsets(idea, 0).size() == expected);
+            const int target = 3 + ((7 * detail::inventEnergy(energy)) / 100);
+            const auto distance = [target](std::size_t count)
+            { return std::abs(static_cast<int>(count) - target); };
+            const int nearest = distance(*std::ranges::min_element(
+                counts, [&](std::size_t a, std::size_t b) { return distance(a) < distance(b); }));
+            REQUIRE(distance(blockOnsets(idea, 0).size()) == nearest);
         }
     }
 }

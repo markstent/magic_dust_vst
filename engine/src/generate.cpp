@@ -182,7 +182,7 @@ ChordSymbol applyFlavour(const Key& key, std::optional<Mode> borrowedFrom, const
 }
 
 ChosenProgression chooseProgression(const Models* models, const StyleEntry& entry,
-                                    const Settings& settings, std::uint64_t chordSeed)
+                                    std::uint64_t chordSeed)
 {
     Pcg32 rng(chordSeed, kChordProgression);
     const auto written = [&](Source source)
@@ -197,7 +197,7 @@ ChosenProgression chooseProgression(const Models* models, const StyleEntry& entr
     {
         return written(Source::written);
     }
-    auto invented = inventProgression(models->progression(entry), entry, settings.keyRoot, rng);
+    auto invented = inventProgression(models->progression(entry), entry, rng);
     if (!invented)
     {
         return written(Source::fallback);
@@ -390,7 +390,7 @@ void buildChords(Idea& idea, const StyleEntry& entry, const LaneSeeds& laneSeeds
 {
     const Settings& settings = idea.settings;
     const Progression progression =
-        detail::chooseProgression(models, entry, settings, laneSeeds.chords).progression;
+        detail::chooseProgression(models, entry, laneSeeds.chords).progression;
 
     idea.key = {.root = settings.keyRoot, .mode = pickMode(entry, progression, settings.mood)};
     detail::placeChords(idea, progression);

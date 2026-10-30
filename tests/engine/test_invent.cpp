@@ -70,7 +70,7 @@ const std::vector<Invented>& invented(Family family)
         const int keyRoot = seed % kPitchClasses;
         ProgressionModel model = buildProgressionModel(bank(), family, modeGroup(entry));
         Pcg32 rng = rngFor(seed);
-        auto progression = inventProgression(model, entry, keyRoot, rng);
+        auto progression = inventProgression(model, entry, rng);
         it->second.push_back({.entry = &entry,
                               .keyRoot = keyRoot,
                               .model = std::move(model),
@@ -318,7 +318,7 @@ TEST_CASE("invented progressions over 500 seeds per family", "[invent]")
             {
                 const Invented& item = items.at(seed);
                 Pcg32 rng = rngFor(static_cast<int>(seed));
-                const auto again = inventProgression(item.model, *item.entry, item.keyRoot, rng);
+                const auto again = inventProgression(item.model, *item.entry, rng);
                 REQUIRE(again.has_value() == item.progression.has_value());
                 if (again && item.progression)
                 {

@@ -1,3 +1,4 @@
+#include "internal.hpp"
 #include "md/bank.hpp"
 #include "md/generate.hpp"
 #include "md/midifile.hpp"
@@ -16,6 +17,7 @@
 #include <vector>
 
 using namespace md;
+using namespace md::detail;
 
 namespace
 {
@@ -81,6 +83,8 @@ TEST_CASE("properties: every generated idea is valid and generation is determini
     constexpr std::array<int, 3> bars = {4, 8, 16};
 
     const int seeds = seedCount();
+    const Models& models = bank.models.get(bank);
+    int fallbacks = 0;
     std::vector<double> millis;
     for (int seed = 0; seed < seeds; ++seed)
     {
@@ -108,6 +112,17 @@ TEST_CASE("properties: every generated idea is valid and generation is determini
                              << " energy " << energy);
                 REQUIRE(problems.empty());
 
+                const auto id = static_cast<std::uint32_t>(seed);
+                const LaneSeeds lanes = defaultLaneSeeds(id);
+                const auto entry = std::ranges::find(bank.entries, idea.entryId, &StyleEntry::id);
+                REQUIRE(entry != bank.entries.end());
+                const std::array sources = {
+                    chooseProgression(&models, *entry, lanes.chords).source,
+                    chooseChordRhythm(&models, *entry, settings, lanes.chords).source,
+                    chooseMelodyRhythm(&models, *entry, settings, lanes.melody).source,
+                };
+                fallbacks += std::ranges::count(sources, Source::fallback);
+
                 if (seed < kDeterminismSeeds)
                 {
                     const Idea again = generate(bank, settings, static_cast<std::uint32_t>(seed));
@@ -117,6 +132,9 @@ TEST_CASE("properties: every generated idea is valid and generation is determini
             }
         }
     }
+
+    INFO(fallbacks << " fallbacks in " << millis.size() << " ideas");
+    REQUIRE(fallbacks == 0);
 
 #ifdef MD_PERF_ASSERT
     std::ranges::sort(millis);

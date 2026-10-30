@@ -11,6 +11,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <map>
+#include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -179,6 +182,14 @@ enum class ModeGroup : std::uint8_t
 };
 ModeGroup modeGroup(const StyleEntry& entry);
 
+// Whether each entry and chord sequence has been accepted, so each is checked once. Guarded by its
+// own mutex because models are shared by the threads that generate.
+struct AcceptMemo
+{
+    std::mutex mutex;
+    std::map<std::string, bool> results;
+};
+
 // A first-order chain over the chord tokens of a family's progressions whose entries have a mode in
 // the group. Tokens are indexed in order of first appearance.
 struct ProgressionModel
@@ -188,6 +199,7 @@ struct ProgressionModel
     std::vector<int> starts;                   // counts of first chords
     std::vector<std::vector<int>> templates;   // the learned barsPerChord lists
     bool sevenths = false;                     // most learned tokens carry a 7th or a 9th
+    mutable std::unique_ptr<AcceptMemo> memo = std::make_unique<AcceptMemo>();
 };
 
 ProgressionModel buildProgressionModel(const Bank& bank, Family family, ModeGroup group);
@@ -197,10 +209,10 @@ std::vector<ChordSymbol> smoothingTokens(const ProgressionModel& model, const St
 // Draws a bar template, a first chord and a chain from the model, with smoothing: 0.15 added to
 // every move between learned tokens and 0.05 for any move to or from a smoothing token. A chord
 // never follows one on the same degree, the wrap included, and a 1-chord template holds a learned
-// tonic. The result must fit one of the entry's modes and pass validate at the key root in every
+// tonic. The result must fit one of the entry's modes and pass validate at every key root in every
 // fitting mode and flavour. Gives up after 24 tries.
 std::optional<Progression> inventProgression(const ProgressionModel& model, const StyleEntry& entry,
-                                             int keyRoot, Pcg32& rng);
+                                             Pcg32& rng);
 // The weight of a move between states (the model's tokens first, then smoothing tokens), in
 // thousandths: 1000 per learned count plus 150 between learned tokens, 50 for any move to or from
 // a smoothing token, and 0 for staying on the same degree.
@@ -297,14 +309,14 @@ std::optional<RhythmCell> inventOther(const RhythmModel& model, int bars, int en
 
 // The chords lane's progression, drawn from Pcg32(chordSeed, kChordProgression). Without models it
 // is a written one, picked by weight. With models one draw in kWrittenShare picks a written one,
-// else it is invented in the settings' key, or picked written when the invention gives up.
+// else it is invented, the same in every key, or picked written when the invention gives up.
 struct ChosenProgression
 {
     Progression progression;
     Source source = Source::written;
 };
 ChosenProgression chooseProgression(const Models* models, const StyleEntry& entry,
-                                    const Settings& settings, std::uint64_t chordSeed);
+                                    std::uint64_t chordSeed);
 
 // A chord cell and the bar-1 hits each turnaround bar of the idea swaps in, in bar order.
 struct ChordRhythm
