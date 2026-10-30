@@ -99,7 +99,7 @@ Sources sourcesOf(const Settings& settings, std::uint32_t seed)
             .melody = chooseMelodyRhythm(&models(), entry, settings, lanes.melody).source,
         };
     }
-    catch (const std::logic_error&)
+    catch (const InvalidIdea&)
     {
         return {.progression = Source::fallback,
                 .chords = Source::fallback,
@@ -341,7 +341,7 @@ TEST_CASE("pinned chords keep their invented progression and rhythm", "[sprinkle
     REQUIRE(kept > 0);
 }
 
-TEST_CASE("generate falls back to written material in under 2% of the property grid", "[sprinkle]")
+TEST_CASE("generate never falls back to written material across the property grid", "[sprinkle]")
 {
     int ideas = 0;
     int fallbacks = 0;
@@ -360,7 +360,7 @@ TEST_CASE("generate falls back to written material in under 2% of the property g
         }
     }
     INFO(fallbacks << " fallbacks in " << ideas << " ideas");
-    REQUIRE(fallbacks * 100 < ideas * 2);
+    REQUIRE(fallbacks == 0);
 }
 
 TEST_CASE("bench: generate time, fallback rate and written share", "[.bench]")
@@ -400,4 +400,21 @@ TEST_CASE("bench: generate time, fallback rate and written share", "[.bench]")
     WARN("fallback: " << fallbacks << " of " << ideas << " ideas; written share: progression "
                       << writtenShare.at(0) << ", chord rhythm " << writtenShare.at(1)
                       << ", melody rhythm " << writtenShare.at(2));
+}
+
+TEST_CASE("only an invalid idea falls back; other errors on the invented path propagate",
+          "[sprinkle]")
+{
+    const auto valid = std::ranges::find(bank().entries, Family::soulful, &StyleEntry::family);
+    const auto other = std::ranges::find(bank().entries, Family::mkDub, &StyleEntry::family);
+    REQUIRE(valid != bank().entries.end());
+    REQUIRE(other != bank().entries.end());
+    // A hit past its 1-bar cell, which the bank loader would reject, breaks the mk dub model.
+    StyleEntry broken = *other;
+    broken.chordRhythms.front().bars = 1;
+    broken.chordRhythms.front().hits.push_back({.step = 40, .length = 1});
+    const Bank mixed = makeBank({*valid, broken});
+    Settings settings;
+    settings.style = Style::soulful;
+    REQUIRE_THROWS_AS(generate(mixed, settings, 1), std::out_of_range);
 }

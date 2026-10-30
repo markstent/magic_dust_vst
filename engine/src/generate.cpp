@@ -526,7 +526,6 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
 Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
               const LaneSeeds& laneSeeds, const Idea& previous, Pins pins)
 {
-    checkSettings(settings, seed);
     for (const detail::Invent invent : {detail::Invent{.chords = true, .melody = true},
                                         detail::Invent{.chords = true, .melody = false}})
     {
@@ -534,7 +533,7 @@ Idea generate(const Bank& bank, const Settings& settings, std::uint32_t seed,
         {
             return detail::generateWith(bank, settings, seed, laneSeeds, previous, pins, invent);
         }
-        catch (const std::logic_error&)
+        catch (const detail::InvalidIdea&)
         {
             // Invented material that fails validate falls back to the written material.
             continue;
@@ -616,7 +615,7 @@ Idea generateWith(const Bank& bank, const Settings& settings, std::uint32_t seed
         {
             message += "\n" + line;
         }
-        throw std::logic_error(message);
+        throw InvalidIdea(message);
     }
     return idea;
 }

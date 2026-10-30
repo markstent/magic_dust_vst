@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -373,8 +374,16 @@ struct Invent
     bool chords = true;
     bool melody = true;
 };
-// generate with each lane's material as given. Throws std::logic_error when the idea fails
-// validate. generate tries everything invented, then a written melody, then all written.
+// The idea generateWith wrote fails validate; the message lists the violations.
+class InvalidIdea : public std::logic_error
+{
+  public:
+    using std::logic_error::logic_error;
+};
+
+// generate with each lane's material as given. Throws InvalidIdea when the idea fails validate.
+// generate tries everything invented, then a written melody, then all written, falling back only
+// on InvalidIdea.
 Idea generateWith(const Bank& bank, const Settings& settings, std::uint32_t seed,
                   const LaneSeeds& laneSeeds, const Idea& previous, Pins pins, Invent invent);
 } // namespace md::detail
