@@ -170,11 +170,12 @@ enum class ModeGroup : std::uint8_t
 {
     minor, // aeolian, dorian, phrygian
     major, // ionian, mixolydian
+    both,  // an entry with modes in both learns from the two together
 };
-ModeGroup modeGroup(Mode mode);
+ModeGroup modeGroup(const StyleEntry& entry);
 
 // A first-order chain over the chord tokens of a family's progressions whose entries have a mode in
-// one group. Tokens are indexed in order of first appearance.
+// the group. Tokens are indexed in order of first appearance.
 struct ProgressionModel
 {
     std::vector<ChordSymbol> tokens;
@@ -190,11 +191,11 @@ ProgressionModel buildProgressionModel(const Bank& bank, Family family, ModeGrou
 std::vector<ChordSymbol> smoothingTokens(const ProgressionModel& model, const StyleEntry& entry);
 // Draws a bar template, a first chord and a chain from the model, with smoothing: 0.15 added to
 // every move between learned tokens and 0.05 for any move to or from a smoothing token. A chord
-// never follows itself, the wrap included, unless the template has 1 chord. The result must fit
-// one of the entry's modes and pass validate in every fitting mode, key and flavour. Gives up
-// after 24 tries.
+// never follows one on the same degree, the wrap included, and a 1-chord template holds a learned
+// tonic. The result must fit one of the entry's modes and pass validate at the key root in every
+// fitting mode and flavour. Gives up after 24 tries.
 std::optional<Progression> inventProgression(const ProgressionModel& model, const StyleEntry& entry,
-                                             Pcg32& rng);
+                                             int keyRoot, Pcg32& rng);
 // Above kHighEnergy callers move some voicings up one inversion (slot 7): a chord that repeats the
 // previous span's symbol and reaches bar 3 or 4 of a 4-bar group (the voicing is one per span, so
 // it moves for the whole span), when the new voicing keeps its top note in the entry's range and

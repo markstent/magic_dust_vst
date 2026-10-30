@@ -24,10 +24,15 @@ constexpr int kNewSmoothing = 50;
 constexpr int kLongestIdea = 16;
 constexpr std::array kFlavours = {Flavour::simple, Flavour::soulful, Flavour::jazzy};
 
+ModeGroup modeGroupOf(Mode mode)
+{
+    return mode == Mode::ionian || mode == Mode::mixolydian ? ModeGroup::major : ModeGroup::minor;
+}
+
 bool inGroup(const StyleEntry& entry, ModeGroup group)
 {
-    return std::ranges::any_of(entry.modes,
-                               [group](Mode mode) { return modeGroup(mode) == group; });
+    return group == ModeGroup::both || std::ranges::any_of(entry.modes, [group](Mode mode)
+                                                           { return modeGroupOf(mode) == group; });
 }
 
 // A quality with a 7th or a 9th over its root.
@@ -44,11 +49,12 @@ std::size_t indexOf(const std::vector<ChordSymbol>& tokens, const ChordSymbol& c
 }
 
 // A learned count plus smoothing for a move between states (learned tokens first, then smoothing
-// tokens), and 0 for staying on the same chord.
-int moveWeight(const ProgressionModel& model, std::size_t from, std::size_t to)
+// tokens), and 0 for staying on the same degree.
+int moveWeight(const ProgressionModel& model, const std::vector<ChordSymbol>& states,
+               std::size_t from, std::size_t to)
 {
     const std::size_t learned = model.tokens.size();
-    if (from == to)
+    if (states.at(from).degree == states.at(to).degree)
     {
         return 0;
     }
@@ -59,9 +65,10 @@ int moveWeight(const ProgressionModel& model, std::size_t from, std::size_t to)
     return kNewSmoothing;
 }
 
-// True when the progression fits one of the entry's modes and passes validate in every fitting
-// mode, key and flavour. A flavour that leaves the chords as another did is not voiced again.
-bool accepted(const StyleEntry& entry, const Progression& progression)
+// True when the progression fits one of the entry's modes and passes validate at the key root in
+// every fitting mode and flavour. A flavour that leaves the chords as another did is not voiced
+// again.
+bool accepted(const StyleEntry& entry, const Progression& progression, int keyRoot)
 {
     const bool fits = std::ranges::any_of(
         entry.modes, [&](Mode mode) { return checkProgression(mode, progression.chords).ok; });
@@ -71,37 +78,34 @@ bool accepted(const StyleEntry& entry, const Progression& progression)
     }
     for (const Mode mode : fittingModes(entry, progression))
     {
-        for (int root = 0; root < kPitchClasses; ++root)
+        std::vector<std::vector<ChordSymbol>> voiced;
+        for (const Flavour flavour : kFlavours)
         {
-            std::vector<std::vector<ChordSymbol>> voiced;
-            for (const Flavour flavour : kFlavours)
+            Idea idea{};
+            idea.settings.bars = kLongestIdea;
+            idea.settings.flavour = flavour;
+            idea.key = {.root = keyRoot, .mode = mode};
+            idea.parallel = entry.parallel;
+            placeChords(idea, progression);
+            std::vector<ChordSymbol> symbols;
+            std::ranges::transform(idea.progression, std::back_inserter(symbols),
+                                   &PlacedChord::symbol);
+            if (std::ranges::find(voiced, symbols) != voiced.end())
             {
-                Idea idea{};
-                idea.settings.bars = kLongestIdea;
-                idea.settings.flavour = flavour;
-                idea.key = {.root = root, .mode = mode};
-                idea.parallel = entry.parallel;
-                placeChords(idea, progression);
-                std::vector<ChordSymbol> symbols;
-                std::ranges::transform(idea.progression, std::back_inserter(symbols),
-                                       &PlacedChord::symbol);
-                if (std::ranges::find(voiced, symbols) != voiced.end())
-                {
-                    continue;
-                }
-                voiced.push_back(std::move(symbols));
-                try
-                {
-                    voiceChords(entry, idea.key, idea.progression);
-                }
-                catch (const std::logic_error&)
-                {
-                    return false; // no voicing fits a chord
-                }
-                if (!validate(idea).empty())
-                {
-                    return false;
-                }
+                continue;
+            }
+            voiced.push_back(std::move(symbols));
+            try
+            {
+                voiceChords(entry, idea.key, idea.progression);
+            }
+            catch (const std::logic_error&)
+            {
+                return false; // no voicing fits a chord
+            }
+            if (!validate(idea).empty())
+            {
+                return false;
             }
         }
     }
@@ -109,9 +113,12 @@ bool accepted(const StyleEntry& entry, const Progression& progression)
 }
 } // namespace
 
-ModeGroup modeGroup(Mode mode)
+ModeGroup modeGroup(const StyleEntry& entry)
 {
-    return mode == Mode::ionian || mode == Mode::mixolydian ? ModeGroup::major : ModeGroup::minor;
+    const ModeGroup first = modeGroupOf(entry.modes.front());
+    const bool spans =
+        std::ranges::any_of(entry.modes, [first](Mode mode) { return modeGroupOf(mode) != first; });
+    return spans ? ModeGroup::both : first;
 }
 
 ProgressionModel buildProgressionModel(const Bank& bank, Family family, ModeGroup group)
@@ -183,7 +190,7 @@ std::vector<ChordSymbol> smoothingTokens(const ProgressionModel& model, const St
 }
 
 std::optional<Progression> inventProgression(const ProgressionModel& model, const StyleEntry& entry,
-                                             Pcg32& rng)
+                                             int keyRoot, Pcg32& rng)
 {
     if (model.templates.empty())
     {
@@ -197,22 +204,36 @@ std::optional<Progression> inventProgression(const ProgressionModel& model, cons
     {
         startWeights.at(i) = (model.starts.at(i) * kCountWeight) + kLearnedSmoothing;
     }
+    // A 1-chord template holds a learned tonic.
+    std::vector<int> tonicWeights(states.size(), 0);
+    for (std::size_t i = 0; i < model.tokens.size(); ++i)
+    {
+        tonicWeights.at(i) = model.tokens.at(i).degree == 1 ? startWeights.at(i) : 0;
+    }
     for (int attempt = 0; attempt < kTries; ++attempt)
     {
         const auto& bars =
             model.templates.at(rng.below(static_cast<std::uint32_t>(model.templates.size())));
-        std::vector<std::size_t> chain{rng.pickWeighted(startWeights)};
+        const bool held = bars.size() == 1;
+        std::vector<std::size_t> chain{rng.pickWeighted(held ? tonicWeights : startWeights)};
+        if (held && tonicWeights.at(chain.front()) == 0)
+        {
+            continue; // the model has no learned tonic
+        }
         std::vector<int> row(states.size());
         while (chain.size() < bars.size())
         {
             for (std::size_t to = 0; to < states.size(); ++to)
             {
-                row.at(to) = moveWeight(model, chain.back(), to);
+                row.at(to) = moveWeight(model, states, chain.back(), to);
             }
             chain.push_back(rng.pickWeighted(row));
         }
-        const bool repeats = std::ranges::adjacent_find(chain) != chain.end();
-        if (repeats || (chain.size() > 1 && moveWeight(model, chain.back(), chain.front()) == 0))
+        const auto sameDegree = [&states](std::size_t a, std::size_t b)
+        { return states.at(a).degree == states.at(b).degree; };
+        const bool repeats = std::ranges::adjacent_find(chain, sameDegree) != chain.end() ||
+                             (chain.size() > 1 && sameDegree(chain.back(), chain.front()));
+        if (repeats)
         {
             continue;
         }
@@ -221,7 +242,7 @@ std::optional<Progression> inventProgression(const ProgressionModel& model, cons
         {
             progression.chords.push_back(states.at(state));
         }
-        if (accepted(entry, progression))
+        if (accepted(entry, progression, keyRoot))
         {
             return progression;
         }

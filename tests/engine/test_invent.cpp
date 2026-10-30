@@ -1,6 +1,7 @@
 #include "internal.hpp"
 #include "md/bank.hpp"
 #include "md/pcg32.hpp"
+#include "md/ranges.hpp"
 #include "md/theory.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -34,6 +35,7 @@ const Bank& bank()
 struct Invented
 {
     const StyleEntry* entry;
+    int keyRoot;
     ProgressionModel model;
     std::optional<Progression> progression;
 };
@@ -43,8 +45,8 @@ Pcg32 rngFor(int seed)
     return {laneSeed(static_cast<std::uint32_t>(seed), Stream::chords, 0), kChordProgression};
 }
 
-// One invention per seed, each entry of the family in turn, from the model of its first mode's
-// group.
+// One invention per seed, each entry of the family in turn and the key root cycling, from the
+// model of the entry's mode group.
 const std::vector<Invented>& invented(Family family)
 {
     static std::map<Family, std::vector<Invented>> cache;
@@ -64,12 +66,14 @@ const std::vector<Invented>& invented(Family family)
     for (int seed = 0; seed < kSeeds; ++seed)
     {
         const StyleEntry& entry = *entries.at(static_cast<std::size_t>(seed) % entries.size());
-        ProgressionModel model =
-            buildProgressionModel(bank(), family, modeGroup(entry.modes.front()));
+        const int keyRoot = seed % kPitchClasses;
+        ProgressionModel model = buildProgressionModel(bank(), family, modeGroup(entry));
         Pcg32 rng = rngFor(seed);
-        auto progression = inventProgression(model, entry, rng);
-        it->second.push_back(
-            {.entry = &entry, .model = std::move(model), .progression = std::move(progression)});
+        auto progression = inventProgression(model, entry, keyRoot, rng);
+        it->second.push_back({.entry = &entry,
+                              .keyRoot = keyRoot,
+                              .model = std::move(model),
+                              .progression = std::move(progression)});
     }
     return it->second;
 }
@@ -120,6 +124,37 @@ TEST_CASE("smoothing tokens are plain triads or 7ths in the family's style", "[i
         CHECK((chord.quality == Quality::min7 || chord.quality == Quality::maj7 ||
                chord.quality == Quality::dom7));
     }
+}
+
+TEST_CASE("an entry learns from the mode groups its modes span", "[invent]")
+{
+    const auto entryOf = [](const char* id)
+    { return *std::ranges::find(bank().entries, id, &StyleEntry::id); };
+    CHECK(modeGroup(entryOf("ny-groove-starter-01")) == ModeGroup::minor);
+    CHECK(modeGroup(entryOf("festival-starter-03")) == ModeGroup::major);
+    const StyleEntry& both = entryOf("ny-groove-starter-03");
+    REQUIRE(modeGroup(both) == ModeGroup::both);
+    const ProgressionModel model = buildProgressionModel(bank(), Family::nyGroove, ModeGroup::both);
+    std::size_t templates = 0;
+    for (const StyleEntry& entry : bank().entries)
+    {
+        if (entry.family != Family::nyGroove)
+        {
+            continue;
+        }
+        templates += entry.progressions.size();
+        for (const Progression& progression : entry.progressions)
+        {
+            for (const ChordSymbol& chord : progression.chords)
+            {
+                CHECK(contains(model.tokens, chord));
+            }
+        }
+    }
+    CHECK(model.templates.size() == templates);
+    const ProgressionModel major =
+        buildProgressionModel(bank(), Family::nyGroove, ModeGroup::major);
+    CHECK(major.templates.size() == both.progressions.size());
 }
 
 // One test case, so the 2500 inventions are made once per run.
@@ -217,7 +252,7 @@ TEST_CASE("invented progressions over 500 seeds per family", "[invent]")
         }
     }
 
-    SECTION("invented progressions never repeat a chord back to back")
+    SECTION("invented progressions never put a degree next to itself, the wrap included")
     {
         for (const Family family : kFamilies)
         {
@@ -230,10 +265,30 @@ TEST_CASE("invented progressions over 500 seeds per family", "[invent]")
                 const auto& chords = item.progression->chords;
                 for (std::size_t i = 0; i < chords.size(); ++i)
                 {
-                    CHECK_FALSE(chords.at(i) == chords.at((i + 1) % chords.size()));
+                    CHECK(chords.at(i).degree != chords.at((i + 1) % chords.size()).degree);
                 }
             }
         }
+    }
+
+    SECTION("a 1-chord progression holds a learned tonic")
+    {
+        int held = 0;
+        for (const Family family : kFamilies)
+        {
+            for (const Invented& item : invented(family))
+            {
+                if (!item.progression || item.progression->chords.size() != 1)
+                {
+                    continue;
+                }
+                ++held;
+                const ChordSymbol& chord = item.progression->chords.front();
+                CHECK(chord.degree == 1);
+                CHECK(contains(item.model.tokens, chord));
+            }
+        }
+        CHECK(held > 0);
     }
 
     SECTION("inventing a progression is deterministic")
@@ -245,7 +300,7 @@ TEST_CASE("invented progressions over 500 seeds per family", "[invent]")
             {
                 const Invented& item = items.at(seed);
                 Pcg32 rng = rngFor(static_cast<int>(seed));
-                const auto again = inventProgression(item.model, *item.entry, rng);
+                const auto again = inventProgression(item.model, *item.entry, item.keyRoot, rng);
                 REQUIRE(again.has_value() == item.progression.has_value());
                 if (again && item.progression)
                 {
