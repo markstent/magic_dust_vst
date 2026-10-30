@@ -235,6 +235,12 @@ struct RhythmModel
     double meanChunkOnsets = 0;
 };
 
+// The weight of each chunk at a beat given the counts of the chunk before it: 1000 a learned count
+// plus 100, scaled by 1 + 0.6 * (energy / 100 - 0.5) * (onsets in the chunk - mean onsets) and
+// floored at 0.1 of the weight.
+std::vector<int> chunkWeights(const RhythmModel& model, std::size_t beat,
+                              const std::vector<int>& counts, int energy);
+
 RhythmModel buildRhythmModel(const Bank& bank, Family family, RhythmKind kind);
 // A cell of the given bars made of 1-bar slices, each drawn as four beat chunks: beat 0 from the
 // starts, then each beat from the bigram row of the chunk before. A learned count weighs 1000 and

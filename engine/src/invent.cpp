@@ -330,24 +330,6 @@ constexpr double kMinEnergyScale = 0.1;
 constexpr double kEnergySwing = 0.6;
 constexpr int kMinMelodyOnsets = 2;
 
-// A learned count plus smoothing for each chunk of a beat, scaled so energy favours denser chunks
-// when high and sparser ones when low.
-std::vector<int> chunkWeights(const RhythmModel& model, std::size_t beat,
-                              const std::vector<int>& counts, int energy)
-{
-    std::vector<int> weights;
-    const double lean = kEnergySwing * ((energy / 100.0) - 0.5);
-    for (std::size_t i = 0; i < counts.size(); ++i)
-    {
-        const auto onsets = static_cast<double>(model.chunks.at(beat).at(i).size());
-        const double scale =
-            std::max(kMinEnergyScale, 1 + (lean * (onsets - model.meanChunkOnsets)));
-        weights.push_back(
-            static_cast<int>(((counts.at(i) * kCountWeight) + kChunkSmoothing) * scale));
-    }
-    return weights;
-}
-
 // One slice drawn beat by beat, as hits at steps within the bar.
 std::vector<Hit> drawSlice(const RhythmModel& model, int energy, Pcg32& rng)
 {
@@ -397,6 +379,22 @@ bool sameSteps(const std::vector<Hit>& a, const std::vector<Hit>& b)
     return std::ranges::equal(a, b, {}, &Hit::step, &Hit::step);
 }
 } // namespace
+
+std::vector<int> chunkWeights(const RhythmModel& model, std::size_t beat,
+                              const std::vector<int>& counts, int energy)
+{
+    std::vector<int> weights;
+    const double lean = kEnergySwing * ((energy / 100.0) - 0.5);
+    for (std::size_t i = 0; i < counts.size(); ++i)
+    {
+        const auto onsets = static_cast<double>(model.chunks.at(beat).at(i).size());
+        const double scale =
+            std::max(kMinEnergyScale, 1 + (lean * (onsets - model.meanChunkOnsets)));
+        weights.push_back(
+            static_cast<int>(((counts.at(i) * kCountWeight) + kChunkSmoothing) * scale));
+    }
+    return weights;
+}
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): (bars, energy) is the planned signature.
 std::optional<RhythmCell> inventRhythm(const RhythmModel& model, int bars, int energy, Pcg32& rng)

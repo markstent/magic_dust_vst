@@ -681,3 +681,55 @@ TEST_CASE("invented rhythm cells over 500 seeds per family", "[invent]")
         }
     }
 }
+
+TEST_CASE("chunk weights are 1000 a count plus 100, scaled by energy with a floor", "[invent]")
+{
+    RhythmModel model;
+    model.chunks.front() = {{}, {{0, 1}, {1, 1}, {2, 1}, {3, 1}}};
+    model.meanChunkOnsets = 5;
+    const std::vector<int> counts = {2, 0};
+    CHECK(chunkWeights(model, 0, counts, 50) == std::vector<int>{2100, 100});
+    // Scale 1 + 0.6 * (energy / 100 - 0.5) * (onsets - 5): the empty chunk gains at energy 0 and
+    // floors at 0.1 at energy 100, the 4-onset chunk moves the other way.
+    CHECK(chunkWeights(model, 0, counts, 0) == std::vector<int>{5250, 130});
+    CHECK(chunkWeights(model, 0, counts, 100) == std::vector<int>{210, 70});
+}
+
+TEST_CASE("a beat chunk follows the chunk it followed in the learned cells", "[invent]")
+{
+    const auto cell = [](int second, int third)
+    {
+        return RhythmCell{.id = "c",
+                          .bars = 1,
+                          .hits = {{.step = 0, .length = 1},
+                                   {.step = second, .length = 1},
+                                   {.step = third, .length = 1},
+                                   {.step = 12, .length = 1}}};
+    };
+    StyleEntry entry{};
+    entry.family = Family::mkDub;
+    entry.chordRhythms = {cell(4, 8), cell(5, 10)};
+    const Bank tiny{.entries = {entry}, .version = 0};
+    const RhythmModel model = buildRhythmModel(tiny, Family::mkDub, RhythmKind::chords);
+    const auto hasStep = [](const RhythmCell& made, int step)
+    { return std::ranges::any_of(made.hits, [step](const Hit& hit) { return hit.step == step; }); };
+    int afterFour = 0;
+    int afterFive = 0;
+    int pairedFour = 0;
+    int pairedFive = 0;
+    for (int seed = 0; seed < kRhythmSeeds; ++seed)
+    {
+        Pcg32 rng = rhythmRng(seed);
+        const auto invented = inventRhythm(model, 1, 50, rng);
+        REQUIRE(invented.has_value());
+        const RhythmCell made = invented.value_or(RhythmCell{});
+        afterFour += hasStep(made, 4) ? 1 : 0;
+        afterFive += hasStep(made, 5) ? 1 : 0;
+        pairedFour += hasStep(made, 4) && hasStep(made, 8) ? 1 : 0;
+        pairedFive += hasStep(made, 5) && hasStep(made, 10) ? 1 : 0;
+    }
+    REQUIRE(afterFour > 0);
+    REQUIRE(afterFive > 0);
+    CHECK(pairedFour * 100 >= afterFour * 80);
+    CHECK(pairedFive * 100 >= afterFive * 80);
+}
