@@ -193,13 +193,6 @@ constexpr int kAccentBeat = 4;
 constexpr int kAccentOffbeat = 8;
 constexpr int kAccentOther = -8;
 
-std::optional<Mode> borrowedFor(const Idea& idea)
-{
-    std::vector<ChordSymbol> symbols;
-    std::ranges::transform(idea.progression, std::back_inserter(symbols), &PlacedChord::symbol);
-    return checkProgression(idea.key.mode, symbols).borrowedFrom;
-}
-
 void checkSettings(const Settings& settings, std::uint32_t seed)
 {
     if (seed > static_cast<std::uint32_t>(kSeedMax))
@@ -277,24 +270,15 @@ bool inStyle(Style style, Family family)
     return false;
 }
 
-// The entry's modes that fit the whole progression (all of them for parallel entries), darkest
-// first; mood picks one.
+// The mood picks one of the modes that fit the progression.
 Mode pickMode(const StyleEntry& entry, const Progression& progression, int mood)
 {
-    std::vector<Mode> fitting;
-    for (const Mode mode : entry.modes)
-    {
-        if (entry.parallel || checkProgression(mode, progression.chords).ok)
-        {
-            fitting.push_back(mode);
-        }
-    }
+    const std::vector<Mode> fitting = detail::fittingModes(entry, progression);
     if (fitting.empty())
     {
         throw std::logic_error("entry " + entry.id +
                                " has a progression that fits none of its modes");
     }
-    std::ranges::sort(fitting);
     return fitting.at(static_cast<std::size_t>(mood) * fitting.size() / 101);
 }
 
@@ -387,14 +371,7 @@ void buildChords(Idea& idea, const StyleEntry& entry, const LaneSeeds& laneSeeds
         entry.progressions.at(progressionRng.pickWeighted(progressionWeights));
 
     idea.key = {.root = settings.keyRoot, .mode = pickMode(entry, progression, settings.mood)};
-    idea.progression = detail::placeProgression(progression, settings.bars);
-    idea.borrowedFrom = borrowedFor(idea);
-    for (PlacedChord& chord : idea.progression)
-    {
-        chord.symbol =
-            detail::applyFlavour(idea.key, idea.borrowedFrom, chord.symbol, settings.flavour);
-    }
-    idea.borrowedFrom = borrowedFor(idea);
+    detail::placeChords(idea, progression);
     detail::voiceChords(entry, idea.key, idea.progression);
     if (settings.energy > detail::kHighEnergy)
     {

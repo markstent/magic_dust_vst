@@ -355,6 +355,13 @@ void addGhosts(std::vector<NoteEvent>& events, const std::vector<PlacedChord>& c
     events.insert(events.end(), ghosts.begin(), ghosts.end());
     std::ranges::stable_sort(events, {}, &NoteEvent::start);
 }
+
+std::optional<Mode> borrowedFor(const Idea& idea)
+{
+    std::vector<ChordSymbol> symbols;
+    std::ranges::transform(idea.progression, std::back_inserter(symbols), &PlacedChord::symbol);
+    return checkProgression(idea.key.mode, symbols).borrowedFrom;
+}
 } // namespace
 
 void invertVoicings(const StyleEntry& entry, std::vector<PlacedChord>& chords,
@@ -419,6 +426,32 @@ void voiceChords(const StyleEntry& entry, const Key& key, std::vector<PlacedChor
     {
         voiceAll(entry, VoicingStyle::close, false, key, chords);
     }
+}
+
+std::vector<Mode> fittingModes(const StyleEntry& entry, const Progression& progression)
+{
+    std::vector<Mode> fitting;
+    for (const Mode mode : entry.modes)
+    {
+        if (entry.parallel || checkProgression(mode, progression.chords).ok)
+        {
+            fitting.push_back(mode);
+        }
+    }
+    std::ranges::sort(fitting);
+    return fitting;
+}
+
+void placeChords(Idea& idea, const Progression& progression)
+{
+    idea.progression = placeProgression(progression, idea.settings.bars);
+    idea.borrowedFrom = borrowedFor(idea);
+    for (PlacedChord& chord : idea.progression)
+    {
+        chord.symbol =
+            applyFlavour(idea.key, idea.borrowedFrom, chord.symbol, idea.settings.flavour);
+    }
+    idea.borrowedFrom = borrowedFor(idea);
 }
 
 std::vector<NoteEvent> chordEvents(const std::vector<PlacedChord>& chords, const RhythmCell& cell,

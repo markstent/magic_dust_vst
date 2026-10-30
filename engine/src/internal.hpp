@@ -158,6 +158,43 @@ ChordSymbol applyFlavour(const Key& key, std::optional<Mode> borrowedFrom, const
 // Tiles the progression's chords from bar 0 and truncates the last at bars. Voicings stay empty.
 std::vector<PlacedChord> placeProgression(const Progression& progression, int bars);
 void voiceChords(const StyleEntry& entry, const Key& key, std::vector<PlacedChord>& chords);
+// The entry's modes that fit the whole progression (all of them for parallel entries), darkest
+// first.
+std::vector<Mode> fittingModes(const StyleEntry& entry, const Progression& progression);
+// Places the progression over the idea's bars in its key, applies its flavour and sets the mode it
+// borrows from. Voicings stay empty.
+void placeChords(Idea& idea, const Progression& progression);
+
+// The mode groups a progression model learns within.
+enum class ModeGroup : std::uint8_t
+{
+    minor, // aeolian, dorian, phrygian
+    major, // ionian, mixolydian
+};
+ModeGroup modeGroup(Mode mode);
+
+// A first-order chain over the chord tokens of a family's progressions whose entries have a mode in
+// one group. Tokens are indexed in order of first appearance.
+struct ProgressionModel
+{
+    std::vector<ChordSymbol> tokens;
+    std::vector<std::vector<int>> transitions; // counts [from][to], with each wrap to the first
+    std::vector<int> starts;                   // counts of first chords
+    std::vector<std::vector<int>> templates;   // the learned barsPerChord lists
+    bool sevenths = false;                     // most learned tokens carry a 7th or a 9th
+};
+
+ProgressionModel buildProgressionModel(const Bank& bank, Family family, ModeGroup group);
+// The plain diatonic chords of the entry's first mode that the model has not learned: 7ths when
+// the model's tokens mostly carry one, otherwise triads. A degree with neither is left out.
+std::vector<ChordSymbol> smoothingTokens(const ProgressionModel& model, const StyleEntry& entry);
+// Draws a bar template, a first chord and a chain from the model, with smoothing: 0.15 added to
+// every move between learned tokens and 0.05 for any move to or from a smoothing token. A chord
+// never follows itself, the wrap included, unless the template has 1 chord. The result must fit
+// one of the entry's modes and pass validate in every fitting mode, key and flavour. Gives up
+// after 24 tries.
+std::optional<Progression> inventProgression(const ProgressionModel& model, const StyleEntry& entry,
+                                             Pcg32& rng);
 // Above kHighEnergy callers move some voicings up one inversion (slot 7): a chord that repeats the
 // previous span's symbol and reaches bar 3 or 4 of a 4-bar group (the voicing is one per span, so
 // it moves for the whole span), when the new voicing keeps its top note in the entry's range and
