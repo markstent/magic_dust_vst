@@ -254,6 +254,61 @@ TEST_CASE("the turnaround and the melody answer are invented alternates", "[spri
     CHECK(answered * 100 >= kSeeds * 50);
 }
 
+namespace
+{
+std::vector<std::pair<int, int>> hitsOf(const std::vector<Hit>& hits)
+{
+    std::vector<std::pair<int, int>> out;
+    out.reserve(hits.size());
+    for (const Hit& hit : hits)
+    {
+        out.emplace_back(hit.step, hit.length);
+    }
+    return out;
+}
+} // namespace
+
+TEST_CASE("energy within a tier keeps the invented rhythms", "[sprinkle]")
+{
+    int compared = 0;
+    for (int seed = 0; seed < kSeeds; ++seed)
+    {
+        for (const auto& [low, high] : {std::pair{31, 59}, std::pair{61, 100}})
+        {
+            Settings lower = varied(seed);
+            lower.energy = low;
+            Settings upper = lower;
+            upper.energy = high;
+            const auto id = static_cast<std::uint32_t>(seed);
+            const LaneSeeds lanes = defaultLaneSeeds(id);
+            const StyleEntry& entry = entryOf(generate(bank(), lower, id));
+            const auto chordsLow = chooseChordRhythm(&models(), entry, lower, lanes.chords);
+            const auto chordsHigh = chooseChordRhythm(&models(), entry, upper, lanes.chords);
+            REQUIRE(chordsLow.source == chordsHigh.source);
+            REQUIRE(hitsOf(chordsLow.cell.hits) == hitsOf(chordsHigh.cell.hits));
+            REQUIRE(chordsLow.turnarounds.size() == chordsHigh.turnarounds.size());
+            for (std::size_t n = 0; n < chordsLow.turnarounds.size(); ++n)
+            {
+                REQUIRE(hitsOf(chordsLow.turnarounds.at(n)) ==
+                        hitsOf(chordsHigh.turnarounds.at(n)));
+            }
+            const auto melodyLow = chooseMelodyRhythm(&models(), entry, lower, lanes.melody);
+            const auto melodyHigh = chooseMelodyRhythm(&models(), entry, upper, lanes.melody);
+            REQUIRE(melodyLow.source == melodyHigh.source);
+            // Written melody cells follow the energy's hit-count target, as they always did.
+            if (melodyLow.source != Source::invented)
+            {
+                continue;
+            }
+            ++compared;
+            REQUIRE(hitsOf(melodyLow.a.hits) == hitsOf(melodyHigh.a.hits));
+            REQUIRE(hitsOf(melodyLow.b.hits) == hitsOf(melodyHigh.b.hits));
+            REQUIRE(hitsOf(melodyLow.answer.hits) == hitsOf(melodyHigh.answer.hits));
+        }
+    }
+    REQUIRE(compared > 0);
+}
+
 TEST_CASE("pinned chords keep their invented progression and rhythm", "[sprinkle][pins]")
 {
     int kept = 0;

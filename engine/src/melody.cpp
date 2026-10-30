@@ -278,10 +278,11 @@ MelodyRhythm chooseMelodyRhythm(const Models* models, const StyleEntry& entry,
         return writtenMelodyRhythm(entry, energy, rngs, Source::written);
     }
     const RhythmModel& model = models->rhythm(entry.family, RhythmKind::melody);
-    const auto a = inventRhythm(model, kBlockBars, energy, rngs.at(0));
-    const auto b = a ? inventOther(model, kBlockBars, energy, {a->hits}, rngs.at(1)) : std::nullopt;
+    const int tier = inventEnergy(energy);
+    const auto a = inventRhythm(model, kBlockBars, tier, rngs.at(0));
+    const auto b = a ? inventOther(model, kBlockBars, tier, {a->hits}, rngs.at(1)) : std::nullopt;
     const auto answer =
-        b ? inventOther(model, kBlockBars, energy, {a->hits, b->hits}, rngs.at(2)) : std::nullopt;
+        b ? inventOther(model, kBlockBars, tier, {a->hits, b->hits}, rngs.at(2)) : std::nullopt;
     if (!answer)
     {
         return writtenMelodyRhythm(entry, energy, rngs, Source::fallback);

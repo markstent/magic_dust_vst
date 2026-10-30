@@ -460,6 +460,18 @@ std::optional<RhythmCell> inventOther(const RhythmModel& model, int bars, int en
     return std::nullopt;
 }
 
+int inventEnergy(int energy)
+{
+    constexpr int kLowTier = 15;
+    constexpr int kMidTier = 45;
+    constexpr int kHighTier = 80;
+    if (energy < kMidEnergy)
+    {
+        return kLowTier;
+    }
+    return energy > kHighEnergy ? kHighTier : kMidTier;
+}
+
 const ProgressionModel& Models::progression(const StyleEntry& entry) const
 {
     return progressions.at(static_cast<std::size_t>(entry.family))

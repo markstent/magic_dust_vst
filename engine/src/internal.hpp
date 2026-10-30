@@ -269,6 +269,11 @@ enum class Source : std::uint8_t
     fallback,
 };
 
+// The energy rhythms are invented at: the middle of its tier (15 below kMidEnergy, 45 up to
+// kHighEnergy, 80 above), so a knob move within a tier keeps the rhythm and only a tier change
+// re-invents it, as with the written cells and the variety tiers.
+int inventEnergy(int energy);
+
 // One draw in kWrittenShare takes the written material as is.
 constexpr std::uint32_t kWrittenShare = 5;
 
@@ -310,7 +315,7 @@ struct ChordRhythm
 // The cell is drawn from Pcg32(chordSeed, kChordCell) and the turnarounds from kChordTurnaround.
 // Without models the cell is one of the entry's and each turnaround is bar 1 of another of its
 // cells. With models one draw in kWrittenShare takes that written rhythm, else the cell is a 1-bar
-// invention at the settings' energy and each turnaround another that differs from it; when either
+// invention at inventEnergy and each turnaround another that differs from it; when either
 // invention gives up the rhythm falls back to written, the turnarounds drawn from the entry's
 // cells.
 ChordRhythm chooseChordRhythm(const Models* models, const StyleEntry& entry,
@@ -353,7 +358,7 @@ struct MelodyRhythm
 // kMelodyAnswerCell. Without models they are the entry's cells with the hit count nearest
 // 3 + 7 * energy / 100: b other than a, and the answer other than a, and other than b too when
 // the entry has a third (no answer for an entry of one cell). With models one draw in
-// kWrittenShare takes that written rhythm, else each is a 2-bar invention at the energy, b
+// kWrittenShare takes that written rhythm, else each is a 2-bar invention at inventEnergy, b
 // differing from a and the answer from both; when any invention gives up the rhythm falls back to
 // written.
 MelodyRhythm chooseMelodyRhythm(const Models* models, const StyleEntry& entry,

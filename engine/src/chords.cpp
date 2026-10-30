@@ -521,7 +521,8 @@ ChordRhythm chooseChordRhythm(const Models* models, const StyleEntry& entry,
         return written(Source::written);
     }
     const RhythmModel& model = models->rhythm(entry.family, RhythmKind::chords);
-    const auto cell = inventRhythm(model, 1, settings.energy, cellRng);
+    const int energy = inventEnergy(settings.energy);
+    const auto cell = inventRhythm(model, 1, energy, cellRng);
     if (!cell)
     {
         return written(Source::fallback);
@@ -530,7 +531,7 @@ ChordRhythm chooseChordRhythm(const Models* models, const StyleEntry& entry,
     const std::vector<std::vector<Hit>> main = {firstBar(*cell)};
     for (int n = 0; n < turnaroundCount(settings.bars); ++n)
     {
-        const auto turn = inventOther(model, 1, settings.energy, main, turnaroundRng);
+        const auto turn = inventOther(model, 1, energy, main, turnaroundRng);
         if (!turn)
         {
             rhythm.turnarounds =
