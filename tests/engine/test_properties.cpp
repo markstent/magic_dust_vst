@@ -19,7 +19,13 @@ using namespace md;
 
 namespace
 {
+// Debug builds generate about 6 times slower than release, so by default they get a quarter of
+// the seeds; release and an MD_PROPERTY_SEEDS run keep the full depth.
+#ifdef NDEBUG
 constexpr int kDefaultSeeds = 1000;
+#else
+constexpr int kDefaultSeeds = 250;
+#endif
 constexpr int kDeterminismSeeds = 50;
 
 // Sanitized builds run this test 5 to 8 times slower, so they get a quarter of the seeds.
