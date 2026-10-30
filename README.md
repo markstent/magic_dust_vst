@@ -20,6 +20,7 @@
 
 Magic Dust is an instrument plugin for macOS that writes house music ideas for you.
 Press the sprinkle key and it writes an 8-bar idea: chords, a bass line and a melody that fit together, in the key and style you chose.
+The chords and rhythms are invented in the style, not picked from a list, so ideas keep surprising you.
 Play it through the built-in house piano, sub bass and synth lead, or drag the chords and the lanes into your daw as MIDI clips and use your own sounds.
 
 It is made by Mark Stent Digital.
@@ -28,6 +29,8 @@ It comes as an Audio Unit (AU) and a VST3 plugin, and it is open source under AG
 ## Features
 
 - The sprinkle key writes a new 8-bar idea with chords, bass and melody.
+- Chord progressions and chord and melody rhythms are invented in the style of each family, learned from written examples.
+  About 1 idea in 5 still uses a classic written progression or rhythm.
 - Five style families, plus "UK funky house", a blend of all five: MK dub, soulful, bassline, festival and NY groove.
 - Key and style menus on the top line.
 - Eight bass patterns, from a sparse pedal to a rolling line, chosen by energy and kept clear of the chords.

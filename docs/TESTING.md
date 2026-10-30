@@ -347,3 +347,47 @@ The goal is variety that does not sound stupid or robotic.
    That means a note that sounds like a mistake, a fill that is too busy, a ghost note that is too loud or a chord that sounds wrong.
 8. Say if anything feels too loose or too late, because the chords and melody now sit slightly behind the beat.
    The bass stays exactly on the beat.
+
+## Invented ideas in your daw
+
+The chords are now invented in the style, not picked from a list.
+Magic Dust learned how each style moves from chord to chord, and how it places its chord and melody hits.
+It uses that to write new progressions and new rhythms every time.
+About 1 idea in 5 still uses one of the classic written progressions or rhythms as it is.
+The bass and the sounds work as before.
+
+### Listening to the invented ideas
+
+1. Open the `invented-review` folder in the `magic-dust` folder on your Desktop.
+   It has one folder for each style: soulful, mk-dub, bassline, festival and ny-groove.
+2. Each folder has 12 ideas.
+   Each file holds chords, bass and melody on separate tracks.
+3. The names look like `soulful-s3-IIImaj7-i7-VImaj7-i9.mid`.
+   The `s3` is the seed.
+   The rest is the chord progression, written as numbers of the scale, so it is the same in every key.
+4. All the ideas are in the key of A.
+   Odd seeds use mood 20 and even seeds use mood 80.
+   Seeds 2, 3, 6, 7, 10 and 11 use energy 75, and the others use energy 30.
+5. Drag a file into your daw, put a chord sound, a bass sound and a melody sound on the tracks, set the tempo to 124 and press play.
+6. Rate each idea as good, so-so or bad.
+   Write down anything that sounds wrong, with the file name.
+   That means a chord move that sounds like a mistake, a chord rhythm that feels lopsided, or a melody rhythm that does not fit.
+
+### Scanning the variety
+
+1. Open `progressions.txt` in the same folder.
+2. It lists 50 progressions for each style.
+   Each is marked `[written]` if it is one of the style's classic progressions, or `[invented]` if it is new.
+   About 1 in 5 should be `[written]`.
+3. Check that the invented ones still sound like the style and that they do not all look alike.
+   Say which styles feel too samey, and which invented progressions you would use.
+
+### Trying it in the plugin
+
+1. Press sprinkle several times with the same style and watch the chord names on the display.
+   They should keep changing, with a classic progression now and then.
+2. Turn the energy knob below 30, between 30 and 60, and above 60.
+   The chord and melody rhythms change at those three steps, and stay put inside each step.
+3. Pin the chords, press sprinkle, and check that the chords stay the same, including their rhythm.
+4. Look for the name `FRESH-STABS` beside the chords lane.
+   That means the chord rhythm is invented.
