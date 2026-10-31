@@ -1,0 +1,26 @@
+[project]
+name = "bank-builder"
+version = "0.1.0"
+description = "Drafts Magic Dust style bank entries from audio or MIDI the owner owns."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "librosa",
+    "numpy",
+    "mido",
+    "jsonschema",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.uv]
+# Only resolve releases at least two weeks old (spec section 7, upgrade rule).
+exclude-newer = "2026-10-12T00:00:00Z"
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

@@ -1,0 +1,5 @@
+# readability-trailing-comma is off because clang-format owns formatting and the check flips between LLVM versions.
+# owning-memory is off because JUCE factory APIs (createEditor, createPluginFilter) return raw owning pointers.
+Checks: 'bugprone-*,performance-*,modernize-*,-modernize-use-trailing-return-type,readability-*,-readability-magic-numbers,-readability-trailing-comma,-readability-identifier-length,-readability-function-cognitive-complexity,cppcoreguidelines-*,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-pro-bounds-constant-array-index,-cppcoreguidelines-owning-memory'
+WarningsAsErrors: '*'
+HeaderFilterRegex: '(engine|bank|midiexport|plugin|ui|tools)/'

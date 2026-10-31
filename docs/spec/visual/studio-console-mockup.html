@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Magic Dust - hardware directions</title>
+<style>
+  body { background:#1b1b1d; color:#ddd; font-family: -apple-system, "Helvetica Neue", sans-serif; margin:0; padding:28px 0 60px; }
+  .intro { width:940px; margin:0 auto 18px; }
+  .intro h2 { margin:0 0 6px; font-weight:600; }
+  .intro p { margin:0; color:#999; }
+  .choice { width:940px; margin:26px auto 0; cursor:pointer; border:2px solid transparent; border-radius:10px; padding:12px; box-sizing:border-box; }
+  .choice.selected { border-color:#6cf; }
+  .choice h3 { margin:0 0 4px; font-weight:600; }
+  .choice .what { color:#999; margin:0 0 12px; font-size:14px; }
+
+  /* ---- shared panel structure ---- */
+  .unit { display:flex; height:400px; border-radius:6px; overflow:hidden; box-shadow:0 18px 40px rgba(0,0,0,.55); }
+  .cheek { width:26px; flex:none; }
+  .face { flex:1; position:relative; padding:22px 26px 18px; display:grid; grid-template-columns: 1fr 238px; grid-template-rows: 44px 1fr 112px; gap:14px 22px; }
+  .screw { position:absolute; width:13px; height:13px; border-radius:50%; }
+  .screw::after { content:""; position:absolute; left:2px; right:2px; top:5.5px; height:2px; transform:rotate(35deg); }
+  .s1{left:8px;top:8px}.s2{right:8px;top:8px}.s3{left:8px;bottom:8px}.s4{right:8px;bottom:8px}
+  .head { grid-column:1 / 3; display:flex; align-items:center; gap:16px; }
+  .wordmark { font-size:27px; letter-spacing:.14em; font-weight:800; text-transform:uppercase; }
+  .sub { font-size:11px; letter-spacing:.22em; text-transform:uppercase; }
+  .readouts { margin-left:auto; display:flex; gap:12px; }
+  .ro { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .ro .lab, .lab { font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; }
+  .seg { font-family: "SF Mono", Menlo, monospace; font-size:15px; padding:3px 9px; border-radius:2px; letter-spacing:.08em; min-width:62px; text-align:center; }
+
+  .display { position:relative; border-radius:5px; padding:10px 12px 8px 64px; display:flex; flex-direction:column; gap:6px; }
+  .chordnames { display:flex; height:16px; }
+  .chordnames span { flex:1; font-family:"SF Mono", Menlo, monospace; font-size:12px; letter-spacing:.06em; }
+  .row { flex:1; position:relative; }
+  .row .rl { position:absolute; left:-56px; top:50%; transform:translateY(-50%); font-family:"SF Mono", Menlo, monospace; font-size:10px; letter-spacing:.14em; text-transform:uppercase; }
+  .note { position:absolute; height:5px; border-radius:1px; }
+  .bars { position:absolute; inset:0 0 0 64px; pointer-events:none; }
+  .bars i { position:absolute; top:8px; bottom:8px; width:1px; }
+
+  .side { display:grid; grid-template-columns:1fr 1fr; gap:16px 4px; align-content:center; justify-items:center; }
+  .bottom { grid-column:1 / 3; display:flex; align-items:center; gap:22px; }
+  .group { display:flex; gap:16px; align-items:flex-end; padding:8px 14px 6px; border-radius:6px; }
+  .ctl { display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .range { display:flex; justify-content:space-between; width:108px; font-size:8px; letter-spacing:.14em; text-transform:uppercase; }
+  .knob { position:relative; border-radius:50%; }
+  .knob .ticks { position:absolute; inset:-7px; border-radius:50%;
+    -webkit-mask: radial-gradient(circle, transparent 62%, #000 63%, #000 70%, transparent 71%), conic-gradient(from 135deg, transparent 0 90deg, #000 90deg);
+    -webkit-mask-composite: source-in;
+            mask: radial-gradient(circle, transparent 62%, #000 63%, #000 70%, transparent 71%), conic-gradient(from 135deg, transparent 0 90deg, #000 90deg);
+            mask-composite: intersect; }
+  .knob .cap { position:absolute; inset:0; border-radius:50%; }
+  .knob .ptr { position:absolute; left:50%; top:9%; width:2px; height:36%; margin-left:-1px; transform-origin:50% 115%; border-radius:1px; }
+  .btn { width:30px; height:20px; border-radius:3px; }
+  .led { width:6px; height:6px; border-radius:50%; }
+  .keys { display:flex; gap:12px; align-items:flex-end; }
+  .sprinkle { width:82px; height:44px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:10px; letter-spacing:.18em; font-weight:700; text-transform:uppercase; }
+  .vol { margin-left:auto; }
+
+  /* ---- A: rack unit - black face, wood cheeks, red LEDs ---- */
+  .A .cheek { background: repeating-linear-gradient(92deg, #5a2f17 0 3px, #6e3a1d 3px 7px, #4e2812 7px 9px), #5d3119; box-shadow: inset -3px 0 6px rgba(0,0,0,.5); }
+  .A .face { background: radial-gradient(120% 100% at 50% 0%, #1d1d1f, #0b0b0c 70%); color:#efefef; }
+  .A .screw { background: radial-gradient(circle at 35% 30%, #d8d8d8, #6d6d6d 70%); } .A .screw::after { background:#333; }
+  .A .sub { color:#bdbdbd; }
+  .A .seg { background:#1a0505; color:#ff3b2f; text-shadow:0 0 6px rgba(255,40,30,.75); box-shadow: inset 0 0 0 1px #3a0e0e; }
+  .A .display { background:#060606; box-shadow: inset 0 0 0 1px #2c2c2c, inset 0 2px 12px #000; }
+  .A .chordnames span { color:#ff4a3a; text-shadow:0 0 5px rgba(255,50,40,.6); }
+  .A .row .rl { color:#9a9a9a; }
+  .A .note { background:#ff4a3a; box-shadow:0 0 5px rgba(255,60,40,.55); }
+  .A .bars i { background:#1e1e1e; }
+  .A .group { background:#141415; box-shadow: inset 0 0 0 1px #262628; border-radius:16px; }
+  .A .knob .ticks { background: repeating-conic-gradient(from -135deg, #e6e6e6 0 2deg, transparent 2deg 18deg); }
+  .A .knob .cap { background: radial-gradient(circle at 40% 30%, #3a3a3a, #050505 62%); box-shadow: 0 3px 6px #000, inset 0 0 0 2px #1c1c1c; }
+  .A .knob .ptr { background:#f2f2f2; }
+  .A .btn { background: linear-gradient(#e8e8e8, #a9a9a9); box-shadow: 0 2px 0 #444, inset 0 1px 0 #fff; }
+  .A .led { background:#ff2a1f; box-shadow:0 0 6px #ff2a1f; } .A .led.off { background:#3a0c0a; box-shadow:none; }
+  .A .sprinkle { background: linear-gradient(#f0f0f0,#b4b4b4); color:#111; box-shadow:0 3px 0 #444, inset 0 1px 0 #fff; }
+  .A .range, .A .lab { color:#d6d6d6; }
+
+  /* ---- B: silver synth - brushed metal, black legends, amber display ---- */
+  .B .cheek { background: linear-gradient(90deg, #121212, #2a2a2a 50%, #101010); }
+  .B .face { background: repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, rgba(0,0,0,.035) 1px 2px), linear-gradient(#d4d4d0, #b9b9b4); color:#151515; }
+  .B .screw { background: radial-gradient(circle at 35% 30%, #fafafa, #8b8b8b 70%); } .B .screw::after { background:#555; }
+  .B .wordmark { letter-spacing:.06em; font-weight:900; }
+  .B .sub { color:#333; }
+  .B .seg { background:#120c02; color:#ffb02e; text-shadow:0 0 6px rgba(255,170,40,.6); box-shadow: inset 0 0 0 2px #2a2a2a; }
+  .B .display { background: linear-gradient(#0c0a06, #15110a); box-shadow: inset 0 0 0 3px #222, inset 0 3px 10px #000; }
+  .B .chordnames span { color:#ffb84a; text-shadow:0 0 5px rgba(255,170,50,.55); }
+  .B .row .rl { color:#a8803c; }
+  .B .note { background:#ffae33; box-shadow:0 0 5px rgba(255,170,40,.5); }
+  .B .bars i { background:#2a2214; }
+  .B .group { border-top:2px solid #1a1a1a; border-radius:0; padding-top:10px; }
+  .B .group.accent { border-top-color:#e2591e; }
+  .B .knob .ticks { background: repeating-conic-gradient(from -135deg, #1a1a1a 0 2deg, transparent 2deg 18deg); }
+  .B .knob .cap { background: radial-gradient(circle at 50% 45%, #cfcfcf 0 34%, #1b1b1b 36%, #0b0b0b 70%); box-shadow: 0 3px 5px rgba(0,0,0,.45); }
+  .B .knob .ptr { background:#111; top:14%; height:30%; }
+  .B .btn { background: linear-gradient(#2b2b2b,#0f0f0f); box-shadow:0 2px 0 #6b6b6b; }
+  .B .led { background:#ff6a1a; box-shadow:0 0 6px #ff6a1a; } .B .led.off { background:#5b3a28; box-shadow:none; }
+  .B .sprinkle { background: linear-gradient(#ef6a2a,#c84d14); color:#fff; box-shadow:0 3px 0 #7a2c08; }
+  .B .range, .B .lab { color:#1d1d1d; font-weight:600; }
+
+  /* ---- C: studio console - grey-blue desk, coloured caps, backlit meter window ---- */
+  .C .cheek { background: repeating-linear-gradient(92deg, #3d2516 0 3px, #4b2e1b 3px 7px, #35200f 7px 9px); }
+  .C .face { background: linear-gradient(#6f7a86, #5d6773); color:#f3f1ea; }
+  .C .screw { background: radial-gradient(circle at 35% 30%, #e2e2e2, #6d6d6d 70%); } .C .screw::after { background:#444; }
+  .C .wordmark { font-family: Georgia, "Times New Roman", serif; font-weight:700; letter-spacing:.18em; }
+  .C .sub { color:#dfe3e8; }
+  .C .seg { background:#f1e4bf; color:#2a2418; box-shadow: inset 0 0 0 2px #2c2f33, inset 0 0 14px rgba(255,190,90,.6); }
+  .C .display { background: radial-gradient(130% 120% at 50% 40%, #fbf0cf, #e5cf98); box-shadow: inset 0 0 0 3px #26292d, inset 0 0 26px rgba(170,110,30,.45); }
+  .C .chordnames span { color:#2a2418; font-weight:700; }
+  .C .row .rl { color:#5a4a2c; }
+  .C .note { background:#2a2418; }
+  .C .bars i { background:rgba(80,60,30,.22); }
+  .C .group { background: rgba(0,0,0,.12); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); border-radius:4px; }
+  .C .knob .ticks { background: repeating-conic-gradient(from -135deg, #f3f1ea 0 2deg, transparent 2deg 18deg); }
+  .C .knob .cap { background: radial-gradient(circle at 40% 30%, #4b4b4b, #141414 65%); box-shadow:0 3px 5px rgba(0,0,0,.5); }
+  .C .knob .cap::after { content:""; position:absolute; inset:24%; border-radius:50%; background: var(--capc, #8a8f96); box-shadow: inset 0 2px 3px rgba(255,255,255,.35); }
+  .C .knob .ptr { background:#fff; z-index:2; }
+  .C .btn { background: linear-gradient(#f0ece0,#c9c2ad); box-shadow:0 2px 0 #2c2f33; }
+  .C .led { background:#ffcf4a; box-shadow:0 0 6px #ffcf4a; } .C .led.off { background:#4e4a3c; box-shadow:none; }
+  .C .sprinkle { background: linear-gradient(#d84a3a,#a8301f); color:#fff; box-shadow:0 3px 0 #2c2f33; }
+  .C .range, .C .lab { color:#eef0f2; }
+</style>
+</head>
+<body>
+<div class="intro">
+  <h2>Magic Dust - studio console (C)</h2>
+  <p>Your pick, with the new tagline. Tell me in the terminal anything you'd change.</p>
+</div>
+
+<div class="choice" data-choice="console" onclick="toggleSelect(this)">
+  <h3>C. Studio console</h3>
+  <p class="what">Grey-blue desk metal, coloured knob caps, a warm backlit window like a VU meter.</p>
+  <div class="unit C"></div>
+</div>
+
+<script>
+  const chords = [[0,64,67,71],[16,62,65,69],[32,67,71,74],[48,60,64,67]];
+  const bass = [[0,3,45],[4,2,45],[8,3,57],[14,2,45],[16,3,38],[20,2,38],[26,3,50],[32,3,43],[36,2,43],[42,3,55],[48,3,48],[52,2,48],[58,3,60]];
+  const melody = [[2,2,76],[5,3,79],[10,4,81],[18,2,77],[21,2,76],[24,6,74],[34,2,74],[37,3,76],[42,5,79],[50,2,76],[53,2,74],[56,6,72]];
+  const knob = (size, angle, label, range, capc) => `
+    <div class="ctl">
+      <div class="lab">${label}</div>
+      <div class="knob" style="width:${size}px;height:${size}px;${capc ? '--capc:' + capc : ''}">
+        <div class="ticks"></div><div class="cap"></div>
+        <div class="ptr" style="transform:rotate(${angle}deg)"></div>
+      </div>
+      ${range ? `<div class="range"><span>${range[0]}</span><span>${range[1]}</span></div>` : ''}
+    </div>`;
+  const notes = (list, lo, hi, isChord) => list.flatMap(n => isChord
+      ? n.slice(1).map(p => [n[0], 14, p]) : [n])
+    .map(([s, len, p]) => `<div class="note" style="left:${s / 64 * 100}%;width:calc(${len / 64 * 100}% - 2px);bottom:${(p - lo) / (hi - lo) * 82 + 4}%"></div>`).join('');
+  const caps = { A: [null, null, null], B: [null, null, null], C: ['#7b6bd6', '#d6527c', '#3fb6c4'] };
+  const build = (t) => `
+    <div class="cheek"></div>
+    <div class="face">
+      <span class="screw s1"></span><span class="screw s2"></span><span class="screw s3"></span><span class="screw s4"></span>
+      <div class="head">
+        <span class="wordmark">Magic Dust</span><span class="sub">House music idea engine</span>
+        <div class="readouts">
+          <div class="ro"><span class="lab">Style</span><span class="seg">UK FUNKY</span></div>
+          <div class="ro"><span class="lab">Key</span><span class="seg">A MIN</span></div>
+          <div class="ro"><span class="lab">Tempo</span><span class="seg">124.0</span></div>
+        </div>
+      </div>
+      <div class="display">
+        <div class="bars">${[1,2,3,4,5,6,7].map(i => `<i style="left:${i / 8 * 100}%"></i>`).join('')}</div>
+        <div class="chordnames"><span>Am7</span><span>Dm9</span><span>G13</span><span>Cmaj7</span></div>
+        <div class="row"><span class="rl">Chords</span>${notes(chords, 58, 76, true)}</div>
+        <div class="row"><span class="rl">Bass</span>${notes(bass, 36, 60)}</div>
+        <div class="row"><span class="rl">Melody</span>${notes(melody, 70, 83)}</div>
+      </div>
+      <div class="side">
+        ${knob(46, -60, 'Mood', ['Dark', 'Bright'])}
+        ${knob(46, 20, 'Energy', ['Low', 'High'])}
+        ${knob(46, -10, 'Groove', ['Straight', 'Swing'])}
+        ${knob(46, 0, 'Flavour', ['Simple', 'Jazzy'])}
+      </div>
+      <div class="bottom">
+        <div class="group accent">
+          ${knob(34, -30, 'Chords', null, caps[t][0])}${knob(26, 110, 'Level', null, caps[t][0])}
+          ${knob(34, 45, 'Bass', null, caps[t][1])}${knob(26, 40, 'Level', null, caps[t][1])}
+          ${knob(34, 80, 'Melody', null, caps[t][2])}${knob(26, -20, 'Level', null, caps[t][2])}
+        </div>
+        <div class="keys">
+          ${['Pin','Reroll','Mute','Swap'].map((k, i) => `<div class="ctl"><span class="led ${i ? 'off' : ''}"></span><div class="btn"></div><span class="lab">${k}</span></div>`).join('')}
+          <div class="ctl"><span class="led"></span><div class="sprinkle">Sprinkle</div><span class="lab">&nbsp;</span></div>
+        </div>
+        <div class="vol">${knob(46, 70, 'Volume', ['Min', 'Max'])}</div>
+      </div>
+    </div>
+    <div class="cheek"></div>`;
+  document.querySelectorAll('.unit').forEach(u => { u.innerHTML = build(u.classList[1]); });
+  if (typeof window.toggleSelect !== 'function') {
+    window.toggleSelect = el => { document.querySelectorAll('.choice').forEach(c => c.classList.remove('selected')); el.classList.add('selected'); };
+  }
+</script>
+</body>
+</html>

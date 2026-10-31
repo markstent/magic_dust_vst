@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "bassline-starter-01",
+  "family": "bassline",
+  "name": "Garage skip",
+  "source": { "kind": "hand-authored", "reference": null, "confidence": "placeholder" },
+  "tempo": { "min": 122, "max": 126 },
+  "modes": ["aeolian", "dorian"],
+  "progressions": [
+    { "degrees": ["i9", "v7"], "barsPerChord": 2, "weight": 1.0 },
+    { "degrees": ["i7", "VII"], "barsPerChord": 2, "weight": 0.7 },
+    { "degrees": ["i9", "iv7"], "barsPerChord": 2, "weight": 0.6 },
+    { "degrees": ["i7", "VImaj7", "VII", "v7"], "barsPerChord": 2, "weight": 0.5 }
+  ],
+  "voicing": { "style": "close", "parallel": false, "topNote": [64, 72] },
+  "chordRhythms": [
+    { "id": "skip-stab", "bars": 1, "hits": [[3, 2], [10, 2]] },
+    { "id": "garage-pair", "bars": 1, "hits": [[3, 2], [6, 1], [11, 2]] },
+    { "id": "two-bar-sparse", "bars": 2, "hits": [[2, 2], [14, 2], [19, 2], [27, 3]] },
+    { "id": "upbeat-pair", "bars": 1, "hits": [[6, 2], [14, 2]] }
+  ],
+  "melodyRhythms": [
+    { "id": "sparse-three", "bars": 2, "hits": [[6, 3], [14, 2], [27, 3]] },
+    { "id": "sparse-five", "bars": 2, "hits": [[3, 2], [6, 1], [14, 2], [19, 3], [27, 2]] },
+    { "id": "skip-seven", "bars": 2, "hits": [[2, 2], [6, 1], [11, 2], [14, 1], [19, 2], [22, 2], [27, 3]] },
+    { "id": "skip-ten", "bars": 2, "hits": [[3, 1], [5, 1], [7, 1], [11, 2], [14, 1], [19, 1], [21, 1], [23, 1], [27, 2], [30, 1]] }
+  ],
+  "bassPatterns": ["garage-skip", "rolling-offbeat"],
+  "melodyModes": ["sparse", "hook"],
+  "swing": 0.6,
+  "tags": ["gorgon-ish", "bass-led"]
+}

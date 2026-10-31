@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://magicdust.example/bank/schema.json",
+  "title": "Magic Dust style bank entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "id", "family", "name", "source", "tempo", "modes", "progressions",
+    "voicing", "chordRhythms", "melodyRhythms", "bassPatterns", "melodyModes", "swing", "tags"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "family": { "enum": ["mk-dub", "soulful", "bassline", "festival", "ny-groove"] },
+    "name": { "type": "string", "minLength": 1 },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "reference", "confidence"],
+      "properties": {
+        "kind": { "enum": ["hand-authored", "analysis", "learned-clip", "licensed-pack"] },
+        "reference": { "type": ["string", "null"] },
+        "confidence": { "enum": ["placeholder", "estimated", "verified"] }
+      }
+    },
+    "tempo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "type": "integer", "minimum": 60, "maximum": 200 },
+        "max": { "type": "integer", "minimum": 60, "maximum": 200 }
+      }
+    },
+    "modes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["aeolian", "dorian", "phrygian", "ionian", "mixolydian"] }
+    },
+    "progressions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["degrees", "barsPerChord", "weight"],
+        "properties": {
+          "degrees": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^(i|ii|iii|iv|v|vi|vii|I|II|III|IV|V|VI|VII)(7|9|11|maj7|maj9|6|add9|sus4)?$"
+            }
+          },
+          "barsPerChord": {
+            "anyOf": [
+              { "$ref": "#/$defs/barCount" },
+              { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/barCount" } }
+            ]
+          },
+          "weight": { "type": "number", "exclusiveMinimum": 0, "maximum": 10 }
+        }
+      }
+    },
+    "voicing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["style", "parallel", "topNote"],
+      "properties": {
+        "style": { "enum": ["close", "drop-2", "organ-stab", "piano-spread"] },
+        "parallel": { "type": "boolean" },
+        "topNote": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "integer", "minimum": 62, "maximum": 77 }
+        }
+      }
+    },
+    "chordRhythms": { "$ref": "#/$defs/rhythmCells" },
+    "melodyRhythms": { "$ref": "#/$defs/rhythmCells" },
+    "bassPatterns": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "rolling-offbeat", "offbeat", "octave-bounce", "garage-skip",
+          "sustained", "riff", "pedal", "call-response"
+        ]
+      }
+    },
+    "melodyModes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["pluck", "hook", "riff", "sparse"] }
+    },
+    "swing": { "type": "number", "minimum": 0.5, "maximum": 0.75 },
+    "tags": { "type": "array", "items": { "type": "string" } }
+  },
+  "$defs": {
+    "barCount": { "type": "integer", "minimum": 1, "maximum": 8 },
+    "rhythmCells": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/rhythmCell" }
+    },
+    "rhythmCell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "bars", "hits"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "bars": { "type": "integer", "enum": [1, 2] },
+        "hits": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "prefixItems": [
+              { "type": "integer", "minimum": 0, "maximum": 31 },
+              { "type": "integer", "minimum": 1, "maximum": 32 }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,718 @@
+#include "md/generate.hpp"
+
+#include "ghost.hpp"
+#include "internal.hpp"
+#include "md/bank.hpp"
+#include "md/names.hpp"
+#include "md/ranges.hpp"
+#include "md/theory.hpp"
+#include "md/validate.hpp"
+#include "shared_bank.hpp"
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <set>
+#include <vector>
+
+using namespace md;
+
+namespace
+{
+const Bank& bank() { return sharedBank(); }
+
+constexpr std::array<Style, 6> kStyles = {
+    Style::ukFunky, Style::mkDub, Style::soulful, Style::bassline, Style::festival, Style::nyGroove,
+};
+constexpr int kSeedsPerStyle = 60;
+constexpr int kLow = 29;  // the top of the low tier
+constexpr int kMid = 30;  // the bottom of the mid tier
+constexpr int kTop = 60;  // the top of the mid tier
+constexpr int kHigh = 61; // the bottom of the high tier
+
+struct Sample
+{
+    Idea idea; // generated at energy 0
+    const StyleEntry* entry;
+    int bars;
+};
+
+const std::vector<Sample>& samples()
+{
+    static const std::vector<Sample> all = []
+    {
+        constexpr std::array<int, 3> barCounts = {4, 8, 16};
+        std::vector<Sample> out;
+        for (const Style style : kStyles)
+        {
+            for (int i = 0; i < kSeedsPerStyle; ++i)
+            {
+                Settings settings;
+                settings.style = style;
+                settings.keyRoot = i % 12;
+                settings.mood = (i * 13) % 101;
+                settings.energy = 0;
+                settings.groove = static_cast<Groove>(i % 4);
+                settings.bars = barCounts.at(static_cast<std::size_t>(i % 3));
+                Idea idea = generate(bank(), settings, static_cast<std::uint32_t>(500 + (i * 37)));
+                const auto it = std::ranges::find(bank().entries, idea.entryId, &StyleEntry::id);
+                REQUIRE(it != bank().entries.end());
+                out.push_back({.idea = std::move(idea), .entry = &*it, .bars = settings.bars});
+            }
+        }
+        return out;
+    }();
+    return all;
+}
+
+Idea atEnergy(const Idea& idea, int energy)
+{
+    Idea copy = idea;
+    copy.settings.energy = energy;
+    return copy;
+}
+
+std::vector<int> barsOf(std::initializer_list<int> bars) { return bars; }
+
+std::vector<int> turnaroundBars(int bars)
+{
+    return bars == 16 ? barsOf({7, 15}) : barsOf({bars - 1});
+}
+
+std::vector<int> breathBars(int bars)
+{
+    if (bars == 4)
+    {
+        return {};
+    }
+    return bars == 8 ? barsOf({3}) : barsOf({3, 11});
+}
+
+bool contains(const std::vector<int>& values, int value)
+{
+    return std::ranges::find(values, value) != values.end();
+}
+
+// The bars the answer phrase covers: the second half of each 4-bar phrase, in ideas of 8 or more.
+std::vector<int> answerBars(int bars)
+{
+    if (bars == 4)
+    {
+        return {};
+    }
+    return bars == 8 ? barsOf({6, 7}) : barsOf({6, 7, 14, 15});
+}
+
+std::vector<NoteEvent> withoutGhosts(std::vector<NoteEvent> events)
+{
+    std::erase_if(events, [](const NoteEvent& e) { return detail::isGhost(e); });
+    return events;
+}
+
+int barOf(const NoteEvent& e) { return e.start / kTicksPerBar; }
+
+// The chord rhythm the sample was written with: invented, or written when generate fell back.
+detail::ChordRhythm chordRhythmOf(const Sample& s)
+{
+    const Lane& lane = s.idea.lanes.at(0);
+    auto rhythm =
+        detail::chooseChordRhythm(&bank().models.get(bank()), *s.entry, s.idea.settings, lane.seed);
+    if (rhythm.cell.id != lane.pattern)
+    {
+        rhythm = detail::chooseChordRhythm(nullptr, *s.entry, s.idea.settings, lane.seed);
+    }
+    REQUIRE(rhythm.cell.id == lane.pattern);
+    return rhythm;
+}
+
+detail::MelodyRhythm melodyRhythmOf(const Sample& s)
+{
+    return detail::chooseMelodyRhythm(&bank().models.get(bank()), *s.entry, s.idea.settings,
+                                      s.idea.lanes.at(2).seed);
+}
+
+std::vector<NoteEvent> chordsAt(const Sample& s, int energy)
+{
+    const Idea idea = atEnergy(s.idea, energy);
+    auto events = detail::chordEvents(idea.progression, chordRhythmOf(s), idea.settings,
+                                      idea.lanes.at(0).seed);
+    std::erase_if(events, [](const NoteEvent& e) { return detail::isGhost(e); });
+    return events;
+}
+
+std::set<std::pair<int, int>> pitchStarts(const std::vector<NoteEvent>& events, int bar)
+{
+    std::set<std::pair<int, int>> out;
+    for (const NoteEvent& e : events)
+    {
+        if (barOf(e) == bar)
+        {
+            out.insert({e.start, e.pitch});
+        }
+    }
+    return out;
+}
+
+std::set<int> starts(const std::vector<NoteEvent>& events, int fromBar, int toBar)
+{
+    std::set<int> out;
+    for (const NoteEvent& e : events)
+    {
+        if (barOf(e) >= fromBar && barOf(e) <= toBar)
+        {
+            out.insert(e.start);
+        }
+    }
+    return out;
+}
+
+// The starts of a cell's hits over [firstBar, firstBar + bars), tiled, swung as the lanes do.
+struct Span
+{
+    int firstBar;
+    int bars;
+};
+
+std::set<int> cellStarts(const RhythmCell& cell, Groove groove, Span span)
+{
+    const auto [firstBar, bars] = span;
+    const int swing = swingPermille(groove);
+    std::set<int> out;
+    for (int tile = 0; tile < bars; tile += cell.bars)
+    {
+        for (const Hit& hit : cell.hits)
+        {
+            if ((tile * kStepsPerBar) + hit.step < bars * kStepsPerBar)
+            {
+                out.insert(detail::swung(
+                    ((firstBar + tile) * kTicksPerBar) + (hit.step * kTicksPerSixteenth), swing));
+            }
+        }
+    }
+    return out;
+}
+
+} // namespace
+
+TEST_CASE("chords: no turnaround or breath below energy 30, and none changes the other bars",
+          "[variety][chords]")
+{
+    int turned = 0;
+    for (const Sample& s : samples())
+    {
+        const auto low = chordsAt(s, kLow);
+        const auto zero = chordsAt(s, 0);
+        REQUIRE(low == zero);
+
+        const auto mid = chordsAt(s, kMid);
+        for (int bar = 0; bar < s.bars; ++bar)
+        {
+            if (contains(turnaroundBars(s.bars), bar))
+            {
+                continue;
+            }
+            REQUIRE(pitchStarts(mid, bar) == pitchStarts(low, bar));
+        }
+        const auto turnarounds = chordRhythmOf(s).turnarounds;
+        for (std::size_t n = 0; n < turnaroundBars(s.bars).size(); ++n)
+        {
+            const int bar = turnaroundBars(s.bars).at(n);
+            if (pitchStarts(mid, bar) == pitchStarts(low, bar))
+            {
+                continue;
+            }
+            ++turned;
+            const RhythmCell turn{.id = "turnaround", .bars = 1, .hits = turnarounds.at(n)};
+            REQUIRE(cellStarts(turn, s.idea.settings.groove, {.firstBar = bar, .bars = 1}) ==
+                    starts(mid, bar, bar));
+        }
+    }
+    REQUIRE(turned > 0);
+}
+
+TEST_CASE("chords: the breath drops the last hit of bar 4 of each 8, above energy 60 only",
+          "[variety][chords]")
+{
+    int breathed = 0;
+    for (const Sample& s : samples())
+    {
+        const auto top = chordsAt(s, kTop);
+        const auto high = chordsAt(s, kHigh);
+        for (int bar = 0; bar < s.bars; ++bar)
+        {
+            if (!contains(breathBars(s.bars), bar))
+            {
+                REQUIRE(pitchStarts(high, bar) == pitchStarts(top, bar));
+                continue;
+            }
+            const auto before = starts(top, bar, bar);
+            const auto after = starts(high, bar, bar);
+            if (before.size() < 2)
+            {
+                REQUIRE(after == before);
+                continue;
+            }
+            ++breathed;
+            auto expected = before;
+            expected.erase(std::prev(expected.end()));
+            REQUIRE(after == expected);
+        }
+    }
+    REQUIRE(breathed > 0);
+}
+
+TEST_CASE("melody: the answer phrase plays its own cell over the last half-phrase",
+          "[variety][melody]")
+{
+    int answered = 0;
+    for (const Sample& s : samples())
+    {
+        const Idea low = atEnergy(s.idea, kLow);
+        const Idea mid = atEnergy(s.idea, kMid);
+        const detail::MelodyRhythm cells = melodyRhythmOf(s);
+        const auto lowEvents = detail::melodyEvents(*s.entry, low, cells, low.lanes.at(2).seed);
+        const auto midEvents = detail::melodyEvents(*s.entry, mid, cells, mid.lanes.at(2).seed);
+        const Groove groove = s.idea.settings.groove;
+        const bool changes = s.bars > 4 && cells.answers;
+        if (!changes)
+        {
+            REQUIRE(midEvents == lowEvents);
+            continue;
+        }
+        // Pitches after an answer block (bars 9 to 14 of a 16-bar idea, which only a loaded project
+        // has) may drift, as the pitch walk chains from the previous note; only the notes before
+        // the first answer are compared.
+        const int firstAnswer = answerBars(s.bars).front();
+        REQUIRE(starts(midEvents, 0, firstAnswer - 1) == starts(lowEvents, 0, firstAnswer - 1));
+        for (const NoteEvent& e : midEvents)
+        {
+            if (barOf(e) < firstAnswer)
+            {
+                REQUIRE(std::ranges::find(lowEvents, e) != lowEvents.end());
+            }
+        }
+        const auto first = starts(midEvents, 0, 1);
+        for (int block = 3; block * 2 < s.bars; block += 4)
+        {
+            const int bar = block * 2;
+            const auto actual = starts(midEvents, bar, bar + 1);
+            REQUIRE(cellStarts(cells.answer, groove, {.firstBar = bar, .bars = 2}) == actual);
+            REQUIRE(cellStarts(cells.answer, groove, {.firstBar = 0, .bars = 2}) != first);
+            ++answered;
+        }
+    }
+    REQUIRE(answered > 0);
+}
+
+TEST_CASE("melody: the breath drops only the last note of bar 4 of each 8, above energy 60",
+          "[variety][melody]")
+{
+    int breathed = 0;
+    for (const Sample& s : samples())
+    {
+        const Idea top = atEnergy(s.idea, kTop);
+        const Idea high = atEnergy(s.idea, kHigh);
+        const detail::MelodyRhythm cells = melodyRhythmOf(s);
+        const auto topEvents = detail::melodyEvents(*s.entry, top, cells, top.lanes.at(2).seed);
+        const auto highEvents = detail::melodyEvents(*s.entry, high, cells, high.lanes.at(2).seed);
+        REQUIRE(highEvents.size() <= topEvents.size());
+        REQUIRE(topEvents.size() - highEvents.size() <= breathBars(s.bars).size());
+        std::vector<NoteEvent> missing;
+        std::ranges::set_difference(topEvents, highEvents, std::back_inserter(missing),
+                                    [](const NoteEvent& a, const NoteEvent& b)
+                                    { return a.start < b.start; });
+        for (const NoteEvent& gone : missing)
+        {
+            ++breathed;
+            REQUIRE(contains(breathBars(s.bars), barOf(gone)));
+            const bool last =
+                std::ranges::none_of(topEvents, [&](const NoteEvent& e)
+                                     { return barOf(e) == barOf(gone) && e.start > gone.start; });
+            REQUIRE(last);
+        }
+        for (const NoteEvent& e : highEvents)
+        {
+            const auto same = std::ranges::find(topEvents, e.start, &NoteEvent::start);
+            REQUIRE(same != topEvents.end());
+            REQUIRE(same->pitch == e.pitch);
+        }
+    }
+    REQUIRE(breathed > 0);
+}
+
+TEST_CASE("bass: the fill obeys its steps, spares sustained and pedal, and only comes above 60",
+          "[variety][bass]")
+{
+    constexpr std::array<int, 5> kFillSteps = {9, 10, 11, 13, 14};
+    int filled = 0;
+    for (const Sample& s : samples())
+    {
+        const std::uint64_t seed = s.idea.lanes.at(1).seed;
+        const Idea top = atEnergy(s.idea, kTop);
+        const Idea high = atEnergy(s.idea, kHigh);
+        const int lastBar = (s.bars - 1) * kTicksPerBar;
+        const int window = lastBar + (8 * kTicksPerSixteenth);
+        const int swing = swingPermille(s.idea.settings.groove);
+        for (const BassPattern pattern : s.entry->bassPatterns)
+        {
+            const auto base = withoutGhosts(detail::bassEvents(top, pattern, seed));
+            const auto with = withoutGhosts(detail::bassEvents(high, pattern, seed));
+            if (pattern == BassPattern::sustained || pattern == BassPattern::pedal)
+            {
+                REQUIRE(with == base);
+                continue;
+            }
+            const auto earlier = [&](const std::vector<NoteEvent>& events)
+            {
+                std::vector<NoteEvent> out;
+                std::ranges::copy_if(events, std::back_inserter(out),
+                                     [&](const NoteEvent& e) { return e.start < window; });
+                return out;
+            };
+            const auto beforeFill = earlier(base);
+            const auto afterFill = earlier(with);
+            REQUIRE(afterFill.size() == beforeFill.size());
+            for (std::size_t i = 0; i < afterFill.size(); ++i)
+            {
+                REQUIRE(afterFill.at(i).start == beforeFill.at(i).start);
+                REQUIRE(afterFill.at(i).pitch == beforeFill.at(i).pitch);
+            }
+            if (with == base)
+            {
+                continue;
+            }
+            ++filled;
+            std::vector<NoteEvent> fill;
+            std::ranges::copy_if(with, std::back_inserter(fill),
+                                 [&](const NoteEvent& e) { return e.start >= window; });
+            const int approach = detail::swung(lastBar + (15 * kTicksPerSixteenth), swing);
+            REQUIRE(fill.back().start == approach);
+            const int approachPitch = fill.back().pitch;
+            fill.pop_back();
+            REQUIRE(fill.back().pitch != approachPitch);
+            REQUIRE(fill.size() >= 3);
+            REQUIRE(fill.size() <= 4);
+            for (const NoteEvent& e : fill)
+            {
+                REQUIRE(e.length <= kTicksPerSixteenth);
+                REQUIRE(e.length >= kTicksPerSixteenth / 2);
+                REQUIRE(std::ranges::any_of(kFillSteps,
+                                            [&](int step)
+                                            {
+                                                return detail::swung(
+                                                           lastBar + (step * kTicksPerSixteenth),
+                                                           swing) == e.start;
+                                            }));
+            }
+        }
+    }
+    REQUIRE(filled > 0);
+}
+
+TEST_CASE("every idea validates at the tier edges, in 4, 8 and 16 bars", "[variety]")
+{
+    for (const Sample& s : samples())
+    {
+        for (const int energy : {kLow, kMid, kTop, kHigh, 80, 100})
+        {
+            Settings settings = s.idea.settings;
+            settings.energy = energy;
+            const Idea idea = generate(bank(), settings, s.idea.seed);
+            REQUIRE(validate(idea).empty());
+        }
+    }
+}
+
+TEST_CASE("the chord turnaround draws from its own slot: the low tier is unchanged",
+          "[variety][seeds]")
+{
+    for (const Sample& s : samples())
+    {
+        REQUIRE(chordsAt(s, 0) == chordsAt(s, kLow));
+    }
+}
+
+namespace
+{
+constexpr int kHighSeedsPerStyle = 200;
+
+const std::vector<Sample>& highSamples()
+{
+    static const std::vector<Sample> all = []
+    {
+        constexpr std::array<int, 3> barCounts = {4, 8, 16};
+        std::vector<Sample> out;
+        for (const Style style : kStyles)
+        {
+            for (int i = 0; i < kHighSeedsPerStyle; ++i)
+            {
+                Settings settings;
+                settings.style = style;
+                settings.keyRoot = i % 12;
+                settings.mood = (i * 13) % 101;
+                settings.energy = 80;
+                settings.groove = static_cast<Groove>(i % 4);
+                settings.bars = barCounts.at(static_cast<std::size_t>(i % 3));
+                Idea idea = generate(bank(), settings, static_cast<std::uint32_t>(900 + (i * 41)));
+                const auto it = std::ranges::find(bank().entries, idea.entryId, &StyleEntry::id);
+                REQUIRE(it != bank().entries.end());
+                out.push_back({.idea = std::move(idea), .entry = &*it, .bars = settings.bars});
+            }
+        }
+        return out;
+    }();
+    return all;
+}
+
+// The chord lane as the engine writes it, ghosts and all, with the idea's own voicings.
+std::vector<NoteEvent> rawChords(const Sample& s, int energy)
+{
+    const Idea idea = atEnergy(s.idea, energy);
+    return detail::chordEvents(idea.progression, chordRhythmOf(s), idea.settings,
+                               idea.lanes.at(0).seed);
+}
+
+std::vector<NoteEvent> ghostsOf(const std::vector<NoteEvent>& events)
+{
+    std::vector<NoteEvent> out;
+    std::ranges::copy_if(events, std::back_inserter(out),
+                         [](const NoteEvent& e) { return detail::isGhost(e); });
+    return out;
+}
+
+// The 16th step in the whole idea.
+int stepIn(const NoteEvent& e)
+{
+    return (barOf(e) * kStepsPerBar) + detail::stepOf(e.start % kTicksPerBar);
+}
+
+std::set<int> distinctStarts(const std::vector<NoteEvent>& events)
+{
+    std::set<int> out;
+    for (const NoteEvent& e : events)
+    {
+        out.insert(e.start);
+    }
+    return out;
+}
+} // namespace
+
+TEST_CASE("chords: ghost notes obey their count, place, length and voicing, above 60 only",
+          "[variety][chords][ghost]")
+{
+    int ghosts = 0;
+    for (const Sample& s : highSamples())
+    {
+        const auto events = rawChords(s, 80);
+        const auto found = ghostsOf(events);
+        std::set<int> bars;
+        for (const NoteEvent& g : found)
+        {
+            const int bar = barOf(g);
+            const PlacedChord& chord = detail::chordAt(s.idea.progression, bar * kTicksPerBar);
+            REQUIRE(!contains(turnaroundBars(s.bars), bar));
+            REQUIRE(std::ranges::find(chord.voicing, g.pitch) != chord.voicing.end());
+            REQUIRE(g.length <= kTicksPerSixteenth);
+            REQUIRE(g.length > 0);
+            REQUIRE(stepIn(g) % 2 == 1);
+            bars.insert(bar);
+            for (const NoteEvent& e : withoutGhosts(events))
+            {
+                REQUIRE(std::abs(stepIn(e) - stepIn(g)) >= 2);
+                REQUIRE((e.start >= g.start || e.start + e.length <= g.start));
+            }
+        }
+        const std::size_t count = distinctStarts(found).size();
+        REQUIRE(bars.size() == count);
+        REQUIRE(static_cast<int>(count) <= s.bars / 2);
+        ghosts += static_cast<int>(count);
+        REQUIRE(ghostsOf(rawChords(s, kTop)).empty());
+        REQUIRE(ghostsOf(rawChords(s, kLow)).empty());
+    }
+    REQUIRE(ghosts > 0);
+}
+
+TEST_CASE("chords: short hits shorten to 70, 85 or 100 percent of written, above 60 only",
+          "[variety][chords][length]")
+{
+    int shortened = 0;
+    for (const Sample& s : highSamples())
+    {
+        const auto written = rawChords(s, kTop);
+        const auto varied = withoutGhosts(rawChords(s, 80));
+        for (const NoteEvent& base : written)
+        {
+            if (contains(breathBars(s.bars), barOf(base)))
+            {
+                continue;
+            }
+            const auto it =
+                std::ranges::find_if(varied, [&](const NoteEvent& e)
+                                     { return e.start == base.start && e.pitch == base.pitch; });
+            REQUIRE(it != varied.end());
+            REQUIRE(it->length <= base.length);
+            REQUIRE(it->length >= std::min(base.length, std::max(detail::kMinChordLength,
+                                                                 base.length * 70 / 100)));
+            if (base.length > 2 * kTicksPerSixteenth)
+            {
+                REQUIRE(it->length == base.length);
+            }
+            shortened += it->length < base.length ? 1 : 0;
+        }
+    }
+    REQUIRE(shortened > 0);
+}
+
+TEST_CASE("chords: an inversion is the next one of a repeated chord, reaching bar 3 or 4 of a "
+          "4-bar group",
+          "[variety][chords][inversion]")
+{
+    int inverted = 0;
+    for (const Sample& s : highSamples())
+    {
+        Settings settings = s.idea.settings;
+        settings.energy = kTop;
+        const Idea plain = generate(bank(), settings, s.idea.seed);
+        REQUIRE(plain.progression.size() == s.idea.progression.size());
+        for (std::size_t i = 0; i < plain.progression.size(); ++i)
+        {
+            const Voicing& before = plain.progression.at(i).voicing;
+            const Voicing& after = s.idea.progression.at(i).voicing;
+            if (before == after)
+            {
+                continue;
+            }
+            ++inverted;
+            REQUIRE(!s.entry->parallel);
+            REQUIRE(i > 0);
+            REQUIRE(s.idea.progression.at(i).symbol == s.idea.progression.at(i - 1).symbol);
+            const PlacedChord& span = s.idea.progression.at(i);
+            REQUIRE((span.bars >= 3 || (span.startBar % 4) + span.bars > 2));
+            Voicing expected(before.begin() + 1, before.end());
+            expected.push_back(before.front() + 12);
+            std::ranges::sort(expected);
+            REQUIRE(after == expected);
+            REQUIRE(after.back() >= s.entry->topNoteLow);
+            REQUIRE(after.back() <= s.entry->topNoteHigh);
+        }
+    }
+    REQUIRE(inverted > 0);
+}
+
+TEST_CASE("bass: ghost notes are a root octave off, on an empty odd 16th, above 60 only",
+          "[variety][bass][ghost]")
+{
+    int ghosts = 0;
+    for (const Sample& s : highSamples())
+    {
+        const std::uint64_t seed = s.idea.lanes.at(1).seed;
+        const Idea high = atEnergy(s.idea, 80);
+        const Idea top = atEnergy(s.idea, kTop);
+        const int lastBar = s.bars - 1;
+        for (const BassPattern pattern : s.entry->bassPatterns)
+        {
+            const auto events = detail::bassEvents(high, pattern, seed);
+            REQUIRE(ghostsOf(detail::bassEvents(top, pattern, seed)).empty());
+            const auto found = ghostsOf(events);
+            if (pattern == BassPattern::sustained || pattern == BassPattern::pedal)
+            {
+                REQUIRE(found.empty());
+                continue;
+            }
+            REQUIRE(static_cast<int>(found.size()) <= s.bars / 4);
+            for (const NoteEvent& g : found)
+            {
+                ++ghosts;
+                REQUIRE(barOf(g) < lastBar);
+                REQUIRE(stepIn(g) % 2 == 1);
+                REQUIRE(g.length == kTicksPerSixteenth);
+                const PlacedChord& chord = detail::chordAt(high.progression, g.start);
+                const int rootPc = chordRootPc(high.key, chord.symbol);
+                REQUIRE(g.pitch % 12 == rootPc);
+                REQUIRE(detail::bassPitchOk(high, g, {}));
+                for (const NoteEvent& e : withoutGhosts(events))
+                {
+                    REQUIRE(std::abs(stepIn(e) - stepIn(g)) >= 2);
+                    REQUIRE((e.start >= g.start || e.start + e.length <= g.start));
+                }
+            }
+        }
+    }
+    REQUIRE(ghosts > 0);
+}
+
+TEST_CASE("chords: no ghost note falls in a breath bar", "[variety][chords][ghost]")
+{
+    for (const Sample& s : highSamples())
+    {
+        for (const NoteEvent& g : ghostsOf(rawChords(s, 80)))
+        {
+            REQUIRE(!contains(breathBars(s.bars), barOf(g)));
+        }
+    }
+}
+
+namespace
+{
+// The finished notes that start where the engine wrote a ghost, before humanize.
+std::vector<NoteEvent> finishedGhosts(const std::vector<NoteEvent>& written, const Lane& lane)
+{
+    std::set<int> ghostStarts;
+    for (const NoteEvent& e : written)
+    {
+        if (e.velocity == detail::kGhostVelocity)
+        {
+            ghostStarts.insert(e.start);
+        }
+    }
+    std::vector<NoteEvent> out;
+    std::ranges::copy_if(lane.events, std::back_inserter(out),
+                         [&](const NoteEvent& e) { return ghostStarts.contains(e.start); });
+    return out;
+}
+
+int lowestPlayed(const Lane& lane, const std::vector<NoteEvent>& ghosts, int bar)
+{
+    int lowest = 128;
+    for (const NoteEvent& e : lane.events)
+    {
+        if (barOf(e) == bar &&
+            std::ranges::none_of(ghosts, [&](const NoteEvent& g) { return g.start == e.start; }))
+        {
+            lowest = std::min(lowest, e.velocity);
+        }
+    }
+    return lowest;
+}
+} // namespace
+
+TEST_CASE("every ghost note is quieter than the other notes of its bar in the finished idea",
+          "[variety][ghost]")
+{
+    int checked = 0;
+    for (const Sample& s : highSamples())
+    {
+        const auto bassPattern =
+            std::ranges::find_if(s.entry->bassPatterns, [&](BassPattern p)
+                                 { return bassPatternName(p) == s.idea.lanes.at(1).pattern; });
+        REQUIRE(bassPattern != s.entry->bassPatterns.end());
+        const std::array<std::vector<NoteEvent>, 2> written = {
+            rawChords(s, 80),
+            detail::bassEvents(s.idea, *bassPattern, s.idea.lanes.at(1).seed),
+        };
+        for (std::size_t lane = 0; lane < 2; ++lane)
+        {
+            const Lane& finished = s.idea.lanes.at(lane);
+            const auto ghosts = finishedGhosts(written.at(lane), finished);
+            for (const NoteEvent& g : ghosts)
+            {
+                ++checked;
+                REQUIRE(g.velocity < lowestPlayed(finished, ghosts, barOf(g)));
+            }
+        }
+    }
+    REQUIRE(checked > 0);
+}

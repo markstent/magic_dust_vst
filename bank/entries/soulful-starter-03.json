@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "soulful-starter-03",
+  "family": "soulful",
+  "name": "Major-key jazzy changes",
+  "source": { "kind": "hand-authored", "reference": null, "confidence": "placeholder" },
+  "tempo": { "min": 122, "max": 125 },
+  "modes": ["ionian", "mixolydian"],
+  "progressions": [
+    { "degrees": ["Imaj9", "IVmaj9"], "barsPerChord": 2, "weight": 1.0 },
+    { "degrees": ["IVmaj7", "iii7", "ii7", "Imaj7"], "barsPerChord": 1, "weight": 0.8 },
+    { "degrees": ["ii9", "Vsus4", "Imaj9"], "barsPerChord": [2, 2, 4], "weight": 0.8 },
+    { "degrees": ["Imaj7", "vi9", "ii9", "V9"], "barsPerChord": [2, 1, 1, 2], "weight": 0.7 },
+    { "degrees": ["IVmaj9", "I7", "iii7", "vi7"], "barsPerChord": 2, "weight": 0.7 },
+    { "degrees": ["Imaj9", "ii9"], "barsPerChord": [4, 1], "weight": 0.6 }
+  ],
+  "voicing": { "style": "close", "parallel": false, "topNote": [65, 74] },
+  "chordRhythms": [
+    { "id": "maj-sustain", "bars": 1, "hits": [[0, 10], [10, 6]] },
+    { "id": "rhodes-off", "bars": 1, "hits": [[3, 3], [8, 2], [11, 3], [15, 1]] },
+    { "id": "anticipate", "bars": 1, "hits": [[0, 4], [4, 2], [10, 2], [13, 3]] },
+    { "id": "slow-two", "bars": 2, "hits": [[0, 14], [14, 2], [16, 8], [24, 6], [30, 2]] },
+    { "id": "pad-lift", "bars": 2, "hits": [[0, 16], [16, 10], [28, 4]] },
+    { "id": "late-comp", "bars": 1, "hits": [[2, 3], [7, 2], [12, 3]] }
+  ],
+  "melodyRhythms": [
+    { "id": "bright-three", "bars": 2, "hits": [[4, 4], [12, 3], [22, 5]] },
+    { "id": "bright-five", "bars": 2, "hits": [[0, 3], [6, 2], [12, 2], [20, 4], [28, 3]] },
+    { "id": "bright-six", "bars": 2, "hits": [[2, 2], [6, 2], [10, 3], [18, 2], [22, 3], [28, 3]] },
+    { "id": "bright-eight", "bars": 2, "hits": [[2, 2], [4, 1], [8, 2], [12, 2], [16, 2], [20, 1], [22, 2], [27, 3]] }
+  ],
+  "bassPatterns": ["sustained", "offbeat", "call-response"],
+  "melodyModes": ["hook", "sparse"],
+  "swing": 0.56,
+  "tags": ["sonny-ish", "bright", "jazzy"]
+}

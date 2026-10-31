@@ -1,0 +1,190 @@
+#include "internal.hpp"
+#include "md/bank.hpp"
+#include "md/generate.hpp"
+#include "md/midifile.hpp"
+#include "md/validate.hpp"
+#include "shared_bank.hpp"
+
+#include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <string>
+#include <utility>
+#include <vector>
+
+using namespace md;
+using namespace md::detail;
+
+namespace
+{
+// Debug builds generate about 6 times slower than release, so by default they get a quarter of
+// the seeds; release and an MD_PROPERTY_SEEDS run keep the full depth.
+#ifdef NDEBUG
+constexpr int kDefaultSeeds = 1000;
+#else
+constexpr int kDefaultSeeds = 250;
+#endif
+constexpr int kDeterminismSeeds = 50;
+
+// Sanitized builds run this test 5 to 8 times slower, so they get a quarter of the seeds.
+#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__)
+#define MD_SANITIZED 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer)
+#define MD_SANITIZED 1
+#endif
+#endif
+#ifdef MD_SANITIZED
+constexpr int kBassSeedMultiplier = 5;
+#else
+constexpr int kBassSeedMultiplier = 20;
+#endif
+constexpr double kP99LimitMs = 20.0;
+
+// Unset or empty means the default; anything else must be a positive whole number.
+int seedCount()
+{
+    const char* text = std::getenv("MD_PROPERTY_SEEDS");
+    if (text == nullptr || *text == '\0')
+    {
+        return kDefaultSeeds;
+    }
+    char* end = nullptr;
+    const long count = std::strtol(text, &end, 10);
+    INFO("MD_PROPERTY_SEEDS must be a positive whole number, got '" << text << "'");
+    REQUIRE((*end == '\0' && count > 0 && count <= 100000));
+    return static_cast<int>(count);
+}
+
+std::vector<std::uint8_t> midiBytes(const Idea& idea)
+{
+    return writeMidiFile(ideaTracks(idea), 124, ideaLengthTicks(idea));
+}
+} // namespace
+
+TEST_CASE("properties: every generated idea is valid and generation is deterministic",
+          "[properties]")
+{
+    const Bank& bank = sharedBank();
+    constexpr std::array<Style, 6> styles = {
+        Style::ukFunky,  Style::mkDub,    Style::soulful,
+        Style::bassline, Style::festival, Style::nyGroove,
+    };
+    constexpr std::array<std::pair<int, int>, 4> corners = {
+        std::pair{0, 0},
+        std::pair{0, 100},
+        std::pair{100, 0},
+        std::pair{100, 100},
+    };
+    constexpr std::array<int, 3> bars = {4, 8, 16};
+
+    const int seeds = seedCount();
+    const Models& models = bank.models.get(bank);
+    int fallbacks = 0;
+    std::vector<double> millis;
+    for (int seed = 0; seed < seeds; ++seed)
+    {
+        for (const Style style : styles)
+        {
+            for (const auto& [mood, energy] : corners)
+            {
+                Settings settings;
+                settings.style = style;
+                settings.keyRoot = seed % 12;
+                settings.mood = mood;
+                settings.energy = energy;
+                settings.groove = static_cast<Groove>(seed % 4);
+                settings.flavour = static_cast<Flavour>(seed % 3);
+                settings.bars = bars.at(static_cast<std::size_t>(seed % 3));
+
+                const auto start = std::chrono::steady_clock::now();
+                const Idea idea = generate(bank, settings, static_cast<std::uint32_t>(seed));
+                millis.push_back(std::chrono::duration<double, std::milli>(
+                                     std::chrono::steady_clock::now() - start)
+                                     .count());
+
+                const auto problems = validate(idea);
+                INFO("seed " << seed << " style " << static_cast<int>(style) << " mood " << mood
+                             << " energy " << energy);
+                REQUIRE(problems.empty());
+
+                const auto id = static_cast<std::uint32_t>(seed);
+                const LaneSeeds lanes = defaultLaneSeeds(id);
+                const auto entry = std::ranges::find(bank.entries, idea.entryId, &StyleEntry::id);
+                REQUIRE(entry != bank.entries.end());
+                const std::array sources = {
+                    chooseProgression(&models, *entry, lanes.chords).source,
+                    chooseChordRhythm(&models, *entry, settings, lanes.chords).source,
+                    chooseMelodyRhythm(&models, *entry, settings, lanes.melody).source,
+                };
+                fallbacks += static_cast<int>(std::ranges::count(sources, Source::fallback));
+
+                if (seed < kDeterminismSeeds)
+                {
+                    const Idea again = generate(bank, settings, static_cast<std::uint32_t>(seed));
+                    REQUIRE(again.entryId == idea.entryId);
+                    REQUIRE(midiBytes(again) == midiBytes(idea));
+                }
+            }
+        }
+    }
+
+    INFO(fallbacks << " fallbacks in " << millis.size() << " ideas");
+    REQUIRE(fallbacks == 0);
+
+#ifdef MD_PERF_ASSERT
+    std::ranges::sort(millis);
+    const double p99 = millis.at(millis.size() * 99 / 100);
+    WARN("p99 per idea: " << p99 << " ms over " << millis.size() << " ideas");
+    REQUIRE(p99 < kP99LimitMs);
+#else
+    static_cast<void>(kP99LimitMs);
+#endif
+}
+
+TEST_CASE("properties: bass has no violations across style, flavour, energy and groove",
+          "[properties]")
+{
+    const Bank& bank = sharedBank();
+    constexpr std::array<Style, 6> styles = {
+        Style::ukFunky,  Style::mkDub,    Style::soulful,
+        Style::bassline, Style::festival, Style::nyGroove,
+    };
+    constexpr std::array<int, 6> energies = {0, 25, 50, 51, 75, 100};
+    constexpr int flavours = 3;
+    constexpr int grooves = 4;
+    constexpr std::array<int, 3> bars = {4, 8, 16};
+    constexpr int combos = static_cast<int>(styles.size() * flavours * energies.size() * grooves);
+
+    // Seeds 1 to MD_PROPERTY_SEEDS * kBassSeedMultiplier, one combo per seed in rotation, so each
+    // combo gets about that many divided by 432 seeds.
+    const int total = seedCount() * kBassSeedMultiplier;
+    for (int seed = 1; seed <= total; ++seed)
+    {
+        const int comboIndex = seed % combos;
+        int combo = comboIndex;
+        Settings settings;
+        settings.groove = static_cast<Groove>(combo % grooves);
+        combo /= grooves;
+        settings.energy = energies.at(static_cast<std::size_t>(combo) % energies.size());
+        combo /= static_cast<int>(energies.size());
+        settings.flavour = static_cast<Flavour>(combo % flavours);
+        combo /= flavours;
+        settings.style = styles.at(static_cast<std::size_t>(combo));
+        settings.keyRoot = (seed / combos) % 12;
+        settings.bars = bars.at(static_cast<std::size_t>(comboIndex) % bars.size());
+
+        const Idea idea = generate(bank, settings, static_cast<std::uint32_t>(seed));
+        const auto problems = validate(idea);
+        INFO("seed " << seed << " style " << static_cast<int>(settings.style) << " flavour "
+                     << static_cast<int>(settings.flavour) << " energy " << settings.energy
+                     << " groove " << static_cast<int>(settings.groove) << ": "
+                     << (problems.empty() ? "none" : problems.front()));
+        REQUIRE(problems.empty());
+    }
+}

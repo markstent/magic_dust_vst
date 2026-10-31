@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "ny-groove-starter-03",
+  "family": "ny-groove",
+  "name": "Organ vamp and pushes",
+  "source": { "kind": "hand-authored", "reference": null, "confidence": "placeholder" },
+  "tempo": { "min": 122, "max": 126 },
+  "modes": ["dorian", "mixolydian"],
+  "progressions": [
+    { "degrees": ["Isus4", "IV6"], "barsPerChord": 2, "weight": 1.0 },
+    { "degrees": ["ii7", "v7", "Isus4"], "barsPerChord": [2, 2, 4], "weight": 0.8 },
+    { "degrees": ["Isus4", "VII6", "IV6"], "barsPerChord": [2, 1, 1], "weight": 0.8 },
+    { "degrees": ["VII6", "IV6", "Isus4"], "barsPerChord": 2, "weight": 0.7 },
+    { "degrees": ["ii7", "IV6"], "barsPerChord": 1, "weight": 0.6 },
+    { "degrees": ["Isus4", "IV6", "Isus4", "v7"], "barsPerChord": [4, 1, 2, 1], "weight": 0.6 }
+  ],
+  "voicing": { "style": "organ-stab", "parallel": false, "topNote": [66, 74] },
+  "chordRhythms": [
+    { "id": "organ-push", "bars": 1, "hits": [[2, 2], [6, 2], [10, 2], [13, 3]] },
+    { "id": "tight-offbeat", "bars": 1, "hits": [[2, 1], [6, 1], [10, 1], [14, 1], [15, 1]] },
+    { "id": "four-pump", "bars": 1, "hits": [[0, 2], [4, 2], [8, 2], [12, 2]] },
+    { "id": "push-hold", "bars": 1, "hits": [[2, 4], [10, 4], [14, 2]] },
+    { "id": "two-bar-push", "bars": 2, "hits": [[2, 2], [6, 2], [10, 2], [14, 1], [18, 2], [22, 2], [26, 2], [29, 3]] },
+    { "id": "stab-skip", "bars": 1, "hits": [[2, 1], [3, 1], [8, 2], [11, 1], [14, 2]] }
+  ],
+  "melodyRhythms": [
+    { "id": "vamp-three", "bars": 2, "hits": [[3, 2], [10, 2], [23, 3]] },
+    { "id": "vamp-five", "bars": 2, "hits": [[2, 2], [6, 1], [11, 2], [18, 2], [26, 3]] },
+    { "id": "vamp-seven", "bars": 2, "hits": [[2, 1], [5, 1], [7, 2], [11, 1], [18, 2], [22, 1], [27, 3]] },
+    { "id": "vamp-ten", "bars": 2, "hits": [[1, 1], [2, 1], [6, 1], [7, 1], [10, 2], [14, 1], [18, 1], [19, 1], [22, 2], [27, 2]] }
+  ],
+  "bassPatterns": ["offbeat", "garage-skip", "riff"],
+  "melodyModes": ["hook", "riff"],
+  "swing": 0.57,
+  "tags": ["quin-ish", "organ", "uplifting"]
+}

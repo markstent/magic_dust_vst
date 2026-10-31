@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  # Nightly and manual runs hammer the property tests harder.
+  MD_PROPERTY_SEEDS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '10000' || '' }}
+
+jobs:
+  lint:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: brew install llvm ninja
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/lint/_deps
+          key: deps-lint-${{ hashFiles('cmake/Dependencies.cmake') }}
+      - name: Check the LLVM version
+        run: |
+          "$(brew --prefix llvm)/bin/clang-tidy" --version
+          "$(brew --prefix llvm)/bin/clang-format" --version
+          major="$("$(brew --prefix llvm)/bin/clang-format" --version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1 | cut -d. -f1)"
+          expected="$(cat .llvm-version)"
+          if [ "$major" != "$expected" ]; then
+            echo "::error::clang-format major version is $major, .llvm-version says $expected"
+            exit 1
+          fi
+      - run: CLANG_FORMAT="$(brew --prefix llvm)/bin/clang-format" scripts/format-check.sh
+      - run: cmake --preset lint && cmake --build --preset lint
+
+  test-dev:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: brew install ninja
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/dev/_deps
+          key: deps-dev-${{ hashFiles('cmake/Dependencies.cmake') }}
+      - run: cmake --preset dev && cmake --build --preset dev
+      - run: ctest --preset dev
+      - name: Install pluginval
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/pluginval.zip" https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_macOS.zip
+          unzip -q "$RUNNER_TEMP/pluginval.zip" -d "$RUNNER_TEMP/pluginval"
+          echo "PLUGINVAL=$RUNNER_TEMP/pluginval/pluginval.app/Contents/MacOS/pluginval" >> "$GITHUB_ENV"
+      - run: scripts/validate.sh build/dev
+
+  test-release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: brew install ninja
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/release/_deps
+          key: deps-release-${{ hashFiles('cmake/Dependencies.cmake') }}
+      - run: cmake --preset release && cmake --build --preset release
+      - run: ctest --preset release
+      - name: Golden files on x86_64
+        run: |
+          if arch -x86_64 /usr/bin/true 2>/dev/null; then
+            arch -x86_64 build/release/tests/md_golden_tests
+          else
+            echo "::notice::x86_64 is not available on this runner, goldens were checked on arm64 only"
+          fi
+
+  sanitizers:
+    runs-on: macos-15
+    env:
+      # Sanitizer builds are slow, so they keep the default seed count even on nightly runs.
+      MD_PROPERTY_SEEDS: ''
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: brew install ninja
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            build/asan/_deps
+            build/tsan/_deps
+          key: deps-sanitizers-${{ hashFiles('cmake/Dependencies.cmake') }}
+      - run: cmake --preset asan && cmake --build --preset asan
+      - run: ctest --preset asan
+      - run: cmake --preset tsan && cmake --build --preset tsan
+      - run: ctest --preset tsan -L plugin
+
+  python:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - run: uv sync --project tools/bank-builder --locked
+      - run: uv run --project tools/bank-builder ruff check tools
+      - run: uv run --project tools/bank-builder pytest tools/bank-builder
+      - run: uv run --project tools/bank-builder python tools/bank-builder/check_bank.py bank/entries

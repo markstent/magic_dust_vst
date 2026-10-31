@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "festival-starter-01",
+  "family": "festival",
+  "name": "Pads and driving stabs",
+  "source": { "kind": "hand-authored", "reference": null, "confidence": "placeholder" },
+  "tempo": { "min": 126, "max": 130 },
+  "modes": ["aeolian", "dorian"],
+  "progressions": [
+    { "degrees": ["i7", "VImaj7", "IIImaj7", "VII"], "barsPerChord": 2, "weight": 1.0 },
+    { "degrees": ["i9", "VII", "VImaj7", "VII"], "barsPerChord": 2, "weight": 0.8 },
+    { "degrees": ["i11"], "barsPerChord": 8, "weight": 0.6 },
+    { "degrees": ["VImaj9", "VII6", "i9"], "barsPerChord": [2, 2, 4], "weight": 0.6 }
+  ],
+  "voicing": { "style": "close", "parallel": false, "topNote": [69, 77] },
+  "chordRhythms": [
+    { "id": "pad-two-bar", "bars": 2, "hits": [[0, 32]] },
+    { "id": "pad-bar", "bars": 1, "hits": [[0, 16]] },
+    { "id": "driving-pairs", "bars": 1, "hits": [[2, 1], [3, 1], [6, 1], [7, 1], [10, 1], [11, 1], [14, 1], [15, 1]] },
+    { "id": "offbeat-eighths", "bars": 1, "hits": [[2, 2], [6, 2], [10, 2], [14, 2]] }
+  ],
+  "melodyRhythms": [
+    { "id": "anthem-three", "bars": 2, "hits": [[2, 6], [14, 4], [22, 6]] },
+    { "id": "anthem-five", "bars": 2, "hits": [[2, 2], [6, 2], [11, 3], [18, 2], [26, 4]] },
+    { "id": "anthem-seven", "bars": 2, "hits": [[2, 1], [3, 1], [6, 2], [10, 2], [18, 2], [22, 2], [26, 4]] },
+    { "id": "anthem-ten", "bars": 2, "hits": [[2, 1], [3, 1], [6, 1], [7, 1], [10, 1], [11, 1], [14, 1], [18, 2], [22, 2], [26, 4]] }
+  ],
+  "bassPatterns": ["rolling-offbeat", "octave-bounce"],
+  "melodyModes": ["hook", "riff"],
+  "swing": 0.52,
+  "tags": ["solardo-ish", "big room"]
+}
