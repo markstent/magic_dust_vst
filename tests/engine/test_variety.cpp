@@ -7,6 +7,7 @@
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
 #include "md/validate.hpp"
+#include "shared_bank.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -21,11 +22,7 @@ using namespace md;
 
 namespace
 {
-const Bank& bank()
-{
-    static const Bank loaded = loadBundledBank();
-    return loaded;
-}
+const Bank& bank() { return sharedBank(); }
 
 constexpr std::array<Style, 6> kStyles = {
     Style::ukFunky, Style::mkDub, Style::soulful, Style::bassline, Style::festival, Style::nyGroove,

@@ -3,6 +3,7 @@
 #include "md/generate.hpp"
 #include "md/midifile.hpp"
 #include "md/validate.hpp"
+#include "shared_bank.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -69,7 +70,7 @@ std::vector<std::uint8_t> midiBytes(const Idea& idea)
 TEST_CASE("properties: every generated idea is valid and generation is deterministic",
           "[properties]")
 {
-    const Bank bank = loadBundledBank();
+    const Bank& bank = sharedBank();
     constexpr std::array<Style, 6> styles = {
         Style::ukFunky,  Style::mkDub,    Style::soulful,
         Style::bassline, Style::festival, Style::nyGroove,
@@ -149,7 +150,7 @@ TEST_CASE("properties: every generated idea is valid and generation is determini
 TEST_CASE("properties: bass has no violations across style, flavour, energy and groove",
           "[properties]")
 {
-    const Bank bank = loadBundledBank();
+    const Bank& bank = sharedBank();
     constexpr std::array<Style, 6> styles = {
         Style::ukFunky,  Style::mkDub,    Style::soulful,
         Style::bassline, Style::festival, Style::nyGroove,

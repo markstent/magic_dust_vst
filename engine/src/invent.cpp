@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -51,9 +52,17 @@ std::size_t indexOf(const std::vector<ChordSymbol>& tokens, const ChordSymbol& c
     return static_cast<std::size_t>(std::ranges::find(tokens, chord) - tokens.begin());
 }
 
+// Everything `accepted` reads, so entries that voice alike share one result.
 std::string memoKey(const StyleEntry& entry, const Progression& progression)
 {
-    std::string key = entry.id;
+    std::string key = std::to_string(static_cast<int>(entry.voicingStyle)) + ' ' +
+                      std::to_string(entry.parallel ? 1 : 0) + ' ' +
+                      std::to_string(entry.topNoteLow) + ' ' + std::to_string(entry.topNoteHigh);
+    for (const Mode mode : entry.modes)
+    {
+        key += ' ' + std::to_string(static_cast<int>(mode));
+    }
+    key += '|';
     for (std::size_t i = 0; i < progression.chords.size(); ++i)
     {
         const ChordSymbol& chord = progression.chords.at(i);
@@ -112,6 +121,20 @@ bool accepted(const StyleEntry& entry, const Progression& progression)
         }
     }
     return true;
+}
+
+// Whether each key and chord sequence has been accepted, so each is checked once per run. Guarded
+// by its own mutex because the threads that generate share it.
+struct AcceptMemo
+{
+    std::mutex mutex;
+    std::map<std::string, bool> results;
+};
+
+AcceptMemo& acceptMemo()
+{
+    static AcceptMemo memo;
+    return memo;
 }
 } // namespace
 
@@ -262,8 +285,9 @@ std::optional<Progression> inventProgression(const ProgressionModel& model, cons
         const std::string key = memoKey(entry, progression);
         std::optional<bool> known;
         {
-            const std::scoped_lock lock(model.memo->mutex);
-            if (const auto it = model.memo->results.find(key); it != model.memo->results.end())
+            AcceptMemo& memo = acceptMemo();
+            const std::scoped_lock lock(memo.mutex);
+            if (const auto it = memo.results.find(key); it != memo.results.end())
             {
                 known = it->second;
             }
@@ -271,8 +295,9 @@ std::optional<Progression> inventProgression(const ProgressionModel& model, cons
         if (!known)
         {
             known = accepted(entry, progression);
-            const std::scoped_lock lock(model.memo->mutex);
-            model.memo->results.emplace(key, *known);
+            AcceptMemo& memo = acceptMemo();
+            const std::scoped_lock lock(memo.mutex);
+            memo.results.emplace(key, *known);
         }
         if (*known)
         {

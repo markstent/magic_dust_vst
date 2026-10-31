@@ -4,6 +4,7 @@
 #include "md/bank.hpp"
 #include "md/ranges.hpp"
 #include "md/validate.hpp"
+#include "shared_bank.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -35,11 +36,7 @@ constexpr std::array kCorners = {
     std::pair{100, 100},
 };
 
-const Bank& bank()
-{
-    static const Bank loaded = loadBundledBank();
-    return loaded;
-}
+const Bank& bank() { return sharedBank(); }
 
 const Models& models() { return bank().models.get(bank()); }
 

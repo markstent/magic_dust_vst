@@ -6,6 +6,7 @@
 #include "md/theory.hpp"
 #include "md/types.hpp"
 #include "md/validate.hpp"
+#include "shared_bank.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -19,11 +20,7 @@ using namespace md;
 
 namespace
 {
-const Bank& bank()
-{
-    static const Bank loaded = loadBundledBank();
-    return loaded;
-}
+const Bank& bank() { return sharedBank(); }
 
 Lane& bassLane(Idea& idea) { return idea.lanes.at(static_cast<std::size_t>(LaneId::bass)); }
 

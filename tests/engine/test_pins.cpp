@@ -6,6 +6,7 @@
 #include "md/ranges.hpp"
 #include "md/types.hpp"
 #include "md/validate.hpp"
+#include "shared_bank.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -23,11 +24,7 @@ namespace
 constexpr int kSeeds = 50;
 constexpr std::uint32_t kNextSeedOffset = 1000;
 
-const Bank& bank()
-{
-    static const Bank loaded = loadBundledBank();
-    return loaded;
-}
+const Bank& bank() { return sharedBank(); }
 
 const Lane& laneOf(const Idea& idea, LaneId id)
 {

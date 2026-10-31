@@ -8,6 +8,7 @@
 #include "md/ranges.hpp"
 #include "md/theory.hpp"
 #include "md/validate.hpp"
+#include "shared_bank.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -18,6 +19,7 @@
 #include <cstdlib>
 #include <functional>
 #include <iterator>
+#include <map>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -27,11 +29,7 @@ using namespace md;
 
 namespace
 {
-const Bank& bank()
-{
-    static const Bank loaded = loadBundledBank();
-    return loaded;
-}
+const Bank& bank() { return sharedBank(); }
 
 constexpr std::array<Style, 6> kStyles = {
     Style::ukFunky, Style::mkDub, Style::soulful, Style::bassline, Style::festival, Style::nyGroove,
@@ -233,6 +231,14 @@ Bank bankWith(const std::function<void(StyleEntry&)>& edit)
     StyleEntry entry = bank().entries.front();
     edit(entry);
     return makeBank({entry});
+}
+
+// A bank of one bundled entry, built once per entry so its models and memo are shared by the
+// cases and seeds that generate from it.
+const Bank& singleBank(const StyleEntry& entry)
+{
+    static std::map<std::string, Bank> banks;
+    return banks.try_emplace(entry.id, makeBank({entry})).first->second;
 }
 } // namespace
 
@@ -902,7 +908,7 @@ TEST_CASE("every bundled entry's voicings validate for seeds 0 to 99", "[generat
 {
     for (const StyleEntry& entry : bank().entries)
     {
-        const Bank single = makeBank({entry});
+        const Bank& single = singleBank(entry);
         for (std::uint32_t seed = 0; seed < 100; ++seed)
         {
             REQUIRE(validate(generate(single, settingsOf(entry), seed)).empty());
@@ -947,7 +953,7 @@ TEST_CASE("organ stab voicings double the lowest note up an octave", "[generate]
     bool five = false;
     for (std::uint32_t seed = 0; seed < 100; ++seed)
     {
-        const Idea idea = generate(makeBank({entry}), settingsOf(entry), seed);
+        const Idea idea = generate(singleBank(entry), settingsOf(entry), seed);
         for (const PlacedChord& chord : idea.progression)
         {
             five = five || chord.voicing.size() == 5;
@@ -963,7 +969,7 @@ TEST_CASE("piano spread voicings put the root at the bottom", "[generate][voicin
     int total = 0;
     for (std::uint32_t seed = 0; seed < 100; ++seed)
     {
-        const Idea idea = generate(makeBank({entry}), settingsOf(entry), seed);
+        const Idea idea = generate(singleBank(entry), settingsOf(entry), seed);
         for (const PlacedChord& chord : idea.progression)
         {
             ++total;
@@ -979,7 +985,7 @@ TEST_CASE("consecutive top notes move at most 7 semitones", "[generate][voicing]
     {
         for (std::uint32_t seed = 0; seed < 100; ++seed)
         {
-            const Idea idea = generate(makeBank({entry}), settingsOf(entry), seed);
+            const Idea idea = generate(singleBank(entry), settingsOf(entry), seed);
             for (std::size_t i = 1; i < idea.progression.size() && !idea.parallel; ++i)
             {
                 REQUIRE(std::abs(idea.progression.at(i).voicing.back() -
@@ -1068,8 +1074,16 @@ namespace
 Idea bassWith(const std::vector<BassPattern>& patterns, const Settings& settings,
               std::uint32_t seed)
 {
-    const Bank only = bankWith([&](StyleEntry& entry) { entry.bassPatterns = patterns; });
-    return generate(only, settings, seed);
+    static std::map<std::vector<BassPattern>, Bank> banks;
+    auto it = banks.find(patterns);
+    if (it == banks.end())
+    {
+        it = banks
+                 .emplace(patterns,
+                          bankWith([&](StyleEntry& entry) { entry.bassPatterns = patterns; }))
+                 .first;
+    }
+    return generate(it->second, settings, seed);
 }
 
 Settings energySettings(int energy)
@@ -1330,14 +1344,18 @@ bool isFillNote(const Idea& idea, const NoteEvent& e)
 
 // A pattern test sample: the bank with every entry limited to one pattern, and energy kept in a
 // band (low: 0 to 50, high: 51 to 100).
-Bank patternBank(BassPattern pattern)
+const Bank& patternBank(BassPattern pattern)
 {
-    Bank only = bank();
-    for (StyleEntry& entry : only.entries)
+    static std::map<BassPattern, Bank> banks;
+    const auto it = banks.try_emplace(pattern, bank());
+    if (it.second)
     {
-        entry.bassPatterns = {pattern};
+        for (StyleEntry& entry : it.first->second.entries)
+        {
+            entry.bassPatterns = {pattern};
+        }
     }
-    return only;
+    return it.first->second;
 }
 
 Idea patternIdea(const Bank& only, Style style, int i, bool high)
@@ -1374,7 +1392,7 @@ std::vector<std::vector<int>> spanRhythms(const Idea& idea)
 
 TEST_CASE("the riff validates and repeats one 2-bar rhythm of 4 to 6 onsets", "[generate][bass]")
 {
-    const Bank only = patternBank(BassPattern::riff);
+    const Bank& only = patternBank(BassPattern::riff);
     for (const bool high : {false, true})
     {
         for (const Style style : kStyles)
@@ -1441,7 +1459,7 @@ TEST_CASE("the riff validates and repeats one 2-bar rhythm of 4 to 6 onsets", "[
 TEST_CASE("riff pitches are scale tones near the chord root and each chord starts on its root",
           "[generate][bass]")
 {
-    const Bank only = patternBank(BassPattern::riff);
+    const Bank& only = patternBank(BassPattern::riff);
     for (const bool high : {false, true})
     {
         for (const Style style : kStyles)
@@ -1478,7 +1496,7 @@ TEST_CASE("riff pitches are scale tones near the chord root and each chord start
 
 TEST_CASE("riff notes last 1 to 3 sixteenths and never cross the next onset", "[generate][bass]")
 {
-    const Bank only = patternBank(BassPattern::riff);
+    const Bank& only = patternBank(BassPattern::riff);
     for (const Style style : kStyles)
     {
         for (int i = 0; i < kSeedsPerStyle; ++i)
@@ -1501,7 +1519,7 @@ TEST_CASE("riff notes last 1 to 3 sixteenths and never cross the next onset", "[
 TEST_CASE("call-and-response keeps off chord note starts with 1 to 3 onsets a bar",
           "[generate][bass]")
 {
-    const Bank only = patternBank(BassPattern::callResponse);
+    const Bank& only = patternBank(BassPattern::callResponse);
     for (const bool high : {false, true})
     {
         for (const Style style : kStyles)
@@ -1570,7 +1588,7 @@ TEST_CASE("every chord span has a bass onset for the riff and call-and-response"
 {
     for (const BassPattern pattern : {BassPattern::riff, BassPattern::callResponse})
     {
-        const Bank only = patternBank(pattern);
+        const Bank& only = patternBank(pattern);
         REQUIRE(emptyChordSpans(only, false) == 0);
         REQUIRE(emptyChordSpans(only, true) == 0);
     }
@@ -1579,7 +1597,7 @@ TEST_CASE("every chord span has a bass onset for the riff and call-and-response"
 TEST_CASE("call-and-response puts min(1 + round(2E/100), candidates) notes in each bar",
           "[generate][bass]")
 {
-    const Bank only = patternBank(BassPattern::callResponse);
+    const Bank& only = patternBank(BassPattern::callResponse);
     for (const Style style : kStyles)
     {
         for (int i = 0; i < kSeedsPerStyle; ++i)
@@ -1615,7 +1633,7 @@ TEST_CASE("riff and call-and-response get an approach note exactly when the chan
 {
     for (const BassPattern pattern : {BassPattern::riff, BassPattern::callResponse})
     {
-        const Bank only = patternBank(pattern);
+        const Bank& only = patternBank(pattern);
         for (const Style style : kStyles)
         {
             for (int i = 0; i < 50; ++i)

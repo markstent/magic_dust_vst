@@ -11,9 +11,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <map>
-#include <memory>
-#include <mutex>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -182,14 +179,6 @@ enum class ModeGroup : std::uint8_t
 };
 ModeGroup modeGroup(const StyleEntry& entry);
 
-// Whether each entry and chord sequence has been accepted, so each is checked once. Guarded by its
-// own mutex because models are shared by the threads that generate.
-struct AcceptMemo
-{
-    std::mutex mutex;
-    std::map<std::string, bool> results;
-};
-
 // A first-order chain over the chord tokens of a family's progressions whose entries have a mode in
 // the group. Tokens are indexed in order of first appearance.
 struct ProgressionModel
@@ -199,7 +188,6 @@ struct ProgressionModel
     std::vector<int> starts;                   // counts of first chords
     std::vector<std::vector<int>> templates;   // the learned barsPerChord lists
     bool sevenths = false;                     // most learned tokens carry a 7th or a 9th
-    mutable std::unique_ptr<AcceptMemo> memo = std::make_unique<AcceptMemo>();
 };
 
 ProgressionModel buildProgressionModel(const Bank& bank, Family family, ModeGroup group);
